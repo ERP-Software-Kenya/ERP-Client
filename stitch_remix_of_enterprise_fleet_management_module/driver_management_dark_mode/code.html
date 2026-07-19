@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fleet Command | Driver Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container": "#ededf9",
+                    "primary-fixed": "#dbe1ff",
+                    "outline-variant": "#c3c6d7",
+                    "error": "#ba1a1a",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-bright": "#faf8ff",
+                    "on-primary-fixed": "#00174b",
+                    "on-tertiary-fixed": "#360f00",
+                    "secondary-fixed": "#d3e4fe",
+                    "on-tertiary-container": "#ffede6",
+                    "on-surface-variant": "#434655",
+                    "on-error": "#ffffff",
+                    "surface": "#faf8ff",
+                    "secondary-fixed-dim": "#b7c8e1",
+                    "on-secondary-fixed": "#0b1c30",
+                    "tertiary": "#943700",
+                    "surface-container-high": "#e7e7f3",
+                    "primary-fixed-dim": "#b4c5ff",
+                    "primary": "#004ac6",
+                    "on-primary-container": "#eeefff",
+                    "surface-tint": "#0053db",
+                    "on-secondary": "#ffffff",
+                    "surface-container-low": "#f3f3fe",
+                    "tertiary-container": "#bc4800",
+                    "on-primary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "on-surface": "#191b23",
+                    "on-tertiary-fixed-variant": "#7d2d00",
+                    "on-background": "#191b23",
+                    "surface-variant": "#e1e2ed",
+                    "on-tertiary": "#ffffff",
+                    "inverse-on-surface": "#f0f0fb",
+                    "inverse-surface": "#2e3039",
+                    "secondary": "#505f76",
+                    "error-container": "#ffdad6",
+                    "outline": "#737686",
+                    "inverse-primary": "#b4c5ff",
+                    "tertiary-fixed-dim": "#ffb596",
+                    "primary-container": "#2563eb",
+                    "background": "#faf8ff",
+                    "on-secondary-fixed-variant": "#38485d",
+                    "surface-dim": "#d9d9e5",
+                    "secondary-container": "#d0e1fb",
+                    "on-primary-fixed-variant": "#003ea8",
+                    "tertiary-fixed": "#ffdbcd",
+                    "on-secondary-container": "#54647a",
+                    "surface-container-highest": "#e1e2ed"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "unit": "8px",
+                    "card-padding": "20px",
+                    "container-margin": "24px",
+                    "section-gap": "32px"
+            },
+            "fontFamily": {
+                    "title-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "body-base": ["Inter"],
+                    "label-caps": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "mono-data": ["JetBrains Mono"]
+            },
+            "fontSize": {
+                    "title-sm": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-base": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-caps": ["11px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "mono-data": ["13px", {"lineHeight": "18px", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #191b23; /* fallback for on-background in dark mode context */
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #434655;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-background dark:bg-on-background text-on-surface dark:text-inverse-on-surface min-h-screen flex">
+<!-- SideNavBar -->
+<aside class="fixed h-full w-[260px] left-0 top-0 border-r border-outline-variant dark:border-outline bg-surface dark:bg-inverse-surface flex flex-col gap-unit py-container-margin z-50">
+<div class="px-container-margin mb-section-gap">
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface dark:text-inverse-on-surface">FLEET COMMAND</h1>
+<p class="text-on-surface-variant dark:text-surface-variant font-label-caps text-label-caps uppercase tracking-widest">Enterprise ERP</p>
+</div>
+<nav class="flex-grow px-unit space-y-1">
+<!-- Nav Items -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors group" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="font-body-base text-body-base">Vehicles</span>
+</a>
+<!-- ACTIVE ITEM: Drivers -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary-container dark:bg-on-secondary-fixed-variant text-on-secondary-container dark:text-on-primary font-semibold transition-all opacity-90" href="#">
+<span class="material-symbols-outlined">person_pin</span>
+<span class="font-body-base text-body-base">Drivers</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="font-body-base text-body-base">Jobs</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">local_gas_station</span>
+<span class="font-body-base text-body-base">Fuel</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">build</span>
+<span class="font-body-base text-body-base">Maintenance</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body-base text-body-base">Expenses</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-body-base text-body-base">Analytics</span>
+</a>
+</nav>
+<div class="px-unit pt-unit border-t border-outline-variant dark:border-outline">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-base text-body-base">Settings</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-variant transition-colors" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-base text-body-base">Support</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[260px] flex-grow flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="h-16 sticky top-0 z-40 bg-surface-bright dark:bg-inverse-surface border-b border-outline-variant dark:border-outline flex items-center justify-between px-gutter w-full">
+<div class="flex items-center gap-6">
+<span class="font-title-sm text-title-sm font-bold text-primary dark:text-inverse-primary">Fleet Command ERP</span>
+<div class="relative w-80">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline dark:text-surface-variant text-sm">search</span>
+<input class="w-full bg-surface-container-low dark:bg-on-background border-none rounded-lg pl-10 pr-4 py-2 text-body-sm font-body-sm focus:ring-1 focus:ring-primary outline-none" placeholder="Search drivers, routes, or documents..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined p-2 rounded-full hover:bg-surface-variant transition-all text-on-surface-variant dark:text-surface-variant">notifications</button>
+<button class="material-symbols-outlined p-2 rounded-full hover:bg-surface-variant transition-all text-on-surface-variant dark:text-surface-variant" onclick="document.documentElement.classList.toggle('dark')">dark_mode</button>
+<button class="material-symbols-outlined p-2 rounded-full hover:bg-surface-variant transition-all text-on-surface-variant dark:text-surface-variant">help</button>
+<div class="h-8 w-px bg-outline-variant dark:border-outline mx-2"></div>
+<div class="flex items-center gap-3">
+<div class="text-right">
+<p class="font-title-sm text-xs font-bold dark:text-inverse-on-surface">Alex Rivera</p>
+<p class="text-[10px] text-on-surface-variant dark:text-surface-variant uppercase font-label-caps">Ops Director</p>
+</div>
+<img class="w-8 h-8 rounded-full border border-primary" data-alt="A professional headshot of a corporate logistics director with a confident expression, set against a blurred high-tech command center background. The lighting is crisp and cool, maintaining the sleek dark-mode aesthetic of the fleet ERP system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsSHNyh8zLn0ZMqd8YIRxgpUHPrKHDIvgbtAZFiUeXD472r5dMG6foB94-ZIi528UBKgFQiR4tWDSdw8tLQ6bT_gogzoaZi6bp8qhG1N-ox3V5xFppRDl0_-CyvdUMcO41eZoDOSRKJutDz6KpR0ZHTEhLSYpraQiKcYhhH6R83CcOQP1D5VG4dxM7YeW3y73Bxb6gSHA-hQT8PfzlR3pYg3mnXhV1FXDZETXRraZdEMIp9JeQGXxxfrfinLqlixRVThoT9b1j8_U"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<div class="p-gutter flex flex-col gap-gutter flex-grow overflow-auto custom-scrollbar">
+<!-- Page Header & Key Metrics -->
+<div class="flex flex-col gap-6">
+<div class="flex justify-between items-end">
+<div>
+<h2 class="font-display-lg text-display-lg dark:text-inverse-on-surface">Driver Management</h2>
+<p class="text-on-surface-variant dark:text-surface-variant font-body-base">Monitoring 142 active personnel across regional sectors.</p>
+</div>
+<div class="flex gap-unit">
+<button class="bg-secondary-container dark:bg-on-secondary-fixed-variant text-on-secondary-container dark:text-on-primary px-4 py-2 rounded-lg font-title-sm text-sm flex items-center gap-2 hover:opacity-90 transition-all">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                            Filter
+                        </button>
+<button class="bg-primary-container text-on-primary-container px-4 py-2 rounded-lg font-title-sm text-sm flex items-center gap-2 hover:opacity-90 transition-all">
+<span class="material-symbols-outlined text-sm">person_add</span>
+                            Add New Driver
+                        </button>
+</div>
+</div>
+<!-- KPI Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter">
+<div class="bg-surface-container-lowest dark:bg-inverse-surface p-card-padding rounded-xl border border-outline-variant dark:border-outline flex flex-col gap-2 shadow-sm">
+<span class="font-label-caps text-label-caps text-on-surface-variant dark:text-surface-variant uppercase">Active Drivers</span>
+<div class="flex items-baseline gap-2">
+<span class="font-display-lg text-display-lg">118</span>
+<span class="text-primary font-mono-data text-xs">+4 today</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest dark:bg-inverse-surface p-card-padding rounded-xl border border-outline-variant dark:border-outline flex flex-col gap-2 shadow-sm">
+<span class="font-label-caps text-label-caps text-on-surface-variant dark:text-surface-variant uppercase">On-Time Performance</span>
+<div class="flex items-baseline gap-2">
+<span class="font-display-lg text-display-lg">94.2%</span>
+<span class="text-primary font-mono-data text-xs">↑ 1.2%</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest dark:bg-inverse-surface p-card-padding rounded-xl border border-outline-variant dark:border-outline flex flex-col gap-2 shadow-sm">
+<span class="font-label-caps text-label-caps text-on-surface-variant dark:text-surface-variant uppercase">Avg Trip Duration</span>
+<div class="flex items-baseline gap-2">
+<span class="font-display-lg text-display-lg">6.4h</span>
+<span class="text-on-surface-variant dark:text-surface-variant font-mono-data text-xs">Stable</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest dark:bg-inverse-surface p-card-padding rounded-xl border border-outline-variant dark:border-outline flex flex-col gap-2 shadow-sm">
+<span class="font-label-caps text-label-caps text-on-surface-variant dark:text-surface-variant uppercase">Safety Score</span>
+<div class="flex items-baseline gap-2">
+<span class="font-display-lg text-display-lg">9.8</span>
+<span class="text-tertiary font-mono-data text-xs">A+ Rating</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Data Table Container -->
+<div class="bg-surface-container-lowest dark:bg-inverse-surface rounded-xl border border-outline-variant dark:border-outline overflow-hidden shadow-lg flex flex-col">
+<div class="p-gutter border-b border-outline-variant dark:border-outline flex justify-between items-center">
+<div class="flex gap-4 items-center">
+<span class="font-title-sm text-title-sm">Active Roster</span>
+<div class="flex gap-1">
+<span class="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold">ALL</span>
+<span class="bg-surface-variant dark:bg-on-background text-on-surface-variant px-2 py-0.5 rounded text-[10px] font-bold">REGIONAL</span>
+<span class="bg-surface-variant dark:bg-on-background text-on-surface-variant px-2 py-0.5 rounded text-[10px] font-bold">LONG-HAUL</span>
+</div>
+</div>
+<div class="flex gap-3">
+<span class="material-symbols-outlined text-outline cursor-pointer hover:text-primary transition-colors">download</span>
+<span class="material-symbols-outlined text-outline cursor-pointer hover:text-primary transition-colors">more_vert</span>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low dark:bg-on-background">
+<th class="px-gutter py-4 font-label-caps text-label-caps text-on-surface-variant dark:text-surface-variant uppercase">Driver Details</th>
+<th class="px-gutter py-4 font-label-caps text-label-caps text-on-surface-variant dark:text-surface-variant uppercase">Employee ID</th>
+<th class="px-gutter py-4 font-label-caps text-label-caps text-on-surface-variant dark:text-surface-variant uppercase">Current Status</th>
+<th class="px-gutter py-4 font-label-caps text-label-caps text-on-surface-variant dark:text-surface-variant uppercase">Last Location</th>
+<th class="px-gutter py-4 font-label-caps text-label-caps text-on-surface-variant dark:text-surface-variant uppercase">Fleet Vehicle</th>
+<th class="px-gutter py-4 font-label-caps text-label-caps text-on-surface-variant dark:text-surface-variant uppercase text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant dark:divide-outline">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-variant dark:hover:bg-on-background/50 transition-colors group">
+<td class="px-gutter py-4">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="A medium close-up of a diverse professional male driver in a navy blue company uniform. The photo is a clean, corporate-style studio portrait with soft lighting, reflecting the reliable and professional standard of a modern logistics firm. High-contrast and sharp details for a dark-mode UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCjpb1Vo5sqwv5E7jDAaMZfpYjJ1uKd0Qh70t2kiwkmzWQ5vrUSTwXoHbHRBSotYQ-pCxMkptYYFFSZxjsozADHEUugG10dR2doXEB4-RJg0HZ5kNLA8M10zH3o5-6zEf97FC0t-vulc6_bbtLwtIA1qZxPf0Jr5iQ7QmahFFHCCsvYEu9s9Tjzi_HeKUPey5CavIztqaYGJEKuHf_imUm53jFupDIcjKOsAWIO26CiQ0C2z3u51BL8HyYOy6iY3OGXxgYnUmSD2ZU"/>
+<div>
+<p class="font-body-base font-semibold">Marcus Thorne</p>
+<p class="text-xs text-on-surface-variant dark:text-surface-variant">Class A License</p>
+</div>
+</div>
+</td>
+<td class="px-gutter py-4 font-mono-data text-mono-data">EMP-82410</td>
+<td class="px-gutter py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                                        In Transit
+                                    </span>
+</td>
+<td class="px-gutter py-4">
+<div class="flex items-center gap-1 text-body-sm">
+<span class="material-symbols-outlined text-sm text-outline">location_on</span>
+                                        I-95 South, Richmond, VA
+                                    </div>
+</td>
+<td class="px-gutter py-4 font-body-sm">Freightliner Cascadia (#402)</td>
+<td class="px-gutter py-4 text-right">
+<button class="text-primary font-semibold text-xs hover:underline">View Profile</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-variant dark:hover:bg-on-background/50 transition-colors group">
+<td class="px-gutter py-4">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="A professional headshot of a female driver with a determined and friendly expression, wearing a high-visibility logistics vest over a clean black shirt. The background is a slightly out-of-focus freight terminal during sunset, emphasizing professional reliability. High-contrast dark-mode styling." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4BwTCr1sOlpE2rRpiq-ocprXgXWxpYul4A3mhEUSkn9EM0OtlqvN-uFDiUtoyHwijxfQuKdavEATTcGBEEYwVRhTgtSgpoCpwKr3BNog3QZk42DfZyOP46J_ZnwIOxMhTGRTj6AsJsetJ9cjTDySXsd7OlEUh4uUteNRetKXrUKkY72LGaU--40q6pzTGlLj0zFzb236sEbKkLuWoOAhgs9x4N4rpqOh-qeRMJZemcCB8fIjpW5EWi5Kl-wWk-oodk7KwOBxaVMQ"/>
+<div>
+<p class="font-body-base font-semibold">Sarah Jenkins</p>
+<p class="text-xs text-on-surface-variant dark:text-surface-variant">HazMat Certified</p>
+</div>
+</div>
+</td>
+<td class="px-gutter py-4 font-mono-data text-mono-data">EMP-90234</td>
+<td class="px-gutter py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-on-surface-variant/10 text-on-surface-variant dark:bg-surface-variant/10 dark:text-surface-variant text-[11px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-on-surface-variant dark:bg-surface-variant"></span>
+                                        Rest Period
+                                    </span>
+</td>
+<td class="px-gutter py-4">
+<div class="flex items-center gap-1 text-body-sm">
+<span class="material-symbols-outlined text-sm text-outline">hotel</span>
+                                        Logistics Center West
+                                    </div>
+</td>
+<td class="px-gutter py-4 font-body-sm">Peterbilt 579 (#118)</td>
+<td class="px-gutter py-4 text-right">
+<button class="text-primary font-semibold text-xs hover:underline">View Profile</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-variant dark:hover:bg-on-background/50 transition-colors group">
+<td class="px-gutter py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold">
+                                            RL
+                                        </div>
+<div>
+<p class="font-body-base font-semibold">Robert Lopez</p>
+<p class="text-xs text-on-surface-variant dark:text-surface-variant">Class A License</p>
+</div>
+</div>
+</td>
+<td class="px-gutter py-4 font-mono-data text-mono-data">EMP-77219</td>
+<td class="px-gutter py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary/10 text-tertiary text-[11px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+                                        Maintenance
+                                    </span>
+</td>
+<td class="px-gutter py-4">
+<div class="flex items-center gap-1 text-body-sm">
+<span class="material-symbols-outlined text-sm text-outline">build</span>
+                                        Regional Depot B
+                                    </div>
+</td>
+<td class="px-gutter py-4 font-body-sm">Kenworth T680 (#082)</td>
+<td class="px-gutter py-4 text-right">
+<button class="text-primary font-semibold text-xs hover:underline">View Profile</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-variant dark:hover:bg-on-background/50 transition-colors group">
+<td class="px-gutter py-4">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="A portrait of an older, experienced male driver with silver-grey hair and a calm, focused gaze. He is wearing a modern grey company polo shirt. The lighting is soft and even, highlighting textures while maintaining a clean, enterprise aesthetic. Perfect for a data-dense logistics UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRkpygVGVdFf-C94wDlmBaSgCEE_9LzimYj2hK2kitEd6vuu3KREUzm_aIi5MFJFQ3WNOZquG-V7XwvYkmhVs0Z1kZsECYu2ERTt6r7HoqYEEXFv0Cu1JuLig-TChFW4qFSPGUJd7PnYzhpz1pR1OB-l7x12UMe3vOECYMaahIZBwnZXwtT2fo-i0D6x1Nlt7cjEKzsbRK9nQCvQjyEJqcyaUnP-brKI27_N1tV7-0KV3cNQdJpAvBlew87j2DW5zyjNVU7irxvtM"/>
+<div>
+<p class="font-body-base font-semibold">David Chen</p>
+<p class="text-xs text-on-surface-variant dark:text-surface-variant">Master Driver</p>
+</div>
+</div>
+</td>
+<td class="px-gutter py-4 font-mono-data text-mono-data">EMP-11029</td>
+<td class="px-gutter py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold uppercase tracking-wider">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+                                        Loading
+                                    </span>
+</td>
+<td class="px-gutter py-4">
+<div class="flex items-center gap-1 text-body-sm">
+<span class="material-symbols-outlined text-sm text-outline">hub</span>
+                                        Terminal 4 - Newark
+                                    </div>
+</td>
+<td class="px-gutter py-4 font-body-sm">Volvo VNL 860 (#551)</td>
+<td class="px-gutter py-4 text-right">
+<button class="text-primary font-semibold text-xs hover:underline">View Profile</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-gutter py-4 flex justify-between items-center bg-surface-container-low dark:bg-on-background">
+<span class="text-xs text-on-surface-variant dark:text-surface-variant">Showing 1 to 10 of 142 drivers</span>
+<div class="flex gap-2">
+<button class="w-8 h-8 rounded border border-outline-variant dark:border-outline flex items-center justify-center hover:bg-surface-variant transition-all">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded bg-primary text-white flex items-center justify-center font-bold text-xs">1</button>
+<button class="w-8 h-8 rounded border border-outline-variant dark:border-outline flex items-center justify-center hover:bg-surface-variant transition-all text-xs">2</button>
+<button class="w-8 h-8 rounded border border-outline-variant dark:border-outline flex items-center justify-center hover:bg-surface-variant transition-all text-xs">3</button>
+<button class="w-8 h-8 rounded border border-outline-variant dark:border-outline flex items-center justify-center hover:bg-surface-variant transition-all">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Detailed Analysis Section -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<div class="lg:col-span-2 bg-surface-container-lowest dark:bg-inverse-surface rounded-xl border border-outline-variant dark:border-outline p-card-padding">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-title-sm text-title-sm">Fleet Distribution</h3>
+<span class="material-symbols-outlined text-outline cursor-pointer">open_in_full</span>
+</div>
+<div class="h-64 bg-surface-container-low dark:bg-on-background rounded-lg border border-dashed border-outline-variant dark:border-outline flex flex-col items-center justify-center relative overflow-hidden">
+<div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(#434655 0.5px, transparent 0.5px); background-size: 16px 16px;"></div>
+<span class="material-symbols-outlined text-outline text-4xl mb-2">map</span>
+<p class="text-on-surface-variant dark:text-surface-variant font-body-base">Interactive Global Fleet Map Overlay</p>
+<p class="text-[10px] uppercase font-label-caps mt-2 text-outline">Connecting to Fleet Control API...</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest dark:bg-inverse-surface rounded-xl border border-outline-variant dark:border-outline p-card-padding flex flex-col">
+<h3 class="font-title-sm text-title-sm mb-6">Recent Log Alerts</h3>
+<div class="space-y-4 flex-grow">
+<div class="flex gap-3 items-start border-l-2 border-error pl-3 py-1">
+<div class="w-2 h-2 rounded-full bg-error mt-1.5"></div>
+<div>
+<p class="text-body-sm font-semibold">Overspeed Violation</p>
+<p class="text-[11px] text-on-surface-variant dark:text-surface-variant">Driver #82410 - 72mph in 60mph zone</p>
+<p class="text-[10px] font-mono-data text-outline mt-1">14:22:10 EST</p>
+</div>
+</div>
+<div class="flex gap-3 items-start border-l-2 border-tertiary pl-3 py-1">
+<div class="w-2 h-2 rounded-full bg-tertiary mt-1.5"></div>
+<div>
+<p class="text-body-sm font-semibold">Upcoming Break Required</p>
+<p class="text-[11px] text-on-surface-variant dark:text-surface-variant">Driver #90234 - ELD alert in 45 min</p>
+<p class="text-[10px] font-mono-data text-outline mt-1">14:15:45 EST</p>
+</div>
+</div>
+<div class="flex gap-3 items-start border-l-2 border-primary pl-3 py-1">
+<div class="w-2 h-2 rounded-full bg-primary mt-1.5"></div>
+<div>
+<p class="text-body-sm font-semibold">Route Optimization Ready</p>
+<p class="text-[11px] text-on-surface-variant dark:text-surface-variant">Re-route suggested for Driver #77219</p>
+<p class="text-[10px] font-mono-data text-outline mt-1">13:58:30 EST</p>
+</div>
+</div>
+</div>
+<button class="w-full py-2 bg-surface-container-high dark:bg-on-background rounded mt-4 text-xs font-bold hover:bg-surface-variant transition-all">View All Alerts</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-gutter right-gutter w-14 h-14 bg-primary rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-105 transition-transform active:scale-95 z-50">
+<span class="material-symbols-outlined">message</span>
+</button>
+<script>
+        // Simple Micro-interaction: Update table background on hover for zebra effect
+        const tableRows = document.querySelectorAll('tbody tr');
+        tableRows.forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.boxShadow = 'inset 4px 0 0 #004ac6';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.boxShadow = 'none';
+            });
+        });
+    </script>
+</body></html>
