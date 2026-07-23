@@ -57,22 +57,25 @@ For each resource:
    Add `put<T>()` and `del()` helpers next to the existing `get`/`post` functions. **Only attach `update`/`remove` to the 12 resources that support them** — for the other 13 (Phase 2/3/4 territory), exporting `.update()`/`.remove()` would be dead code that silently 404s if ever called.
 2. **`components/ui/dialog.tsx`** — thin wrapper over `@radix-ui/react-dialog` (already a dependency), styled to match the existing dark theme (`var(--surface-1)` etc. used elsewhere).
 3. **`components/ui/select.tsx`** — wrapper over `@radix-ui/react-select` (already a dependency), for status/enum fields.
-4. **`components/ResourceForm.tsx`** (or similar) — a generic form renderer driven by a field-config array per resource (name, label, type: text/number/select/date, required, options). Reuses the same shape `ERPDataTable`'s `Column<T>` already uses, so table and form definitions can live next to each other per resource.
-5. **`components/ConfirmDialog.tsx`** — generic yes/no confirmation, reused for every delete action app-wide.
-6. Wire `create`/`update`/`remove` into `ModulePage.tsx` (or replace it per-resource with dedicated pages using `ERPDataTable` + the new form, matching the `Products.tsx` pattern — decide during implementation which is less duplicative given 12 resources).
-7. Fix `Api.Users` (add a `PlatformUser` type distinct from the existing local-SQLite `User` type, since `/api/v1/users` exists on the backend but has no client wrapper — name collision with the existing local `User` interface used for PIN-based operator accounts must be avoided).
+4. **`components/ConfirmDialog.tsx`** — generic yes/no confirmation, reused for every delete action app-wide.
+5. **Dedicated page per resource** (decision below) — each of the 12 resources gets its own page file (`Bills.tsx`, `Categories.tsx`, etc.) using `ERPDataTable` + a hand-written form, matching the existing `Products.tsx`/`Inventory.tsx` pattern. No generic `ResourceForm`/`ModulePage` wiring for these 12 — `ModulePage.tsx` remains only for resources not yet in scope.
+6. Fix `Api.Users` (add a `PlatformUser` type distinct from the existing local-SQLite `User` type, since `/api/v1/users` exists on the backend but has no client wrapper — name collision with the existing local `User` interface used for PIN-based operator accounts must be avoided).
 
-## 6. Open questions for this phase
+## 6. Decisions (confirmed with user 2026-07-23)
 
-- **Category `parent_id`**: does the business actually use nested categories, or is this a flat list where `parent_id` is vestigial? Affects whether the create form needs a tree-picker or a simple dropdown.
-- **InventoryItem edits**: should raw `quantity` be directly editable here, or only via Stock Movements (Phase 4) so every stock change has a reason/audit trail? Recommend the latter — restrict this screen's edit form to `min_quantity`/`status` and route quantity changes through Phase 4's Stock Adjustment screen once it exists. Confirm before building.
-- **Notifications / ReportGenerationLogs**: likely system-generated, not user-created. Confirm whether "Add" should exist at all for these two, or whether the phase should only add Edit (mark-as-read) / Delete.
-- **PurchaseOrder status enum & PaymentTransaction field names**: the OpenAPI schema is too thin to trust here. Before building the `<Select>` options / form fields for these two, make one real authenticated GET/POST against the live API to confirm actual field names and enum values rather than guessing from dead legacy component code.
+- **Form/page architecture**: **Option B — fully dedicated pages.** Every one of the 12 resources gets its own page + hand-written form (not a generic `ResourceForm`/`ModulePage` renderer). More files, but no generic-renderer edge cases to design around.
+- **Category `parent_id`**: real nested hierarchy — the Category form needs an actual tree-picker for `parent_id`, not a flat dropdown.
+- **InventoryItem edits**: restricted to `min_quantity`/`status` only. `quantity` is not directly editable here — it stays read-only until Phase 4 (Stock Movements) provides an audited adjustment path.
+- **Notifications / ReportGenerationLogs**: no "Add" form — these are system-generated. Build Edit (mark-as-read) and Delete only.
+- **PurchaseOrder status enum & PaymentTransaction field names**: no live API access this phase. Proceed best-effort — `status` enum guessed as `pending/approved/received/cancelled` (from dead legacy component), PaymentTransaction fields per `types.ts`. Mark both with a `// TODO: verify against live API` comment at the point of use so they're easy to find and fix once confirmed.
+- **Dead `components/*View.tsx` files**: delete (10 files: BillsView, CategoriesView, InventoryView, OrganizationsView, PaymentsView, ProductsView, PurchaseOrdersView, StoresView, SuppliersView, NotificationsView). Confirmed not routed anywhere, not referenced elsewhere.
+- **`Vehicles` resource/nav entry**: out of scope for Phase 1. Confirmed as a real future concern (not dead code to remove) — leave the nav entry and `api.ts` reference untouched, do not build it out.
 
 ## 7. Done when
 
 - [ ] `api.ts` has `put`/`del` helpers and `create`/`update`/`remove` on the 12 full-CRUD resources.
-- [ ] Dialog, Select, ResourceForm, ConfirmDialog components exist in `components/ui/`.
-- [ ] All 12 resources: Add/Edit/Delete work end-to-end against the real API, with query cache invalidation and toast feedback on success/failure.
+- [ ] Dialog, Select, ConfirmDialog components exist in `components/ui/`.
+- [ ] All 12 resources have their own dedicated page with working Add/Edit/Delete end-to-end against the real API, query cache invalidation, and toast feedback on success/failure (per the per-resource carve-outs in §6).
 - [ ] `Api.Users` wired (even if its own screen build-out is Phase 5's job — at minimum stop it from silently rendering empty).
-- [ ] Dead `components/*View.tsx` files deleted or explicitly kept for a stated reason.
+- [ ] Dead `components/*View.tsx` files deleted.
+- [ ] `Vehicles` nav entry/reference left untouched.

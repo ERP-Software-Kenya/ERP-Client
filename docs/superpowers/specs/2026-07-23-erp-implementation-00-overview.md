@@ -69,8 +69,17 @@ For the second group, no browsable table is possible without either (a) a backen
 4. Fix the `Api.Users` / `Api.Reports` orphaned nav entries.
 5. Delete or repurpose the dead `components/*View.tsx` files (confirm with user before deleting).
 
-## 6. Open items still needing your call (not blocking, but flagged so nothing's assumed silently)
+## 6. Open items — resolved 2026-07-23
 
-- Delete the dead `components/*View.tsx` files, or is something else using them that the code search missed?
-- `Vehicles`/Fleet nav — keep as-is (dead/404ing), hide from nav, or is this actually a separate concern you'll clarify later?
-- Per-phase docs will each end with their own open questions where the API's real behavior is genuinely unknown (e.g., whether `PurchaseOrderResponse` embeds items server-side — the OpenAPI schema is too thin to tell, and I don't have a live token to test the real payload shape).
+- **Dead `components/*View.tsx` files**: delete. Confirmed as dead code, not routed anywhere.
+- **`Vehicles`/Fleet nav**: confirmed as a real future concern, not dead code — left untouched, not built out in Phase 1.
+- Per-phase docs will each end with their own open questions where the API's real behavior is genuinely unknown (e.g., whether `PurchaseOrderResponse` embeds items server-side — the OpenAPI schema is too thin to tell, and no live token was available this session). Phase 1's equivalent open questions (PurchaseOrder status enum, PaymentTransaction fields) are resolved as best-effort-with-TODO-markers — see Phase 1 doc §6.
+
+## 7. Phase 1 decisions (confirmed 2026-07-23)
+
+Phase 1 is the confirmed starting point. Key decisions made during its design review (full detail in the Phase 1 doc §6):
+- Form/page architecture: fully dedicated page per resource (not a generic form renderer)
+- Category needs a real tree-picker for `parent_id` (real hierarchy, not flat)
+- InventoryItem edits restricted to `min_quantity`/`status`; `quantity` stays read-only pending Phase 4
+- Notifications / ReportGenerationLogs: Edit/Delete only, no Add form
+- PurchaseOrder status enum & PaymentTransaction fields: best-effort with `// TODO: verify against live API` markers
