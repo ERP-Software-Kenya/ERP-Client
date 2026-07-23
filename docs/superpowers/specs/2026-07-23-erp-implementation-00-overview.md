@@ -83,3 +83,11 @@ Phase 1 is the confirmed starting point. Key decisions made during its design re
 - InventoryItem edits restricted to `min_quantity`/`status`; `quantity` stays read-only pending Phase 4
 - Notifications / ReportGenerationLogs: Edit/Delete only, no Add form
 - PurchaseOrder status enum & PaymentTransaction fields: best-effort with `// TODO: verify against live API` markers
+
+## 8. Implementation sequencing & verification strategy (confirmed 2026-07-23, second session)
+
+**Order:** Phase 1 (CRUD Foundation) → Phase 4 (Inventory Transactions) → Phase 2 (Purchase Module) → Phase 3 (Sales Module).
+
+Rationale: Phase 1 is a hard dependency for the other three (shared Dialog/Select components, `api.ts` mutation methods, dedicated-page pattern) and is fully spec'd already, so it goes first. Of the three modules, Inventory Transactions is the most self-contained (independent of Purchase/Sales) and has a real win with zero backend dependency (low-stock flag, `InventoryItem.quantity < min_quantity`). Purchase goes next — it has a plausible fallback worth checking (PO response may embed line items server-side even though the OpenAPI schema doesn't declare it). Sales goes last: it's the most backend-blocked module by far (no list endpoint for Customers, Orders, or Invoices; unclear if Orders/Invoices even have a line-items concept server-side) — only Customer-create and Sales Return are buildable without backend changes, so front-loading it wouldn't produce a usable module yet.
+
+**Verification strategy for each phase's open questions:** Development runs with `VITE_DEV_BYPASS_AUTH=true` (mocks Clerk client-side, so **no real bearer token is attached to API calls — real backend calls 401 while bypass is on**, per `AuthContext.tsx`'s `configureApi(..., () => clerk.session ? clerk.session.getToken() : Promise.resolve(null))`). When a phase reaches an open question that needs a real API response (e.g., does `GET /purchase-orders/{id}` embed `items`; exact `PaymentTransaction` link field names; does `StockMovement` creation auto-update `InventoryItem.quantity`), the flag is toggled off, the user logs in with real Clerk credentials, the real response is inspected together, then the flag is toggled back on to resume building. This replaces blind best-effort guessing for Phases 2-4 (Phase 1's own open questions are already resolved, see §7 above).
