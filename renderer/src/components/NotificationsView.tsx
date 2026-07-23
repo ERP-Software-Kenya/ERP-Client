@@ -40,6 +40,7 @@ export function NotificationsView({ isAdmin }: { isAdmin: boolean }) {
       description="System notifications and alerts"
       columns={COLUMNS}
       fetchData={(params) => Notifications.search(params as Record<string, string>)}
+      queryKey="notifications"
       isAdmin={isAdmin}
       searchPlaceholder="Search notifications…"
     />

@@ -24,6 +24,7 @@ export function SuppliersView({ isAdmin }: { isAdmin: boolean }) {
       description="Manage your supplier network"
       columns={COLUMNS}
       fetchData={(params) => Suppliers.search(params as Record<string, string>)}
+      queryKey="suppliers"
       isAdmin={isAdmin}
       searchPlaceholder="Search suppliers…"
     />

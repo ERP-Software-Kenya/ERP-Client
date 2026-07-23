@@ -37,6 +37,7 @@ export function PaymentsView({ isAdmin }: { isAdmin: boolean }) {
       description="View all payment transactions"
       columns={COLUMNS}
       fetchData={(params) => PaymentTransactions.search(params as Record<string, string>)}
+      queryKey="payments"
       isAdmin={isAdmin}
       searchPlaceholder="Search payments…"
     />

@@ -16,6 +16,7 @@ export function CategoriesView({ isAdmin }: { isAdmin: boolean }) {
       description="Product categories and classification"
       columns={COLUMNS}
       fetchData={(params) => Categories.search(params as Record<string, string>)}
+      queryKey="categories"
       isAdmin={isAdmin}
       searchPlaceholder="Search categories…"
     />

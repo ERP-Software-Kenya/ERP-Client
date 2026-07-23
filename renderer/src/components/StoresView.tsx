@@ -24,6 +24,7 @@ export function StoresView({ isAdmin }: { isAdmin: boolean }) {
       description="View and manage store locations"
       columns={COLUMNS}
       fetchData={(params) => Stores.search(params as Record<string, string>)}
+      queryKey="stores"
       isAdmin={isAdmin}
       searchPlaceholder="Search stores…"
     />

@@ -29,8 +29,10 @@ export default function Topbar() {
 
         <div className="flex items-center gap-3 pl-4 border-l border-border">
           <div className="flex flex-col text-right hidden sm:block">
-            <span className="text-sm font-medium">{user?.name || 'Admin User'}</span>
-            <span className="text-xs text-muted-foreground">{user?.email || 'admin@example.com'}</span>
+            <span className="text-sm font-medium">
+              {user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : user?.email || 'User'}
+            </span>
+            <span className="text-xs text-muted-foreground">{user?.email || ''}</span>
           </div>
           <button 
             onClick={handleLogout}

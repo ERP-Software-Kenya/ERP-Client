@@ -33,6 +33,7 @@ export function InventoryView({ isAdmin }: { isAdmin: boolean }) {
       description="Track stock levels across all stores"
       columns={COLUMNS}
       fetchData={(params) => Inventory.search(params as Record<string, string>)}
+      queryKey="inventory"
       isAdmin={isAdmin}
       searchPlaceholder="Search inventory…"
     />

@@ -14,12 +14,12 @@ import type { PaginatedResponse } from './types';
 // ── Configuration ─────────────────────────────────────────────────────────────
 
 let _baseUrl = 'https://core-apis-m03n.onrender.com';
-let _token: string | null = null;
+let _getToken: () => Promise<string | null> = async () => null;
 
-/** Call this after loading settings to update the API client at runtime. */
-export function configureApi(baseUrl: string, token: string | null): void {
+/** Call this once at startup. getToken is invoked fresh on every request (Clerk auto-refreshes). */
+export function configureApi(baseUrl: string, getToken: () => Promise<string | null>): void {
   _baseUrl = baseUrl.replace(/\/$/, ''); // strip trailing slash
-  _token = token ?? null;
+  _getToken = getToken;
 }
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -36,14 +36,27 @@ function buildUrl(path: string, params?: QueryParams): string {
   return url.toString();
 }
 
-function headers(): Record<string, string> {
+async function headers(): Promise<Record<string, string>> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (_token) h['Authorization'] = `Bearer ${_token}`;
+  const token = await _getToken();
+  if (token) h['Authorization'] = `Bearer ${token}`;
   return h;
 }
 
-async function get<T>(path: string, params?: QueryParams): Promise<T> {
-  const resp = await fetch(buildUrl(path, params), { headers: headers() });
+export async function get<T>(path: string, params?: QueryParams): Promise<T> {
+  const resp = await fetch(buildUrl(path, params), { headers: await headers() });
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status} — ${resp.statusText}`);
+  }
+  return resp.json() as Promise<T>;
+}
+
+export async function post<T>(path: string, body?: unknown): Promise<T> {
+  const resp = await fetch(buildUrl(path), {
+    method: 'POST',
+    headers: await headers(),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
   if (!resp.ok) {
     throw new Error(`HTTP ${resp.status} — ${resp.statusText}`);
   }

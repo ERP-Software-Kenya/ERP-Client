@@ -39,6 +39,7 @@ export function PurchaseOrdersView({ isAdmin }: { isAdmin: boolean }) {
       description="Track and manage purchase orders"
       columns={COLUMNS}
       fetchData={(params) => PurchaseOrders.search(params as Record<string, string>)}
+      queryKey="purchase-orders"
       isAdmin={isAdmin}
       searchPlaceholder="Search purchase orders…"
     />

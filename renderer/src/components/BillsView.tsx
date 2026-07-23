@@ -30,6 +30,7 @@ export function BillsView({ isAdmin }: { isAdmin: boolean }) {
       description="Track bills and payment obligations"
       columns={COLUMNS}
       fetchData={(params) => Bills.search(params as Record<string, string>)}
+      queryKey="bills"
       isAdmin={isAdmin}
       searchPlaceholder="Search bills…"
     />

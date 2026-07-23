@@ -24,6 +24,7 @@ export function OrganizationsView({ isAdmin }: { isAdmin: boolean }) {
       description="Manage your organizations on the Core ERP platform"
       columns={COLUMNS}
       fetchData={(params) => Organizations.search(params as Record<string, string>)}
+      queryKey="organizations"
       isAdmin={isAdmin}
       searchPlaceholder="Search organizations…"
     />

@@ -9,14 +9,14 @@ if (!existsSync(outdir)) {
 }
 
 const buildOptions: esbuild.BuildOptions = {
-  entryPoints: ['src/main/index.ts', 'src/main/preload.ts'],
+  entryPoints: ['src/main/index.ts'],
   bundle: true,
   platform: 'node',
   target: 'node24',
   outdir,
   outExtension: { '.js': '.cjs' },
   sourcemap: true,
-  external: ['electron', 'better-sqlite3'],
+  external: ['electron'],
   format: 'cjs',
   logLevel: 'info',
 };

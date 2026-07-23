@@ -29,6 +29,7 @@ export function ProductsView({ isAdmin }: { isAdmin: boolean }) {
       description="Browse and manage your product catalog"
       columns={COLUMNS}
       fetchData={(params) => Products.search(params as Record<string, string>)}
+      queryKey="products"
       isAdmin={isAdmin}
       searchPlaceholder="Search products…"
     />
