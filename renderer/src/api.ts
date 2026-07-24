@@ -51,6 +51,17 @@ export async function get<T>(path: string, params?: QueryParams): Promise<T> {
   return resp.json() as Promise<T>;
 }
 
+async function readErrorBody(resp: Response): Promise<string> {
+  const text = await resp.text().catch(() => '');
+  if (!text) return `HTTP ${resp.status} — ${resp.statusText}`;
+  try {
+    const json = JSON.parse(text);
+    return json.message || json.error || text;
+  } catch {
+    return text;
+  }
+}
+
 export async function post<T>(path: string, body?: unknown): Promise<T> {
   const resp = await fetch(buildUrl(path), {
     method: 'POST',
@@ -58,9 +69,31 @@ export async function post<T>(path: string, body?: unknown): Promise<T> {
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   if (!resp.ok) {
-    throw new Error(`HTTP ${resp.status} — ${resp.statusText}`);
+    throw new Error(await readErrorBody(resp));
   }
   return resp.json() as Promise<T>;
+}
+
+export async function put<T>(path: string, body?: unknown): Promise<T> {
+  const resp = await fetch(buildUrl(path), {
+    method: 'PUT',
+    headers: await headers(),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!resp.ok) {
+    throw new Error(await readErrorBody(resp));
+  }
+  return resp.json() as Promise<T>;
+}
+
+export async function del(path: string): Promise<void> {
+  const resp = await fetch(buildUrl(path), {
+    method: 'DELETE',
+    headers: await headers(),
+  });
+  if (!resp.ok) {
+    throw new Error(await readErrorBody(resp));
+  }
 }
 
 // ── Search params ─────────────────────────────────────────────────────────────
@@ -121,6 +154,25 @@ function makeResource<T extends { id: string }>(basePath: string) {
   };
 }
 
+function makeMutableResource<T extends { id: string }>(basePath: string) {
+  const base = makeResource<T>(basePath);
+  return {
+    ...base,
+    /** Create a new record */
+    async create(body: Partial<T>): Promise<T> {
+      return post<T>(basePath, body);
+    },
+    /** Update an existing record by id */
+    async update(id: string, body: Partial<T>): Promise<T> {
+      return put<T>(`${basePath}/${id}`, body);
+    },
+    /** Delete a record by id */
+    async remove(id: string): Promise<void> {
+      return del(`${basePath}/${id}`);
+    },
+  };
+}
+
 // ── Exported resource clients ─────────────────────────────────────────────────
 
 import type {
@@ -147,21 +199,22 @@ import type {
   Role,
   UserRole,
   PlatformConfiguration,
+  PlatformUser,
   Vehicle,
 } from './types';
 
-export const Organizations      = makeResource<Organization>('/api/v1/organizations');
-export const Stores             = makeResource<Store>('/api/v1/stores');
-export const Categories         = makeResource<Category>('/api/v1/categories');
-export const Products           = makeResource<Product>('/api/v1/products');
-export const Inventory          = makeResource<InventoryItem>('/api/v1/inventory');
-export const Suppliers          = makeResource<Supplier>('/api/v1/suppliers');
-export const PurchaseOrders     = makeResource<PurchaseOrder>('/api/v1/purchase-orders');
-export const Bills              = makeResource<Bill>('/api/v1/bills');
-export const PaymentTransactions = makeResource<PaymentTransaction>('/api/v1/payment-transactions');
-export const Notifications      = makeResource<Notification>('/api/v1/notifications');
-export const ItemReturns        = makeResource<ItemReturn>('/api/v1/item-returns');
-export const ReportGenerationLogs = makeResource<ReportGenerationLog>('/api/v1/report-generation-logs');
+export const Organizations      = makeMutableResource<Organization>('/api/v1/organizations');
+export const Stores             = makeMutableResource<Store>('/api/v1/stores');
+export const Categories         = makeMutableResource<Category>('/api/v1/categories');
+export const Products           = makeMutableResource<Product>('/api/v1/products');
+export const Inventory          = makeMutableResource<InventoryItem>('/api/v1/inventory');
+export const Suppliers          = makeMutableResource<Supplier>('/api/v1/suppliers');
+export const PurchaseOrders     = makeMutableResource<PurchaseOrder>('/api/v1/purchase-orders');
+export const Bills              = makeMutableResource<Bill>('/api/v1/bills');
+export const PaymentTransactions = makeMutableResource<PaymentTransaction>('/api/v1/payment-transactions');
+export const Notifications      = makeMutableResource<Notification>('/api/v1/notifications');
+export const ItemReturns        = makeMutableResource<ItemReturn>('/api/v1/item-returns');
+export const ReportGenerationLogs = makeMutableResource<ReportGenerationLog>('/api/v1/report-generation-logs');
 export const StockMovements     = makeResource<StockMovement>('/api/v1/stock-movements');
 export const StockTransfers     = makeResource<StockTransfer>('/api/v1/stock-transfers');
 export const Orders             = makeResource<Order>('/api/v1/orders');
@@ -173,4 +226,5 @@ export const ActivityLogs       = makeResource<ActivityLog>('/api/v1/activity-lo
 export const Roles              = makeResource<Role>('/api/v1/roles');
 export const UserRoles          = makeResource<UserRole>('/api/v1/user-roles');
 export const PlatformConfigurations = makeResource<PlatformConfiguration>('/api/v1/platform-configurations');
+export const Users               = makeResource<PlatformUser>('/api/v1/users');
 export const Vehicles           = makeResource<Vehicle>('/api/v1/vehicles');

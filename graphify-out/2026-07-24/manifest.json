@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
-    "mtime": 1784916983.8340018,
-    "ast_hash": "a3a7364e19920c4797b598d2a062e592",
+    "mtime": 1784915772.2336774,
+    "ast_hash": "5f03c8bb3a166398a6b0fb52584bd9c9",
     "semantic_hash": ""
   },
   "package.json": {
@@ -15,14 +15,14 @@
     "semantic_hash": ""
   },
   "renderer/src/App.tsx": {
-    "mtime": 1784916611.713677,
-    "ast_hash": "240b7462cbd310a5915b2549097b89e6",
-    "semantic_hash": ""
+    "mtime": 1784799874.8451748,
+    "ast_hash": "667d0e1064671316e3e7b39fed61ed62",
+    "semantic_hash": "667d0e1064671316e3e7b39fed61ed62"
   },
   "renderer/src/api.ts": {
-    "mtime": 1784916197.5629065,
-    "ast_hash": "25857fc702c13206cf7067c5e819d7f8",
-    "semantic_hash": ""
+    "mtime": 1784799753.5433517,
+    "ast_hash": "42247dc11f9becdb18e494f60b6967de",
+    "semantic_hash": "42247dc11f9becdb18e494f60b6967de"
   },
   "renderer/src/components/ERPDataTable.tsx": {
     "mtime": 1784794576.5504317,
@@ -125,9 +125,9 @@
     "semantic_hash": "bf3288c7b4ec5a17f6465e3fe3173ce5"
   },
   "renderer/src/pages/Inventory.tsx": {
-    "mtime": 1784916487.037489,
-    "ast_hash": "b295b62d1b5855befb87a58d59857223",
-    "semantic_hash": ""
+    "mtime": 1784794576.5617487,
+    "ast_hash": "849c6846e5c34a7d0775434a15bd7f34",
+    "semantic_hash": "849c6846e5c34a7d0775434a15bd7f34"
   },
   "renderer/src/pages/Login.tsx": {
     "mtime": 1784914776.6394322,
@@ -140,9 +140,9 @@
     "semantic_hash": "db3cb7ed8687f7bc2eaa422517554abc"
   },
   "renderer/src/pages/Products.tsx": {
-    "mtime": 1784916462.6320014,
-    "ast_hash": "b4878a13c39eea0c01895ad7cb6402a4",
-    "semantic_hash": ""
+    "mtime": 1784794576.562746,
+    "ast_hash": "f2e2a1f6dfb7b5bb867bb1a774e14431",
+    "semantic_hash": "f2e2a1f6dfb7b5bb867bb1a774e14431"
   },
   "renderer/src/pages/VehicleDetailPage.tsx": {
     "mtime": 1784794576.562746,
@@ -160,9 +160,9 @@
     "semantic_hash": "ae0583778fb9190f6b8ec824f37e2916"
   },
   "renderer/src/types.ts": {
-    "mtime": 1784916128.7527235,
-    "ast_hash": "8d44e70205788d29dd04862db3c179f0",
-    "semantic_hash": ""
+    "mtime": 1784794576.5637434,
+    "ast_hash": "63807f86b9c37a2592d52c989375e788",
+    "semantic_hash": "63807f86b9c37a2592d52c989375e788"
   },
   "renderer/src/vite-env.d.ts": {
     "mtime": 1784827505.7698388,
@@ -362,86 +362,6 @@
   "inventory_management_spec.md": {
     "mtime": 1784808272.3540998,
     "ast_hash": "7af9ec9bcd5de84df40abd0868eec97c",
-    "semantic_hash": ""
-  },
-  "renderer/src/components/CategorySelect.tsx": {
-    "mtime": 1784916239.309491,
-    "ast_hash": "c5ac4e79788b46fb98af1804f712f325",
-    "semantic_hash": ""
-  },
-  "renderer/src/components/ConfirmDialog.tsx": {
-    "mtime": 1784916226.9806292,
-    "ast_hash": "b2d9d14a269080503107f02021d8d332",
-    "semantic_hash": ""
-  },
-  "renderer/src/components/ResourceSelect.tsx": {
-    "mtime": 1784916234.2923458,
-    "ast_hash": "047f23f31ba0a3697419acf81eb17357",
-    "semantic_hash": ""
-  },
-  "renderer/src/components/ui/dialog.tsx": {
-    "mtime": 1784916214.5635326,
-    "ast_hash": "0977a185df9fb1d618f4ed29f1be93ef",
-    "semantic_hash": ""
-  },
-  "renderer/src/components/ui/select.tsx": {
-    "mtime": 1784916223.496245,
-    "ast_hash": "4e4d6bd575224c1e8d6da6ed8aa9dc32",
-    "semantic_hash": ""
-  },
-  "renderer/src/hooks/useResourceMutations.ts": {
-    "mtime": 1784916229.9426079,
-    "ast_hash": "6a0d663c117ce3c5abb0208353c77470",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Bills.tsx": {
-    "mtime": 1784916541.5690718,
-    "ast_hash": "c872b6aa0be2232bc2545b5ef578d25a",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Categories.tsx": {
-    "mtime": 1784916421.5902395,
-    "ast_hash": "40ad96dd9886259d300ca1d680fdf5b5",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/ItemReturns.tsx": {
-    "mtime": 1784916580.107101,
-    "ast_hash": "dac8f35dd5fe7756c364808fd1d57bd0",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Notifications.tsx": {
-    "mtime": 1784916589.6941192,
-    "ast_hash": "f0b6ff6a2cde0a422ae52c99d18a9774",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Organizations.tsx": {
-    "mtime": 1784916392.0184748,
-    "ast_hash": "01db6befc952b33a371dfff0b7216e21",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/PaymentTransactions.tsx": {
-    "mtime": 1784916555.9046457,
-    "ast_hash": "692b51f9b8214e112f7f2f0041a07e3c",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/PurchaseOrders.tsx": {
-    "mtime": 1784916530.1066735,
-    "ast_hash": "de8bf87154aa9028ed9a03d3bd2e7000",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/ReportGenerationLogs.tsx": {
-    "mtime": 1784916599.7124324,
-    "ast_hash": "238fdcc64c5427b4d012cdc5f0351801",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Stores.tsx": {
-    "mtime": 1784916407.9309533,
-    "ast_hash": "7d826e9d6006c9984d248deb0e1deb41",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Suppliers.tsx": {
-    "mtime": 1784916507.498098,
-    "ast_hash": "64e9b950dff94af5ae443c35915717ba",
     "semantic_hash": ""
   }
 }

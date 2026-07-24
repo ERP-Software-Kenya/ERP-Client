@@ -73,9 +73,11 @@ For each resource:
 
 ## 7. Done when
 
-- [ ] `api.ts` has `put`/`del` helpers and `create`/`update`/`remove` on the 12 full-CRUD resources.
-- [ ] Dialog, Select, ConfirmDialog components exist in `components/ui/`.
-- [ ] All 12 resources have their own dedicated page with working Add/Edit/Delete end-to-end against the real API, query cache invalidation, and toast feedback on success/failure (per the per-resource carve-outs in §6).
-- [ ] `Api.Users` wired (even if its own screen build-out is Phase 5's job — at minimum stop it from silently rendering empty).
-- [ ] Dead `components/*View.tsx` files deleted.
-- [ ] `Vehicles` nav entry/reference left untouched.
+**Status (2026-07-24):** Implemented and statically verified — `npx tsc -p renderer/tsconfig.json --noEmit` and root `npx tsc --noEmit` both clean, `npm run build:renderer` (production Vite build) succeeds, and every changed/new file transforms cleanly through the Vite dev server (no 500s). **Not independently confirmed:** clicking through each of the 12 screens' Add/Edit/Delete against the live API in a running browser — no browser-automation tool was available in this session to do that verification. Whoever runs `npm run dev` next should walk the 12 screens per Task 23 Step 2 before treating this as fully proven at runtime.
+
+- [x] `api.ts` has `put`/`del` helpers and `create`/`update`/`remove` on the 12 full-CRUD resources.
+- [x] Dialog, Select, ConfirmDialog components exist in `components/ui/`.
+- [x] All 12 resources have their own dedicated page with Add/Edit/Delete wired to the real API, query cache invalidation, and toast feedback on success/failure (per the per-resource carve-outs in §6) — code-complete and typechecked; live-browser click-through not yet done (see status note above).
+- [x] `Api.Users` wired (even if its own screen build-out is Phase 5's job — at minimum stop it from silently rendering empty).
+- [x] Dead `components/*View.tsx` files deleted. (Done in Phase 0, not this phase — confirmed still true.)
+- [x] `Vehicles` nav entry/reference left untouched.

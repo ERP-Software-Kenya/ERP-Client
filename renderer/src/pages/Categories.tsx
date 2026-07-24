@@ -7,41 +7,33 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Products as ProductsApi } from '../api';
+import { Categories as CategoriesApi } from '../api';
 import { useResourceMutations } from '../hooks/useResourceMutations';
-import type { Product } from '../types';
+import type { Category } from '../types';
 
 const STATUS_OPTIONS = ['active', 'inactive'];
 
 interface FormState {
   name: string;
   code: string;
-  unit: string;
-  unit_price: string;
-  sku: string;
-  barcode: string;
-  category_id: string;
+  description: string;
+  parent_id: string;
   status: string;
 }
 
-const EMPTY_FORM: FormState = {
-  name: '',
-  code: '',
-  unit: '',
-  unit_price: '',
-  sku: '',
-  barcode: '',
-  category_id: '',
-  status: 'active',
-};
+const EMPTY_FORM: FormState = { name: '', code: '', description: '', parent_id: '', status: 'active' };
 
-export default function Products() {
+export default function Categories() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Product | null>(null);
+  const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(ProductsApi, 'products', 'Product');
+  const { createMutation, updateMutation, removeMutation } = useResourceMutations(
+    CategoriesApi,
+    'categories',
+    'Category',
+  );
 
   const openCreate = () => {
     setEditing(null);
@@ -49,16 +41,13 @@ export default function Products() {
     setDialogOpen(true);
   };
 
-  const openEdit = (row: Product) => {
+  const openEdit = (row: Category) => {
     setEditing(row);
     setForm({
       name: row.name ?? '',
       code: row.code ?? '',
-      unit: row.unit ?? '',
-      unit_price: row.unit_price != null ? String(row.unit_price) : '',
-      sku: row.sku ?? '',
-      barcode: row.barcode ?? '',
-      category_id: row.category_id ?? '',
+      description: row.description ?? '',
+      parent_id: row.parent_id ?? '',
       status: row.status ?? 'active',
     });
     setDialogOpen(true);
@@ -66,14 +55,11 @@ export default function Products() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const body: Partial<Product> = {
+    const body: Partial<Category> = {
       name: form.name,
       code: form.code || undefined,
-      unit: form.unit || undefined,
-      unit_price: form.unit_price ? Number(form.unit_price) : undefined,
-      sku: form.sku || undefined,
-      barcode: form.barcode || undefined,
-      category_id: form.category_id || undefined,
+      description: form.description || undefined,
+      parent_id: form.parent_id || undefined,
       status: form.status,
     };
     if (editing) {
@@ -83,15 +69,10 @@ export default function Products() {
     }
   };
 
-  const columns: Column<Product>[] = [
+  const columns: Column<Category>[] = [
     { key: 'name', label: 'Name' },
-    { key: 'sku', label: 'SKU' },
-    {
-      key: 'unit_price',
-      label: 'Price',
-      render: (row) => `$${Number(row.unit_price || 0).toFixed(2)}`,
-    },
-    { key: 'unit', label: 'Unit' },
+    { key: 'code', label: 'Code' },
+    { key: 'description', label: 'Description' },
     { key: 'status', label: 'Status' },
   ];
 
@@ -100,12 +81,12 @@ export default function Products() {
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
       <ERPDataTable
-        title="Products"
-        description="Manage your product catalog."
-        queryKey="products"
+        title="Categories"
+        description="Manage the product category hierarchy."
+        queryKey="categories"
         columns={columns}
-        fetchData={(params) => ProductsApi.search(params)}
-        searchPlaceholder="Search products…"
+        fetchData={(params) => CategoriesApi.search(params)}
+        searchPlaceholder="Search categories…"
         isAdmin={true}
         onAdd={openCreate}
         onEdit={openEdit}
@@ -115,13 +96,13 @@ export default function Products() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? 'Edit Product' : 'Add Product'}</DialogTitle>
+            <DialogTitle>{editing ? 'Edit Category' : 'Add Category'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="prod-name">Name</Label>
+              <Label htmlFor="cat-name">Name</Label>
               <Input
-                id="prod-name"
+                id="cat-name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 required
@@ -129,44 +110,24 @@ export default function Products() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="prod-code">Code</Label>
-              <Input id="prod-code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+              <Label htmlFor="cat-code">Code</Label>
+              <Input id="cat-code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="prod-sku">SKU</Label>
-              <Input id="prod-sku" value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="prod-barcode">Barcode</Label>
+              <Label htmlFor="cat-description">Description</Label>
               <Input
-                id="prod-barcode"
-                value={form.barcode}
-                onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                id="cat-description"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="prod-unit">Unit</Label>
-              <Input
-                id="prod-unit"
-                placeholder="e.g. pcs, box, kg"
-                value={form.unit}
-                onChange={(e) => setForm({ ...form, unit: e.target.value })}
+              <Label>Parent Category</Label>
+              <CategorySelect
+                value={form.parent_id}
+                onValueChange={(v) => setForm({ ...form, parent_id: v })}
+                excludeId={editing?.id}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="prod-price">Unit Price</Label>
-              <Input
-                id="prod-price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.unit_price}
-                onChange={(e) => setForm({ ...form, unit_price: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <CategorySelect value={form.category_id} onValueChange={(v) => setForm({ ...form, category_id: v })} />
             </div>
             <div className="space-y-2">
               <Label>Status</Label>
@@ -198,7 +159,7 @@ export default function Products() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete Product"
+        title="Delete Category"
         description={`Delete "${deleteTarget?.name}"? This can't be undone.`}
         isPending={removeMutation.isPending}
         onConfirm={() =>

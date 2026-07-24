@@ -1,11 +1,11 @@
 # Graph Report - core-erp-client  (2026-07-24)
 
 ## Corpus Check
-- 88 files · ~54,229 words
+- 72 files · ~47,059 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 713 nodes · 1269 edges · 52 communities (40 shown, 12 thin omitted)
+- 854 nodes · 1258 edges · 62 communities (54 shown, 8 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 3 edges (avg confidence: 0.65)
 - Token cost: 0 input · 0 output
 
@@ -26,8 +26,15 @@
 - Domain Types
 - Root TS Config
 - Electron Builder Config
+- Dashboard & Organizations
 - Graphify Workflow Docs
 - index.html CSP & Fonts
+- Sidebar Navigation
+- Bills Module
+- Notifications Module
+- Payments Module
+- Purchase Orders Module
+- Stores Module
 - Suppliers Module
 - Electron Launcher Script
 - API Request Helpers
@@ -35,11 +42,14 @@
 - App Entry Mount
 - Build Main Script
 - Release Publish Script
+- Vite Env Types
 - Phase 1 — CRUD Foundation Implementation Plan
 - types.ts
 - Login.tsx
+- Inventory.tsx
 - AuthContext.tsx
 - SidebarNav.tsx
+- ThemeContext.tsx
 - ERP Client Conventions
 - Design
 - ERP Client Implementation — Overview & Index
@@ -67,28 +77,28 @@
 - global.d.ts
 
 ## God Nodes (most connected - your core abstractions)
-1. `useResourceMutations()` - 28 edges
-2. `getDb()` - 25 edges
-3. `Phase 1 — CRUD Foundation Implementation Plan` - 25 edges
-4. `setupIpcHandlers()` - 24 edges
-5. `Button` - 17 edges
-6. `ERPDataTable()` - 16 edges
-7. `compilerOptions` - 16 edges
-8. `nowIST()` - 16 edges
-9. `DialogHeader()` - 15 edges
-10. `DialogFooter()` - 15 edges
+1. `getDb()` - 25 edges
+2. `Phase 1 — CRUD Foundation Implementation Plan` - 25 edges
+3. `setupIpcHandlers()` - 24 edges
+4. `compilerOptions` - 16 edges
+5. `nowIST()` - 16 edges
+6. `compilerOptions` - 15 edges
+7. `scripts` - 14 edges
+8. `ERPDataTable()` - 14 edges
+9. `ERP Client Conventions` - 10 edges
+10. `Inventory Management Software — Functional Specification` - 10 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Sidebar()` --calls--> `cn()`  [EXTRACTED]
-  renderer/src/components/layout/Sidebar.tsx → renderer/src/lib/utils.ts
-- `ERPDataTable()` --calls--> `useDebounce()`  [EXTRACTED]
-  renderer/src/components/ERPDataTable.tsx → renderer/src/hooks/useDebounce.ts
 - `NavItem` --references--> `Tab`  [EXTRACTED]
   renderer/src/components/SidebarNav.tsx → renderer/src/types.ts
 - `UserFormData` --references--> `AppUserRole`  [EXTRACTED]
   renderer/src/components/UsersManagement.tsx → renderer/src/types.ts
 - `VehicleFormData` --references--> `Vehicle`  [EXTRACTED]
   renderer/src/components/VehiclesView.tsx → renderer/src/types.ts
+- `Sidebar()` --calls--> `cn()`  [EXTRACTED]
+  renderer/src/components/layout/Sidebar.tsx → renderer/src/lib/utils.ts
+- `Topbar()` --calls--> `useAuth()`  [EXTRACTED]
+  renderer/src/components/layout/Topbar.tsx → renderer/src/context/AuthContext.tsx
 
 ## Import Cycles
 - None detected.
@@ -97,27 +107,43 @@
 - **Graphify CLI command set (query/path/explain/update)** — claude_graphify_query_command, claude_graphify_path_command, claude_graphify_explain_command, claude_graphify_update_command [INFERRED 0.85]
 - **CSP-allowed external origins** — renderer_index_content_security_policy, renderer_index_core_apis_backend, renderer_index_warehouse_ops_desk, renderer_index_openstreetmap, renderer_index_unsplash, renderer_index_google_fonts [EXTRACTED 1.00]
 
-## Communities (52 total, 12 thin omitted)
+## Communities (62 total, 8 thin omitted)
 
 ### Community 0 - "App Shell & Providers"
-Cohesion: 0.40
-Nodes (5): Categories, buildIndentedList(), CategorySelect(), CategorySelectProps, Category
+Cohesion: 0.06
+Nodes (41): ProtectedRoute(), ALL_ITEMS, ModuleGroup, ModuleItem, MODULES, AuthContext, AuthContextType, AuthProvider() (+33 more)
+
+### Community 1 - "Vehicles Module"
+Cohesion: 0.10
+Nodes (20): ActiveTab, MAINTENANCE_STATUS_COLORS, MOCK_VEHICLES, Props, STATUS_CONFIG, VehicleDetailView(), EMPTY_FORM, MOCK_STORE (+12 more)
 
 ### Community 2 - "Electron Main & Build Scripts"
 Cohesion: 0.05
-Nodes (36): author, build, appId, directories, files, nsis, productName, publish (+28 more)
+Nodes (38): gotLock, author, build, appId, directories, files, nsis, productName (+30 more)
+
+### Community 3 - "API Client & Categories"
+Cohesion: 0.10
+Nodes (20): ActivityLogs, buildUrl(), Customers, Expenses, get(), _getToken(), headers(), Invoices (+12 more)
 
 ### Community 4 - "Runtime Dependencies"
 Cohesion: 0.05
-Nodes (39): bcryptjs, better-sqlite3, class-variance-authority, @clerk/clerk-js, clsx, dotenv, electron-log, electron-updater (+31 more)
+Nodes (44): bcryptjs, better-sqlite3, class-variance-authority, @clerk/clerk-js, clsx, dotenv, electron-log, electron-updater (+36 more)
 
 ### Community 5 - "Dev Dependencies"
 Cohesion: 0.05
-Nodes (43): concurrently, cross-env, electron, electron-builder, esbuild, devDependencies, concurrently, cross-env (+35 more)
+Nodes (44): concurrently, cross-env, electron, electron-builder, esbuild, devDependencies, concurrently, cross-env (+36 more)
+
+### Community 6 - "Inventory & Products (ERPDataTable)"
+Cohesion: 0.12
+Nodes (14): COLUMNS, Column, ERPDataTable(), Props, COLUMNS, COLUMNS, Inventory(), Products() (+6 more)
 
 ### Community 7 - "Renderer TS Config"
 Cohesion: 0.09
-Nodes (21): DOM.Iterable, src, compilerOptions, isolatedModules, jsx, lib, module, moduleResolution (+13 more)
+Nodes (22): DOM.Iterable, src, compilerOptions, isolatedModules, jsx, lib, module, moduleResolution (+14 more)
+
+### Community 8 - "Domain Types"
+Cohesion: 0.11
+Nodes (17): ActivityLog, AppSettings, Customer, Expense, Invoice, ItemReturn, Order, PaginatedResponse (+9 more)
 
 ### Community 9 - "Root TS Config"
 Cohesion: 0.08
@@ -127,13 +153,41 @@ Nodes (24): node_modules, renderer, scripts/**/*.ts, src/main/**/*.ts, compilerO
 Cohesion: 0.15
 Nodes (38): adminResetPassword(), changePassword(), createUser(), deactivateUser(), getUserById(), getUsers(), hasUsers(), login() (+30 more)
 
+### Community 11 - "Dashboard & Organizations"
+Cohesion: 0.12
+Nodes (9): Props, StatCardProps, Stats, COLUMNS, COLUMNS, Organizations, Suppliers, Organization (+1 more)
+
 ### Community 12 - "Graphify Workflow Docs"
-Cohesion: 0.67
-Nodes (3): graphify-out/graph.json, graphify-out/GRAPH_REPORT.md, graphify query <question>
+Cohesion: 0.22
+Nodes (8): graphify, graphify explain <concept>, graphify-out/graph.json, graphify-out/GRAPH_REPORT.md, graphify-out/wiki/index.md, graphify path <A> <B>, graphify query <question>, graphify update .
 
 ### Community 13 - "index.html CSP & Fonts"
 Cohesion: 0.25
 Nodes (8): Content-Security-Policy meta tag, core-apis-m03n.onrender.com (backend API), Google Fonts service, Inter font family, JetBrains Mono font family, OpenStreetMap embed (frame-src), Unsplash images (img-src), warehouse-ops-desk.preview.emergentagent.com
+
+### Community 14 - "Sidebar Navigation"
+Cohesion: 0.43
+Nodes (5): NAV_ITEMS, NavItem, Props, AppUserRole, Tab
+
+### Community 15 - "Bills Module"
+Cohesion: 0.33
+Nodes (4): COLUMNS, STATUS_CLASS, Bills, Bill
+
+### Community 16 - "Notifications Module"
+Cohesion: 0.33
+Nodes (4): COLUMNS, TYPE_CLASS, Notifications, Notification
+
+### Community 17 - "Payments Module"
+Cohesion: 0.33
+Nodes (4): COLUMNS, STATUS_CLASS, PaymentTransactions, PaymentTransaction
+
+### Community 18 - "Purchase Orders Module"
+Cohesion: 0.33
+Nodes (4): COLUMNS, STATUS_CLASS, PurchaseOrders, PurchaseOrder
+
+### Community 19 - "Stores Module"
+Cohesion: 0.40
+Nodes (3): COLUMNS, Stores, Store
 
 ### Community 20 - "Suppliers Module"
 Cohesion: 0.06
@@ -145,11 +199,11 @@ Nodes (4): args, child, electronPath, require
 
 ### Community 22 - "API Request Helpers"
 Cohesion: 0.11
-Nodes (19): Vehicles, ActiveTab, MAINTENANCE_STATUS_COLORS, MOCK_VEHICLES, Props, STATUS_CONFIG, VehicleDetailView(), EMPTY_FORM (+11 more)
+Nodes (20): Vehicles, ActiveTab, MAINTENANCE_STATUS_COLORS, MOCK_VEHICLES, Props, STATUS_CONFIG, VehicleDetailView(), EMPTY_FORM (+12 more)
 
 ### Community 23 - "Dashboard Page"
-Cohesion: 0.08
-Nodes (23): ActivityLogs, Bills, Customers, Expenses, Inventory, Invoices, ItemReturns, makeMutableResource() (+15 more)
+Cohesion: 0.07
+Nodes (23): ActivityLogs, Bills, Categories, Customers, Expenses, Invoices, ItemReturns, Notifications (+15 more)
 
 ### Community 24 - "App Entry Mount"
 Cohesion: 0.67
@@ -160,20 +214,28 @@ Cohesion: 0.08
 Nodes (25): Global Constraints, Phase 1 — CRUD Foundation Implementation Plan, Task 10: Stores page — full CRUD, Task 11: Categories page — full CRUD with hierarchy picker, Task 12: Products page — rewire to real CRUD, Task 13: Suppliers page — full CRUD, Task 14: PurchaseOrders page — full CRUD (basic shell only, no line items), Task 15: Bills page — full CRUD (+17 more)
 
 ### Community 30 - "types.ts"
-Cohesion: 0.07
-Nodes (26): ActivityLog, AppSettings, Bill, Customer, Expense, InventoryItem, Invoice, ItemReturn (+18 more)
+Cohesion: 0.08
+Nodes (24): ActivityLog, AppSettings, Bill, Category, Customer, Expense, Invoice, ItemReturn (+16 more)
 
 ### Community 31 - "Login.tsx"
-Cohesion: 0.08
-Nodes (73): Organizations, Products, PurchaseOrders, Stores, Suppliers, ConfirmDialog(), ConfirmDialogProps, Column (+65 more)
+Cohesion: 0.16
+Nodes (13): Sidebar(), Button, ButtonProps, buttonVariants, Input, InputProps, Label, labelVariants (+5 more)
+
+### Community 32 - "Inventory.tsx"
+Cohesion: 0.19
+Nodes (11): Inventory, Products, Column, ERPDataTable(), getCellValue(), Props, useDebounce(), Inventory() (+3 more)
 
 ### Community 33 - "AuthContext.tsx"
-Cohesion: 0.09
-Nodes (26): configureApi(), App(), GENERIC_KEYS, Topbar(), ProtectedRoute(), AuthContext, AuthContextType, AuthProvider() (+18 more)
+Cohesion: 0.23
+Nodes (11): configureApi(), ProtectedRoute(), AuthContext, AuthContextType, AuthProvider(), ClerkResources, DEV_USER, useAuth() (+3 more)
 
 ### Community 34 - "SidebarNav.tsx"
 Cohesion: 0.23
 Nodes (9): NAV_ITEMS, NavItem, Props, SidebarNav(), Props, UserFormData, AppUserRole, Tab (+1 more)
+
+### Community 35 - "ThemeContext.tsx"
+Cohesion: 0.21
+Nodes (9): Topbar(), initialState, Theme, ThemeContext, ThemeProvider(), ThemeProviderProps, ThemeProviderState, useTheme() (+1 more)
 
 ### Community 36 - "ERP Client Conventions"
 Cohesion: 0.18
@@ -203,6 +265,10 @@ Nodes (8): 1. Goal, 2. Current state (verified in code), 3. Data model per resou
 Cohesion: 0.22
 Nodes (8): 1. Goal, 2. Current state, 3. The core blocker: no way to list Purchase Items for a PO, 4. Screens & interactions, 5. Business rules from spec §4.3 — implementable now vs. blocked, 6. Open questions for this phase, 7. Done when, Phase 2 — Purchase Module
 
+### Community 43 - "App.tsx"
+Cohesion: 0.25
+Nodes (4): App(), GENERIC_KEYS, CHART_DATA, STATS
+
 ### Community 44 - "ERP Client — Requirements (authoritative)"
 Cohesion: 0.25
 Nodes (7): 1. Why this doc exists, and how it relates to `inventory_management_spec.md`, 2. Current backend capability (verified from `core-apis` source, 2026-07-24), 3. What "fully functional" means for this round, 4. Backend roadmap (from `inventory_management_spec.md`, not built, not dropped), 5. Decisions (confirmed with user, 2026-07-24), 6. Auth architecture (as it exists today, for reference), ERP Client — Requirements (authoritative)
@@ -220,8 +286,8 @@ Cohesion: 0.25
 Nodes (7): 1. Goal, 2. Current state, 3. Reality check — most of these reports can't be "fetched," they have to be computed client-side from list endpoints, and several of those list endpoints don't exist yet, 4. Recommendation, 5. Open questions for this phase, 6. Done when, Phase 6 — Reports
 
 ### Community 48 - "ModulePage.tsx"
-Cohesion: 0.20
-Nodes (8): Sidebar(), ALL_ITEMS, ModuleGroup, ModuleItem, MODULES, useDebounce(), getApiClient(), ModulePage()
+Cohesion: 0.32
+Nodes (6): ALL_ITEMS, ModuleGroup, ModuleItem, MODULES, getApiClient(), ModulePage()
 
 ### Community 49 - "Lessons Learned"
 Cohesion: 0.33
@@ -248,28 +314,28 @@ Cohesion: 0.40
 Nodes (4): The check, Verify core-apis Capability Before Building, When the answer is "no list endpoint exists", Why this matters
 
 ### Community 55 - "get"
-Cohesion: 0.43
-Nodes (8): buildUrl(), del(), get(), _getToken(), headers(), post(), put(), readErrorBody()
+Cohesion: 0.50
+Nodes (5): buildUrl(), get(), _getToken(), headers(), post()
 
 ## Knowledge Gaps
-- **360 isolated node(s):** `name`, `description`, `type`, `main`, `dev` (+355 more)
+- **409 isolated node(s):** `name`, `description`, `type`, `main`, `dev` (+404 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **12 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `devDependencies` connect `Dev Dependencies` to `Electron Main & Build Scripts`?**
-  _High betweenness centrality (0.016) - this node is a cross-community bridge._
 - **Why does `dependencies` connect `Runtime Dependencies` to `Electron Main & Build Scripts`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
+  _High betweenness centrality (0.013) - this node is a cross-community bridge._
+- **Why does `devDependencies` connect `Dev Dependencies` to `Electron Main & Build Scripts`?**
+  _High betweenness centrality (0.013) - this node is a cross-community bridge._
 - **What connects `name`, `description`, `type` to the rest of the system?**
-  _360 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _409 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `App Shell & Providers` be split into smaller, more focused modules?**
+  _Cohesion score 0.06093189964157706 - nodes in this community are weakly interconnected._
+- **Should `Vehicles Module` be split into smaller, more focused modules?**
+  _Cohesion score 0.09846153846153846 - nodes in this community are weakly interconnected._
 - **Should `Electron Main & Build Scripts` be split into smaller, more focused modules?**
-  _Cohesion score 0.05128205128205128 - nodes in this community are weakly interconnected._
-- **Should `Runtime Dependencies` be split into smaller, more focused modules?**
-  _Cohesion score 0.05128205128205128 - nodes in this community are weakly interconnected._
-- **Should `Dev Dependencies` be split into smaller, more focused modules?**
-  _Cohesion score 0.046511627906976744 - nodes in this community are weakly interconnected._
-- **Should `Renderer TS Config` be split into smaller, more focused modules?**
-  _Cohesion score 0.09090909090909091 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.04756871035940803 - nodes in this community are weakly interconnected._
+- **Should `API Client & Categories` be split into smaller, more focused modules?**
+  _Cohesion score 0.10144927536231885 - nodes in this community are weakly interconnected._

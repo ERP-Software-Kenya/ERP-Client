@@ -6,16 +6,26 @@ import CreateOrganization from './pages/CreateOrganization';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Inventory from './pages/Inventory';
+import Organizations from './pages/Organizations';
+import Stores from './pages/Stores';
+import Categories from './pages/Categories';
+import Suppliers from './pages/Suppliers';
+import PurchaseOrders from './pages/PurchaseOrders';
+import Bills from './pages/Bills';
+import PaymentTransactions from './pages/PaymentTransactions';
+import ItemReturns from './pages/ItemReturns';
+import Notifications from './pages/Notifications';
+import ReportGenerationLogs from './pages/ReportGenerationLogs';
 import ModulePage from './pages/ModulePage';
 import VehiclesPage from './pages/VehiclesPage';
 import VehicleDetailPage from './pages/VehicleDetailPage';
 import { ALL_ITEMS } from './config/modules';
 
 const GENERIC_KEYS = new Set([
-  'notifications', 'activity-logs', 'categories', 'stock-movements', 'stock-transfers', 'item-returns',
-  'orders', 'invoices', 'customers', 'purchase-orders', 'purchase-items', 'suppliers', 'bills', 'stores',
-  'payment-transactions', 'expenses', 'reports', 'report-generation-logs', 'users', 'roles', 'user-roles',
-  'organizations', 'platform-configurations'
+  'activity-logs', 'stock-movements', 'stock-transfers',
+  'orders', 'invoices', 'customers', 'purchase-items',
+  'expenses', 'reports', 'users', 'roles', 'user-roles',
+  'platform-configurations'
 ]);
 
 function App() {
@@ -29,6 +39,16 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="products" element={<Products />} />
           <Route path="inventory" element={<Inventory />} />
+          <Route path="organizations" element={<Organizations />} />
+          <Route path="stores" element={<Stores />} />
+          <Route path="categories" element={<Categories />} />
+          <Route path="suppliers" element={<Suppliers />} />
+          <Route path="purchase-orders" element={<PurchaseOrders />} />
+          <Route path="bills" element={<Bills />} />
+          <Route path="payment-transactions" element={<PaymentTransactions />} />
+          <Route path="item-returns" element={<ItemReturns />} />
+          <Route path="notifications" element={<Notifications />} />
+          <Route path="report-generation-logs" element={<ReportGenerationLogs />} />
           <Route path="vehicles" element={<VehiclesPage />} />
           <Route path="vehicles/:id" element={<VehicleDetailPage />} />
           

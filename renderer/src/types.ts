@@ -182,6 +182,14 @@ export interface ItemReturn {
   return_number?: string;
   status?: string;
   total_amount?: number;
+  // TODO: verify against live API — OpenAPI request schema (CreateItemReturnRequest) uses
+  // camelCase (returnType/storeId/orderId/supplierId/totalAmount) while response fields above
+  // are snake_case, matching the rest of this file. Confirm whether GET responses actually
+  // return these fields in snake_case or camelCase before relying on them for display.
+  returnType?: 'sales' | 'purchase';
+  storeId?: string;
+  orderId?: string;
+  supplierId?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -284,6 +292,18 @@ export interface PlatformConfiguration {
   value?: string;
   description?: string;
   updated_at?: string;
+}
+
+// ── Platform Users (backend /api/v1/users — distinct from the local PIN-based `User` above) ──
+
+export interface PlatformUser {
+  id: string;
+  clerkUserId?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  status?: string;
+  created_at?: string;
 }
 
 // ── Fleet / Vehicles ──────────────────────────────────────────────────────────
