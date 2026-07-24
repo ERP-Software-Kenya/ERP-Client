@@ -1,10 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-// ── Types ──────────────────────────────────────────────────────────────────
-type IpcSuccess<T = void> = { success: true } & (T extends void ? object : { data: T });
-type IpcError = { success: false; error: string };
-type IpcResult<T = void> = IpcSuccess<T> | IpcError;
-
 // ── Bridge ──────────────────────────────────────────────────────────────────
 contextBridge.exposeInMainWorld('electronAPI', {
   // Auth
