@@ -1,5 +1,7 @@
 # ERP Client Implementation — Overview & Index
 
+> **SUPERSEDED 2026-07-24** — see `docs/superpowers/specs/2026-07-24-erp-implementation-00-overview.md` for the current index and `docs/requirements.md` for the current capability matrix / backend roadmap. This file is kept for history; §1-§2's findings were re-verified from `core-apis` source (not just the live OpenAPI) on 2026-07-24 and confirmed accurate — nothing below turned out wrong, it's just been given a canonical, non-"draft" home. **§6-§8's phase docs (01-06) are unaffected and remain current** — only this index file was superseded.
+
 **Status:** Draft for review — **Date:** 2026-07-23
 **Source of ambition:** `inventory_management_spec.md` (repo root) — the target data model.
 **Source of reality:** live API at `https://core-apis-m03n.onrender.com` (OpenAPI at `/api/docs-json`, verified 2026-07-23) + current renderer code.

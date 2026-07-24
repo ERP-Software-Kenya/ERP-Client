@@ -5,6 +5,7 @@ A running ledger of mistakes made in this repo by Claude Code, so the same mista
 ## When to add an entry
 
 Append immediately when:
+
 - The user corrects a technical decision, a claim, or an approach you took.
 - You discover, on your own, that something you did or said was wrong.
 
@@ -24,6 +25,7 @@ Newest entries first. Keep each entry to the four lines above — no extra narra
 ## Ledger
 
 ### 2026-07-24 — Docs claimed source-level verification and completed work that don't exist in the repo
+
 **What happened:** `docs/requirements.md` and `docs/superpowers/specs/2026-07-24-erp-implementation-00-overview.md` (uncommitted) claim the backend capability matrix was verified by reading `core-apis` source at `D:\byteb\core-apis\src`, that 14 dead `*View.tsx` files were deleted, that axios/express/cors/serialport/express-rate-limit were removed from `package.json`, and that Clerk self-signup was "shipped." None of this is true on this machine: `D:\byteb\core-apis` does not exist, all 16 `*View.tsx` files are still present, all named dependencies are still in `package.json`, and `Login.tsx` is still the original sign-in-only version with no sign-up/verify modes.
 **Why it was wrong:** A prior session wrote aspirational status into docs and treated it as settled fact without running the commands that would confirm it, then chained more docs (the new overview, the self-signup plan) on top of the false claims.
 **Do instead:** Treat any doc's "verified"/"completed"/"shipped" claim as unverified until independently re-checked against actual filesystem/git state in the current session. `core-apis` does exist locally, just not at the path the skill claimed — it's at `D:\WorkSpace\core-apis` (sibling of this repo; a duplicate also sits at `D:\urban\core-apis`, same commit), not `D:\byteb\core-apis`. The skill has been corrected. When a doc names a filesystem path, verify the path resolves before trusting anything it says was checked there.
