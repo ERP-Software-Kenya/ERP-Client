@@ -87,43 +87,27 @@ export default function Inventory() {
     updateMutation.mutate({ id: editing.id, body }, { onSuccess: () => setDialogOpen(false) });
   };
 
+  // Live-tested 2026-07-26 directly against the deployed API: GET /inventory
+  // and /inventory/list both return only `{id, name?}` per row — product_id/
+  // store_id/quantity/min_quantity/status never round-trip today (see
+  // docs/core-apis-fixes.md #11). Showing columns for fields the API can't
+  // return would silently render blanks that look like real "no data" rather
+  // than a backend limitation, so only the fields that actually exist are shown.
   const columns: Column<InventoryItem>[] = [
-    {
-      key: 'product',
-      label: 'Product',
-      render: (row) => String((row as unknown as { product_name?: string }).product_name || row.product_id || 'Unknown'),
-    },
-    {
-      key: 'location',
-      label: 'Location',
-      render: (row) => String((row as unknown as { store_name?: string }).store_name || row.store_id || '—'),
-    },
-    { key: 'quantity', label: 'Quantity' },
-    { key: 'min_quantity', label: 'Reorder Level' },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (row) => {
-        const qty = row.quantity || 0;
-        const minQty = row.min_quantity ?? 0;
-        const isLow = qty < minQty;
-        return (
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              isLow ? 'bg-amber-500/10 text-amber-500' : 'bg-green-500/10 text-green-500'
-            }`}
-          >
-            {isLow ? 'Low Stock' : row.status || 'In Stock'}
-          </span>
-        );
-      },
-    },
+    { key: 'id', label: 'ID', render: (row) => row.id.slice(0, 8) },
+    { key: 'name', label: 'Name', render: (row) => row.name || '(no name — API does not return product/store/quantity fields)' },
   ];
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+        Currently blocked — live-tested 2026-07-26: the create/update DTOs only expose `name`, and
+        `POST /inventory` 500s on every call (see docs/core-apis-fixes.md #11). List/search do work, but
+        only return `id`/`name` — product, store, quantity, and reorder level aren't reachable via the
+        API at all today, despite likely existing in the database.
+      </div>
       <ERPDataTable
         title="Inventory Management"
         description="Monitor stock balances across locations. Quantity changes go through Stock Movements (Phase 4)."
@@ -144,12 +128,16 @@ export default function Inventory() {
               <DialogTitle>Add Inventory Balance</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+                Submitting is disabled — this endpoint currently fails server-side for every request
+                (live-tested 2026-07-26, see docs/core-apis-fixes.md #11).
+              </div>
               <div className="space-y-2">
                 <Label>Product</Label>
                 <ResourceSelect
                   queryKey="products"
                   fetchList={() => ProductsApi.list()}
-                  getLabel={(p) => p.name}
+                  getLabel={(p) => p.name || p.sku || p.id}
                   value={createForm.product_id}
                   onValueChange={(v) => setCreateForm({ ...createForm, product_id: v })}
                   placeholder="Select product…"
@@ -214,8 +202,8 @@ export default function Inventory() {
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving…' : 'Save'}
+                <Button type="submit" disabled>
+                  {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
                 </Button>
               </DialogFooter>
             </form>
@@ -230,9 +218,10 @@ export default function Inventory() {
               <DialogTitle>Edit Inventory Balance</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleEditSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Current Quantity (read-only — adjust via Stock Movements, Phase 4)</Label>
-                <Input value={editing.quantity ?? 0} disabled />
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+                Submitting is disabled — the update DTO shares the same `name`-only scaffold bug as
+                create (see docs/core-apis-fixes.md #11), and quantity isn't returned by the API at all
+                (see the notice above the table), so there's nothing reliable to edit here yet.
               </div>
               <div className="space-y-2">
                 <Label htmlFor="inv-edit-min-quantity">Reorder Level (min quantity)</Label>
@@ -264,8 +253,8 @@ export default function Inventory() {
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSaving}>
-                  {isSaving ? 'Saving…' : 'Save'}
+                <Button type="submit" disabled>
+                  {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
                 </Button>
               </DialogFooter>
             </form>

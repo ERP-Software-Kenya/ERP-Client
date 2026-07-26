@@ -2,9 +2,12 @@
  * Core ERP API Client
  *
  * Base URL and token are read from settings at runtime.
- * The API at https://core-apis-m03n.onrender.com is publicly accessible
- * for read operations on: organizations, categories, stores, and inventory.
- * Other endpoints require a Bearer token configured in Settings.
+ * Live-tested 2026-07-26 (see docs/core-apis-fixes.md #10): no controller in
+ * the Purchase/Sales/Inventory-transactions modules enforces auth at all —
+ * every request below reaches real business logic whether or not a token is
+ * sent. Sending the token when available is still correct client behavior
+ * (other modules may enforce it, and core-apis may add guards later), just
+ * don't rely on an unauthenticated request being rejected.
  *
  * Paginated response shape: { items, page, perPage, totalCount, totalPages }
  */
@@ -36,11 +39,13 @@ function buildUrl(path: string, params?: QueryParams): string {
   return url.toString();
 }
 
-async function headers(): Promise<Record<string, string>> {
-  const h: Record<string, string> = { 'Content-Type': 'application/json' };
+async function authHeader(): Promise<Record<string, string>> {
   const token = await _getToken();
-  if (token) h['Authorization'] = `Bearer ${token}`;
-  return h;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function headers(): Promise<Record<string, string>> {
+  return { 'Content-Type': 'application/json', ...(await authHeader()) };
 }
 
 export async function get<T>(path: string, params?: QueryParams): Promise<T> {
@@ -151,6 +156,11 @@ function makeResource<T extends { id: string }>(basePath: string) {
     async getById(id: string): Promise<T> {
       return await get<T>(`${basePath}/${id}`);
     },
+
+    /** Create a new record — every resource in the capability matrix supports at least create + get-by-id */
+    async create(body: Partial<T>): Promise<T> {
+      return post<T>(basePath, body);
+    },
   };
 }
 
@@ -158,10 +168,6 @@ function makeMutableResource<T extends { id: string }>(basePath: string) {
   const base = makeResource<T>(basePath);
   return {
     ...base,
-    /** Create a new record */
-    async create(body: Partial<T>): Promise<T> {
-      return post<T>(basePath, body);
-    },
     /** Update an existing record by id */
     async update(id: string, body: Partial<T>): Promise<T> {
       return put<T>(`${basePath}/${id}`, body);
@@ -201,6 +207,7 @@ import type {
   PlatformConfiguration,
   PlatformUser,
   Vehicle,
+  ProductImage,
 } from './types';
 
 export const Organizations      = makeMutableResource<Organization>('/api/v1/organizations');
@@ -228,3 +235,24 @@ export const UserRoles          = makeResource<UserRole>('/api/v1/user-roles');
 export const PlatformConfigurations = makeResource<PlatformConfiguration>('/api/v1/platform-configurations');
 export const Users               = makeResource<PlatformUser>('/api/v1/users');
 export const Vehicles           = makeResource<Vehicle>('/api/v1/vehicles');
+
+// ── Product images ────────────────────────────────────────────────────────────
+// Not a CRUD resource — a subresource of Products (products.controller.ts:
+// POST/GET /:id/images). Direct multipart upload; skips the presigned-URL
+// flow (also on the backend) since this is simpler for the same result.
+
+export async function uploadProductImage(productId: string, file: File): Promise<ProductImage> {
+  const form = new FormData();
+  form.append('file', file);
+  const resp = await fetch(buildUrl(`/api/v1/products/${productId}/images`), {
+    method: 'POST',
+    headers: await authHeader(),
+    body: form,
+  });
+  if (!resp.ok) throw new Error(await readErrorBody(resp));
+  return resp.json() as Promise<ProductImage>;
+}
+
+export async function listProductImages(productId: string): Promise<ProductImage[]> {
+  return get<ProductImage[]>(`/api/v1/products/${productId}/images`);
+}

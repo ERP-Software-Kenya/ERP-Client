@@ -54,17 +54,16 @@ Three options, in order of preference:
 | Multiple partial payments per invoice, running balance shown | **Implementable** once Payment→Bill linkage field is confirmed. |
 | Batch/Serial captured at goods receipt | **Blocked** — no batch/serial fields exist anywhere in the backend. |
 
-## 6. Open questions for this phase
+## 6. Open questions for this phase — resolved 2026-07-26 by reading `core-apis` source directly, then live-testing
 
-- Confirm real `GET /api/v1/purchase-orders/{id}` payload — does it embed `items`? (§3, blocks the detail screen design.)
-- Confirm exact field names on `PaymentTransaction` for linking to a Bill (Phase 1 flagged this — it directly affects whether "Payable Outstanding" can be computed at all).
-- Does `CreateItemReturnRequest.orderId` accept a Purchase Order ID for `returnType: 'purchase'`, or is that field sales-only and Purchase Returns need a different link? Needs one real test call.
-- Is a missing PurchaseItem edit/delete acceptable to the business as a permanent limitation, or should this be escalated as a required backend addition before this phase ships?
+- **Does `GET /purchase-orders/{id}` embed `items`?** No — worse than that: the entity has a real `items` relation, but `PurchaseOrderResponse` only ever exposes `id`/`name`. In fact the *entire* PurchaseOrder resource is broken this way — `storeId`/`supplierId`/`status`/`totalAmount`/etc. all exist on the entity but none are reachable through create/update/response DTOs. See `docs/core-apis-fixes.md` #0. Live-tested: even a `name`-only create 500s (consistent with the entity's NOT-NULL/unique `poNumber` never getting set).
+- **`PaymentTransaction` linkage fields?** Confirmed: `referenceId` + `referenceType` (e.g. `referenceType: 'bill'`, `referenceId: <bill.id>`) — this part of the resource is correctly built. But create 500s anyway: domain model uses `orgId`, the entity's real column is `organizationId`. See `docs/core-apis-fixes.md` #0d.
+- **Does `CreateItemReturnRequest.orderId` accept a PurchaseOrder ID?** No — confirmed `orderId` is a real FK constrained to the **Orders** (sales) table only. A Purchase Return can link to a `supplierId`, never to the originating PO. See `docs/core-apis-fixes.md` #0e.
+- **Is missing PurchaseItem edit/delete a permanent limitation?** Moot for now — `POST /purchase-items` doesn't even work (field mismatch, `docs/core-apis-fixes.md` #0b), so there's nothing to edit/delete yet regardless.
+- **New, more important finding than any of the above**: `POST /item-returns` — the one resource with a fully clean DTO/entity/domain-model chain — still returned a live `500 Internal server error` on a fully valid request (network response captured directly). This means the individual DTO mismatches found across this phase are not the whole story; something shared likely breaks most create calls for this session/org. See the callout at the top of `docs/core-apis-fixes.md`.
 
 ## 7. Done when
 
-- [ ] PO detail screen shows line items (via whichever of the 3 options in §3 was chosen) and total reconciles.
-- [ ] Bills can be created standalone or linked to a PO; PO's linked-bills list shows correctly.
-- [ ] Payments can be recorded against a Bill; Bill status (Unpaid/Partially Paid/Paid) reflects payment sum — computed client-side unless the backend already derives it.
-- [ ] Purchase Returns create a Debit-Note-equivalent ItemReturn record linked to the right supplier/PO.
-- [ ] Payable Outstanding is computable and shown per supplier (even if only client-side aggregated).
+- [x] **UI built 2026-07-26** for the full module scope: PO list (name-only, honest about the limitation) + new `/purchase-orders/:id` detail screen (line items form, disabled), Bills list/detail (`/bills/:id`, disabled), Payment recording (disabled), Purchase Return via `ItemReturns.tsx` (returnType fixed to 'purchase' by default, orderId hidden for purchase returns since it can't reference a PO).
+- [ ] **Nothing in this phase is functionally verified end-to-end** — PurchaseOrder create, PurchaseItem create, Bill create, Payment create, and (surprisingly) Item Return create all 500 live. Every write path in Phase 2 is disabled pending `core-apis` fixes (`docs/core-apis-fixes.md`).
+- [ ] Payable Outstanding was not implemented — computing it requires Bills/Payments data that can't currently be created or correctly read (Bills' response DTO doesn't expose supplier/store either). Revisit once #0c/#0d are fixed.

@@ -1,31 +1,23 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ERPDataTable, Column } from '../components/ERPDataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { ResourceSelect } from '../components/ResourceSelect';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { PurchaseOrders as PurchaseOrdersApi, Suppliers as SuppliersApi, Stores as StoresApi } from '../api';
+import { PurchaseOrders as PurchaseOrdersApi } from '../api';
 import { useResourceMutations } from '../hooks/useResourceMutations';
 import type { PurchaseOrder } from '../types';
 
-// TODO: verify against live API — guessed from the dead legacy PurchaseOrdersView.tsx, not confirmed
-// against a real POST /api/v1/purchase-orders response.
-const STATUS_OPTIONS = ['pending', 'approved', 'received', 'cancelled'];
-
 interface FormState {
-  supplier_id: string;
-  store_id: string;
-  total_amount: string;
-  status: string;
-  ordered_at: string;
+  name: string;
 }
 
-const EMPTY_FORM: FormState = { supplier_id: '', store_id: '', total_amount: '', status: 'pending', ordered_at: '' };
+const EMPTY_FORM: FormState = { name: '' };
 
 export default function PurchaseOrders() {
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -45,25 +37,13 @@ export default function PurchaseOrders() {
 
   const openEdit = (row: PurchaseOrder) => {
     setEditing(row);
-    setForm({
-      supplier_id: row.supplier_id ?? '',
-      store_id: row.store_id ?? '',
-      total_amount: row.total_amount != null ? String(row.total_amount) : '',
-      status: row.status ?? 'pending',
-      ordered_at: row.ordered_at ? row.ordered_at.slice(0, 10) : '',
-    });
+    setForm({ name: row.name ?? '' });
     setDialogOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const body: Partial<PurchaseOrder> = {
-      supplier_id: form.supplier_id || undefined,
-      store_id: form.store_id || undefined,
-      total_amount: form.total_amount ? Number(form.total_amount) : undefined,
-      status: form.status,
-      ordered_at: form.ordered_at || undefined,
-    };
+    const body: Partial<PurchaseOrder> = { name: form.name || undefined };
     if (editing) {
       updateMutation.mutate({ id: editing.id, body }, { onSuccess: () => setDialogOpen(false) });
     } else {
@@ -72,30 +52,31 @@ export default function PurchaseOrders() {
   };
 
   const columns: Column<PurchaseOrder>[] = [
-    { key: 'supplier_id', label: 'Supplier' },
-    { key: 'store_id', label: 'Store' },
-    {
-      key: 'total_amount',
-      label: 'Total',
-      render: (row) => `$${Number(row.total_amount || 0).toFixed(2)}`,
-    },
-    { key: 'status', label: 'Status' },
-    { key: 'ordered_at', label: 'Ordered At' },
+    { key: 'name', label: 'Name', render: (row) => row.name || '(unnamed)' },
+    { key: 'id', label: 'ID', render: (row) => row.id.slice(0, 8) },
+    { key: 'created_at', label: 'Created' },
   ];
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+        Currently blocked end-to-end — live-tested 2026-07-26: both browsing (list/search 500s, see
+        docs/core-apis-fixes.md #1) and creating (500s even for just "Name", see #0) fail server-side.
+        Supplier, store, status, total, and order date exist in the database but aren't exposed by the
+        API at all. Line items and Bills are managed from a purchase order's detail view.
+      </div>
       <ERPDataTable
         title="Purchase Orders"
-        description="Manage purchase orders. Line items are added from a purchase order's detail view (Phase 2)."
+        description="Manage purchase orders. Open a row to view/add line items and linked bills."
         queryKey="purchase-orders"
         columns={columns}
         fetchData={(params) => PurchaseOrdersApi.search(params)}
         searchPlaceholder="Search purchase orders…"
         isAdmin={true}
         onAdd={openCreate}
+        onView={(row) => navigate(`/purchase-orders/${row.id}`)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
       />
@@ -106,71 +87,24 @@ export default function PurchaseOrders() {
             <DialogTitle>{editing ? 'Edit Purchase Order' : 'Add Purchase Order'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Supplier</Label>
-              <ResourceSelect
-                queryKey="suppliers"
-                fetchList={() => SuppliersApi.list()}
-                getLabel={(s) => s.name}
-                value={form.supplier_id}
-                onValueChange={(v) => setForm({ ...form, supplier_id: v })}
-                placeholder="Select supplier…"
-                allowNone
-              />
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+              Submitting is disabled — this endpoint currently fails server-side for every request (live-tested 2026-07-26, see docs/core-apis-fixes.md #0).
             </div>
             <div className="space-y-2">
-              <Label>Store</Label>
-              <ResourceSelect
-                queryKey="stores"
-                fetchList={() => StoresApi.list()}
-                getLabel={(s) => s.name}
-                value={form.store_id}
-                onValueChange={(v) => setForm({ ...form, store_id: v })}
-                placeholder="Select store…"
-                allowNone
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="po-total">Total Amount</Label>
+              <Label htmlFor="po-name">Name</Label>
               <Input
-                id="po-total"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.total_amount}
-                onChange={(e) => setForm({ ...form, total_amount: e.target.value })}
+                id="po-name"
+                value={form.name}
+                onChange={(e) => setForm({ name: e.target.value })}
+                autoFocus
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="po-ordered-at">Ordered At</Label>
-              <Input
-                id="po-ordered-at"
-                type="date"
-                value={form.ordered_at}
-                onChange={(e) => setForm({ ...form, ordered_at: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Saving…' : 'Save'}
+              <Button type="submit" disabled>
+                {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
               </Button>
             </DialogFooter>
           </form>

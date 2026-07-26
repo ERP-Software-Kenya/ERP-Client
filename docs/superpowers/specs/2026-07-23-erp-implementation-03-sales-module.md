@@ -60,8 +60,15 @@ Given how much of this phase is structurally blocked, **the highest-value action
 - If no line items exist server-side for Orders/Invoices, is adding that resource (and its list endpoint) something that can be prioritized, given it blocks the module's core purpose?
 - Same `referenceType`/`referenceId` confirmation as Phase 2, for linking Payments to Invoices.
 
+## 7b. Open questions — resolved 2026-07-26 by reading `core-apis` source directly
+
+- **Do Orders/Invoices have line items server-side?** Orders do (`OrderItemEntity`, real relation from `OrderEntity.items`) — Invoices don't (an invoice just references its parent Order). But exactly like Phase 4's `StockTransferItemEntity`, `OrderItemEntity` is schema-only — no application module/controller/command/query exists for it. See `docs/core-apis-fixes.md` #9.
+- **Is adding that resource prioritizable?** Not this client's call — flagged in the fix list as the resolution to what the spec called "the single most important unknown in this entire implementation effort."
+- **`referenceType`/`referenceId` for linking Payments to Invoices?** Same confirmed pattern as Phase 2 (`docs/core-apis-fixes.md` #0d) — `referenceType: 'invoice'`, `referenceId: <invoice.id>`. Not built into a screen this round since Invoice creation itself is unverified.
+- **New finding beyond the spec's questions**: `Customer`/`Order` create both 500 for a different, more precise reason than expected — not a wholesale DTO mismatch like Phase 2's `PurchaseOrder`/`Bills`, but one specific missing field: the entity's NOT-NULL `organizationId` is never set by either command. `Invoice` create looks like the cleanest DTO/entity match found in this whole investigation (no `organizationId` needed at all) — not live-tested, shipped disabled anyway per the established caution (see `docs/core-apis-fixes.md` #8).
+
 ## 8. Done when
 
-- [ ] Customer create form works.
-- [ ] Sales Return works end-to-end (ItemReturn, returnType=sales).
-- [ ] **Everything else in this phase is gated on the backend list-endpoint and line-item questions above being resolved** — do not mark this phase "done," only "as done as the API currently allows," until those are answered.
+- [x] **UI built 2026-07-26**: Customer create form (`Customers.tsx`), Order create form (`Orders.tsx`), Invoice create form (`Invoices.tsx`) — all create-only per the confirmed capability matrix (no list/update/delete on any of the three). Sales Return already works structurally via the existing `ItemReturns.tsx` (returnType toggle, orderId field shown only for `returnType: 'sales'`).
+- [ ] **Nothing in this phase is functionally verified** — Customer and Order create are confirmed to 500 live (`docs/core-apis-fixes.md` #8); Invoice create is unverified and shipped disabled out of caution; Sales Return inherits Phase 2's confirmed-broken `ItemReturns` create (#0e). Every submit button in this phase is disabled pending backend fixes.
+- [x] Gated correctly, not silently skipped — every screen states its specific blocker inline and points at the relevant `core-apis-fixes.md` entry.

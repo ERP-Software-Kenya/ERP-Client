@@ -1,25 +1,25 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ERPDataTable, Column } from '../components/ERPDataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { ResourceSelect } from '../components/ResourceSelect';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Bills as BillsApi, PurchaseOrders as PurchaseOrdersApi } from '../api';
+import { Bills as BillsApi } from '../api';
 import { useResourceMutations } from '../hooks/useResourceMutations';
 import type { Bill } from '../types';
 
 interface FormState {
-  purchase_order_id: string;
+  billNumber: string;
   amount: string;
-  due_date: string;
   status: string;
 }
 
-const EMPTY_FORM: FormState = { purchase_order_id: '', amount: '', due_date: '', status: '' };
+const EMPTY_FORM: FormState = { billNumber: '', amount: '', status: '' };
 
 export default function Bills() {
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Bill | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -36,9 +36,8 @@ export default function Bills() {
   const openEdit = (row: Bill) => {
     setEditing(row);
     setForm({
-      purchase_order_id: row.purchase_order_id ?? '',
+      billNumber: row.billNumber ?? '',
       amount: row.amount != null ? String(row.amount) : '',
-      due_date: row.due_date ? row.due_date.slice(0, 10) : '',
       status: row.status ?? '',
     });
     setDialogOpen(true);
@@ -47,9 +46,8 @@ export default function Bills() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const body: Partial<Bill> = {
-      purchase_order_id: form.purchase_order_id || undefined,
+      billNumber: form.billNumber || undefined,
       amount: form.amount ? Number(form.amount) : undefined,
-      due_date: form.due_date || undefined,
       status: form.status || undefined,
     };
     if (editing) {
@@ -60,13 +58,12 @@ export default function Bills() {
   };
 
   const columns: Column<Bill>[] = [
-    { key: 'purchase_order_id', label: 'Purchase Order' },
+    { key: 'billNumber', label: 'Bill #' },
     {
       key: 'amount',
       label: 'Amount',
       render: (row) => `$${Number(row.amount || 0).toFixed(2)}`,
     },
-    { key: 'due_date', label: 'Due Date' },
     { key: 'status', label: 'Status' },
   ];
 
@@ -74,15 +71,22 @@ export default function Bills() {
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+        Currently blocked end-to-end — live-tested 2026-07-26: browsing (list/search 500s, see
+        docs/core-apis-fixes.md #1) and creating/updating (field mismatch between the API and the
+        database, see #0c) both fail server-side. There's also no field linking a bill to a Purchase
+        Order today.
+      </div>
       <ERPDataTable
         title="Bills"
-        description="Track bills and payment obligations. A purchase order link is optional — direct entry is supported."
+        description="Track bills and payment obligations."
         queryKey="bills"
         columns={columns}
         fetchData={(params) => BillsApi.search(params)}
         searchPlaceholder="Search bills…"
         isAdmin={true}
         onAdd={openCreate}
+        onView={(row) => navigate(`/bills/${row.id}`)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
       />
@@ -93,16 +97,16 @@ export default function Bills() {
             <DialogTitle>{editing ? 'Edit Bill' : 'Add Bill'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+              Submitting is disabled — this endpoint currently fails server-side for every request.
+            </div>
             <div className="space-y-2">
-              <Label>Purchase Order (optional)</Label>
-              <ResourceSelect
-                queryKey="purchase-orders"
-                fetchList={() => PurchaseOrdersApi.list()}
-                getLabel={(po) => `PO ${po.id.slice(0, 8)} — ${po.status ?? 'unknown'}`}
-                value={form.purchase_order_id}
-                onValueChange={(v) => setForm({ ...form, purchase_order_id: v })}
-                placeholder="No linked purchase order"
-                allowNone
+              <Label htmlFor="bill-number">Bill Number</Label>
+              <Input
+                id="bill-number"
+                value={form.billNumber}
+                onChange={(e) => setForm({ ...form, billNumber: e.target.value })}
+                autoFocus
               />
             </div>
             <div className="space-y-2">
@@ -114,25 +118,13 @@ export default function Bills() {
                 min="0"
                 value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="bill-due-date">Due Date</Label>
-              <Input
-                id="bill-due-date"
-                type="date"
-                value={form.due_date}
-                onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              {/* TODO: verify against live API — Bill's real status enum isn't confirmed; free text
-                  avoids guessing an unverified set of values. */}
               <Label htmlFor="bill-status">Status</Label>
               <Input
                 id="bill-status"
-                placeholder="e.g. unpaid"
+                placeholder="e.g. UNPAID"
                 value={form.status}
                 onChange={(e) => setForm({ ...form, status: e.target.value })}
               />
@@ -141,8 +133,8 @@ export default function Bills() {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Saving…' : 'Save'}
+              <Button type="submit" disabled>
+                {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
               </Button>
             </DialogFooter>
           </form>

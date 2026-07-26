@@ -10,13 +10,15 @@ import { useResourceMutations } from '../hooks/useResourceMutations';
 import type { PaymentTransaction } from '../types';
 
 interface FormState {
-  reference: string;
+  referenceId: string;
+  referenceType: string;
   type: string;
+  method: string;
   amount: string;
   status: string;
 }
 
-const EMPTY_FORM: FormState = { reference: '', type: '', amount: '', status: '' };
+const EMPTY_FORM: FormState = { referenceId: '', referenceType: '', type: '', method: '', amount: '', status: '' };
 
 export default function PaymentTransactions() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -39,8 +41,10 @@ export default function PaymentTransactions() {
   const openEdit = (row: PaymentTransaction) => {
     setEditing(row);
     setForm({
-      reference: row.reference ?? '',
+      referenceId: row.referenceId ?? '',
+      referenceType: row.referenceType ?? '',
       type: row.type ?? '',
+      method: row.method ?? '',
       amount: row.amount != null ? String(row.amount) : '',
       status: row.status ?? '',
     });
@@ -50,8 +54,10 @@ export default function PaymentTransactions() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const body: Partial<PaymentTransaction> = {
-      reference: form.reference || undefined,
+      referenceId: form.referenceId || undefined,
+      referenceType: form.referenceType || undefined,
       type: form.type || undefined,
+      method: form.method || undefined,
       amount: form.amount ? Number(form.amount) : undefined,
       status: form.status || undefined,
     };
@@ -63,8 +69,8 @@ export default function PaymentTransactions() {
   };
 
   const columns: Column<PaymentTransaction>[] = [
-    { key: 'reference', label: 'Reference' },
-    { key: 'type', label: 'Type' },
+    { key: 'referenceType', label: 'Linked To' },
+    { key: 'method', label: 'Method' },
     {
       key: 'amount',
       label: 'Amount',
@@ -77,9 +83,14 @@ export default function PaymentTransactions() {
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+        Currently blocked — recording a payment fails on the backend (domain model uses `orgId`, the
+        database column is `organizationId`, see docs/core-apis-fixes.md #0d). Payments normally get
+        recorded from a Bill's detail view, linked via referenceType/referenceId.
+      </div>
       <ERPDataTable
         title="Payment Transactions"
-        description="Record payments. Linking a payment to a specific bill/invoice is Phase 2/3 (real link field names unverified — see spec)."
+        description="All recorded payments across bills/invoices."
         queryKey="payment-transactions"
         columns={columns}
         fetchData={(params) => PaymentTransactionsApi.search(params)}
@@ -96,24 +107,33 @@ export default function PaymentTransactions() {
             <DialogTitle>{editing ? 'Edit Payment' : 'Add Payment'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+              Submitting is disabled — this endpoint currently fails server-side for every request.
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="pay-reference">Reference</Label>
+              <Label htmlFor="pay-ref-type">Linked To (type)</Label>
               <Input
-                id="pay-reference"
-                value={form.reference}
-                onChange={(e) => setForm({ ...form, reference: e.target.value })}
-                autoFocus
+                id="pay-ref-type"
+                placeholder="e.g. bill"
+                value={form.referenceType}
+                onChange={(e) => setForm({ ...form, referenceType: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              {/* TODO: verify against live API — real OpenAPI shape shows orgId/referenceId/referenceType/method,
-                  richer than this. Confirm before Phase 2 needs to link payments to a specific Bill. */}
-              <Label htmlFor="pay-type">Type</Label>
+              <Label htmlFor="pay-ref-id">Linked To (ID)</Label>
               <Input
-                id="pay-type"
+                id="pay-ref-id"
+                value={form.referenceId}
+                onChange={(e) => setForm({ ...form, referenceId: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pay-method">Method</Label>
+              <Input
+                id="pay-method"
                 placeholder="e.g. cash, card, bank_transfer"
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                value={form.method}
+                onChange={(e) => setForm({ ...form, method: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -125,7 +145,6 @@ export default function PaymentTransactions() {
                 min="0"
                 value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                required
               />
             </div>
             <div className="space-y-2">
@@ -141,8 +160,8 @@ export default function PaymentTransactions() {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Saving…' : 'Save'}
+              <Button type="submit" disabled>
+                {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
               </Button>
             </DialogFooter>
           </form>

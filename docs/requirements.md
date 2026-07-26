@@ -19,6 +19,8 @@ Verified by grepping every `*.controller.ts` for `@Get/@Post/@Put/@Delete` decor
 **Full CRUD + list/search (12 resources)** — list, get-by-id, create, update, delete all exist:
 Bills, Categories, Inventory, ItemReturns, Notifications, Organizations, PaymentTransactions, Products, PurchaseOrders, ReportGenerationLogs, Stores, Suppliers.
 
+**2026-07-26 correction — "full CRUD" here only ever meant "the controller has the right decorators," never "the DTOs carry the resource's real fields."** Confirmed broken so far: PurchaseOrders (DTOs only expose `name`), Bills (DTO field set is entirely disconnected from the entity), PaymentTransactions (`orgId`/`organizationId` mismatch) — see `docs/core-apis-fixes.md` #0/#0c/#0d. ItemReturns is confirmed *not* to have this class of bug and still 500s live anyway, suggesting a further, shared cause on top of this. Treat every resource in this list as unverified for real-field round-tripping until independently checked.
+
 **Create + get-by-id only, no list, no update, no delete (12 resources)**:
 ActivityLogs, Customers, Expenses, Invoices, Orders, PlatformConfigurations, PurchaseItems, Roles, StockMovements, StockTransfers, UserRoles, Users.
 
@@ -30,7 +32,7 @@ For this group, no browsable table is possible without a backend change. Stock-m
 
 ## 3. What "fully functional" means for this round
 
-1. **Every one of the 12 full-CRUD resources gets working Add/Edit/Delete in the UI**, wired to real `POST`/`PUT`/`DELETE` calls. Today `api.ts`'s `makeResource<T>()` only implements `search()`/`list()`/`getById()` — no mutation methods exist anywhere in the client. This is the single biggest gap.
+1. **Every one of the 12 full-CRUD resources gets working Add/Edit/Delete in the UI**, wired to real `POST`/`PUT`/`DELETE` calls. **Built 2026-07-25** (Phase 1, commit `116c799`): all 12 pages exist with mutation calls wired through `api.ts`. **Not yet verified end-to-end**: list/mutation calls on 8 of the 12 resources 500 against the deployed backend for new orgs. Narrowed to `core-apis`'s shared `BaseReadOnlyRepo.pagedAsync()` code path, but the exact crash line is **not yet confirmed** (no server stack trace pulled) — see `docs/core-apis-fixes.md` §1. **Worse than that for PurchaseOrders specifically (found 2026-07-26)**: its create/update/response DTOs only expose a `name` field — `supplier_id`/`store_id`/`total_amount`/`status`/`ordered_at`, which `PurchaseOrders.tsx` was built against, don't exist on the API at all. See `docs/core-apis-fixes.md` §0. The capability matrix below only checked that `@Get/@Post/@Put/@Delete` decorators exist per controller — it never checked whether the DTOs actually carry the resource's real fields, so this failure mode hasn't been ruled out for the other 11 "full CRUD" resources either. This is a `core-apis`-side issue, not fixable from this repo. Blocks calling Phase 1 done until it's root-caused, fixed, and the UI is re-tested.
 2. **Two orphaned nav entries get fixed**: `users` and `reports`. `getApiClient()` in `ModulePage.tsx` resolves `'users'` → `Api.Users` and `'reports'` → `Api.Reports`, and neither is exported from `api.ts` — both screens currently render silently empty.
    - `users`: `/api/v1/users` exists (create + get-by-id only, §2) — build a minimal screen matching that capability (no directory table possible; see §2's caveat).
    - `reports`: no `/api/v1/reports` endpoint exists at all, only `/report-generation-logs`. Either repoint the nav entry at `ReportGenerationLogs` (which already has full CRUD) or remove the `reports` nav entry — this needs a decision, not a guess (see §5).
@@ -63,6 +65,6 @@ None of this is scoped for the current round. If a phase doc below needs one of 
 ## 6. Auth architecture (as it exists today, for reference)
 
 Three separate identity systems, not unified:
-1. **Clerk** — cloud auth, drives login/session (`AuthContext.tsx`, `lib/clerk.ts`). Self-signup **designed** 2026-07-24 (`docs/superpowers/specs/2026-07-24-self-signup-design.md`, `docs/superpowers/plans/2026-07-24-self-signup.md`) but **not yet implemented** — `Login.tsx` is still sign-in-only. Scheduled as Phase 0.
+1. **Clerk** — cloud auth, drives login/session (`AuthContext.tsx`, `lib/clerk.ts`). Self-signup **implemented 2026-07-25** (Phase 0, commit `36fa0e4` + follow-up fixes): `Login.tsx` has sign-in/sign-up/verify modes with Cloudflare Turnstile CAPTCHA.
 2. **Backend Role/UserRole** (`/api/v1/roles`, `/api/v1/user-roles`) — create + get-by-id only (§2).
 3. **Local SQLite `users` table** — PIN-based admin/operator switching for shared terminals, fully independent of the other two.

@@ -20,6 +20,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -67,6 +68,7 @@ export default function Login() {
         password,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
+        username: username.trim(),
       });
       await clerk.client!.signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
       setCode('');
@@ -185,6 +187,16 @@ export default function Login() {
               </div>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                required
+                autoComplete="username"
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="signUpEmail">Email</Label>
               <Input
                 id="signUpEmail"
@@ -206,6 +218,7 @@ export default function Login() {
                 autoComplete="new-password"
               />
             </div>
+            <div id="clerk-captcha" />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Creating account...' : 'Sign Up'}
             </Button>

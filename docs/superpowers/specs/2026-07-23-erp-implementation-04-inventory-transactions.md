@@ -43,15 +43,15 @@ Form matching spec §2.5: From Store, To Store, Items+Qty (again, no unit-varian
 
 Ship Stock Adjustment and Stock Transfer as create-only forms now (real value: at least the action gets logged even if it can't be reviewed later), and treat the reorder-alert check as a quick independent win inside this phase since it needs zero backend changes. Push the Stock Ledger view to "as soon as the list endpoint exists."
 
-## 7. Open questions for this phase
+## 7. Open questions for this phase — resolved 2026-07-25 by reading `core-apis` source directly
 
-- Does creating a StockMovement automatically adjust the linked InventoryItem's quantity server-side, or does the client need to do both writes?
-- Does StockTransfer actually support line items (items+qty), or is the real resource just a header/status record as its thin schema suggests? If the latter, is a separate `TransferItem`-style resource planned, or does this need to be raised as a gap?
-- Confirm PurchaseOrder-style status enum values for StockTransfer (Draft/In-Transit/Received assumed from spec, not verified).
+- **Does creating a StockMovement auto-adjust InventoryItem.quantity?** No, and it can't today either way: `CreateStockMovementCommand`'s fields (`organizationId`/`inventoryId`/`userId`/`quantity`/`type`/`reason`) don't match `StockMovementEntity`'s actual columns (`storeId`/`productId`/`movementType`/`quantityBefore`/`quantityAfter`, several NOT NULL). Every create call 500s. Confirmed bug, not fixable client-side — see `docs/core-apis-fixes.md` #2.
+- **Does StockTransfer support line items?** No — `StockTransferItemEntity` exists in the DB schema with a real relation from `StockTransferEntity.items`, but has zero application-layer wiring (no module/controller/command/query). Schema-only, not exposed via API. A transfer today really is header/status-only, as suspected.
+- **StockTransfer status enum?** Not a real enum — `status` is `varchar(50) default 'PENDING'`, no CHECK constraint. The spec's Draft/In-Transit/Received assumption isn't backend-enforced. Decision (2026-07-25): build the picker with those three values anyway, since the field accepts any string.
 
 ## 8. Done when
 
-- [ ] Stock Adjustment create form works, and it's confirmed whether/how InventoryItem.quantity gets updated alongside it.
-- [ ] Stock Transfer create form works to whatever extent the API's real item-support allows.
-- [ ] Low-stock flag (quantity < min_quantity) shown on the Inventory list — no backend dependency, do this regardless of the above.
-- [ ] Stock Ledger view explicitly deferred with a note pointing at the backend list-endpoint ask, not silently skipped.
+- [x] Low-stock flag (quantity < min_quantity) — already shipped as part of Phase 1's `Inventory.tsx` (built ahead of this phase).
+- [x] Stock Transfer create form built (`renderer/src/pages/StockTransfers.tsx`) — organization/from-store/to-store/status. UI verified live via an Electron+Playwright smoke run (2026-07-26): page renders, dialog opens, Organization/Store selects populate real data from the live backend. **Submitting fails**: `POST /api/v1/stock-transfers` returns `Internal server error` against the deployed API — source-level analysis said this endpoint should work, but live testing contradicts that. Root cause unconfirmed, see `docs/core-apis-fixes.md` #3. This form is UI-complete but not currently functional end-to-end, same practical status as Stock Adjustment below (blocked on a backend fix), just not yet given a disabled-submit treatment since it was expected to work.
+- [x] Stock Adjustment create form built (`renderer/src/pages/StockMovements.tsx`) but **submit intentionally disabled** with an explanatory banner — the backend bug above means every call would 500. Ready to enable once `core-apis` fixes it.
+- [x] Stock Ledger view explicitly deferred — no list endpoint exists for either resource; noted in both new pages' descriptions rather than silently skipped.

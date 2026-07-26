@@ -11,19 +11,26 @@ import Stores from './pages/Stores';
 import Categories from './pages/Categories';
 import Suppliers from './pages/Suppliers';
 import PurchaseOrders from './pages/PurchaseOrders';
+import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
 import Bills from './pages/Bills';
+import BillDetail from './pages/BillDetail';
 import PaymentTransactions from './pages/PaymentTransactions';
 import ItemReturns from './pages/ItemReturns';
 import Notifications from './pages/Notifications';
 import ReportGenerationLogs from './pages/ReportGenerationLogs';
+import StockMovements from './pages/StockMovements';
+import StockTransfers from './pages/StockTransfers';
+import Customers from './pages/Customers';
+import Orders from './pages/Orders';
+import Invoices from './pages/Invoices';
 import ModulePage from './pages/ModulePage';
 import VehiclesPage from './pages/VehiclesPage';
 import VehicleDetailPage from './pages/VehicleDetailPage';
 import { ALL_ITEMS } from './config/modules';
 
 const GENERIC_KEYS = new Set([
-  'activity-logs', 'stock-movements', 'stock-transfers',
-  'orders', 'invoices', 'customers', 'purchase-items',
+  'activity-logs',
+  'purchase-items',
   'expenses', 'reports', 'users', 'roles', 'user-roles',
   'platform-configurations'
 ]);
@@ -44,11 +51,18 @@ function App() {
           <Route path="categories" element={<Categories />} />
           <Route path="suppliers" element={<Suppliers />} />
           <Route path="purchase-orders" element={<PurchaseOrders />} />
+          <Route path="purchase-orders/:id" element={<PurchaseOrderDetail />} />
           <Route path="bills" element={<Bills />} />
+          <Route path="bills/:id" element={<BillDetail />} />
           <Route path="payment-transactions" element={<PaymentTransactions />} />
           <Route path="item-returns" element={<ItemReturns />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="report-generation-logs" element={<ReportGenerationLogs />} />
+          <Route path="stock-movements" element={<StockMovements />} />
+          <Route path="stock-transfers" element={<StockTransfers />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="invoices" element={<Invoices />} />
           <Route path="vehicles" element={<VehiclesPage />} />
           <Route path="vehicles/:id" element={<VehicleDetailPage />} />
           

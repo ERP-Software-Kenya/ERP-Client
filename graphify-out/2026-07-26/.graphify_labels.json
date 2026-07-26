@@ -1,5 +1,4 @@
 {
-  "0": "api.ts",
   "1": "Vehicles Module",
   "2": "Electron Main & Build Scripts",
   "3": "API Client & Categories",
@@ -15,7 +14,6 @@
   "13": "index.html CSP & Fonts",
   "14": "ModulePage.tsx",
   "15": "Dashboard.tsx",
-  "16": "CategorySelect.tsx",
   "20": "Suppliers Module",
   "21": "Electron Launcher Script",
   "22": "API Request Helpers",

@@ -1,12 +1,12 @@
 {
   ".claude/settings.json": {
-    "mtime": 1784918367.4642212,
-    "ast_hash": "db92598a150b33eff9b284abe6b474d4",
+    "mtime": 1784873212.5758789,
+    "ast_hash": "839446f4dac366f79cac90c93f3d9af6",
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
-    "mtime": 1785055895.5688288,
-    "ast_hash": "0dc0b3b4d3f12ddec454aadb56e92668",
+    "mtime": 1784916983.8340018,
+    "ast_hash": "a3a7364e19920c4797b598d2a062e592",
     "semantic_hash": ""
   },
   "package.json": {
@@ -15,19 +15,19 @@
     "semantic_hash": ""
   },
   "renderer/src/App.tsx": {
-    "mtime": 1785055759.2241776,
-    "ast_hash": "e6d605f4cafb4da1e6fb7f8485b4d197",
+    "mtime": 1784916611.713677,
+    "ast_hash": "240b7462cbd310a5915b2549097b89e6",
     "semantic_hash": ""
   },
   "renderer/src/api.ts": {
-    "mtime": 1785002805.743528,
-    "ast_hash": "423c95df464b46f48da8af58dc123d9a",
+    "mtime": 1784916197.5629065,
+    "ast_hash": "25857fc702c13206cf7067c5e819d7f8",
     "semantic_hash": ""
   },
   "renderer/src/components/ERPDataTable.tsx": {
-    "mtime": 1785052501.1869476,
-    "ast_hash": "7f8013a1b65ac57279c7ebae9d61aa71",
-    "semantic_hash": ""
+    "mtime": 1784794576.5504317,
+    "ast_hash": "672b177cbf365d8369900600e17fab28",
+    "semantic_hash": "672b177cbf365d8369900600e17fab28"
   },
   "renderer/src/components/ProtectedRoute.tsx": {
     "mtime": 1784799841.2829275,
@@ -130,8 +130,8 @@
     "semantic_hash": ""
   },
   "renderer/src/pages/Login.tsx": {
-    "mtime": 1784997432.3132017,
-    "ast_hash": "b0af750f9a631a622f9446877f8d6b98",
+    "mtime": 1784914776.6394322,
+    "ast_hash": "bb212b5b646525423fff5f14eb5e17a9",
     "semantic_hash": ""
   },
   "renderer/src/pages/ModulePage.tsx": {
@@ -160,8 +160,8 @@
     "semantic_hash": "ae0583778fb9190f6b8ec824f37e2916"
   },
   "renderer/src/types.ts": {
-    "mtime": 1785055687.0275445,
-    "ast_hash": "c91c5ceed82013c931f5b977ebe88761",
+    "mtime": 1784916128.7527235,
+    "ast_hash": "8d44e70205788d29dd04862db3c179f0",
     "semantic_hash": ""
   },
   "renderer/src/vite-env.d.ts": {
@@ -210,9 +210,9 @@
     "semantic_hash": "8a6643a420fdad6bfb583523bc6cef16"
   },
   "renderer/index.html": {
-    "mtime": 1784998651.8144386,
-    "ast_hash": "c1fc56560e755643f99ade15804723f6",
-    "semantic_hash": ""
+    "mtime": 1784794576.54744,
+    "ast_hash": "6aa183a378a99c6ce588612663afa0a3",
+    "semantic_hash": "6aa183a378a99c6ce588612663afa0a3"
   },
   "renderer/src/components/LockScreen.tsx": {
     "mtime": 1784743220.6637602,
@@ -300,8 +300,8 @@
     "semantic_hash": ""
   },
   "docs/requirements.md": {
-    "mtime": 1785055034.5095954,
-    "ast_hash": "37afa230a608e5beeac542ad9d0065a9",
+    "mtime": 1784909281.935605,
+    "ast_hash": "9be417ff64925f6d9d1ffe45bacd1ddd",
     "semantic_hash": ""
   },
   "docs/superpowers/plans/2026-07-23-phase1-crud-foundation.md": {
@@ -320,23 +320,23 @@
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-23-erp-implementation-01-crud-foundation.md": {
-    "mtime": 1784917091.00481,
-    "ast_hash": "d4dbae1f510c0bb2bfca1f3b50090699",
+    "mtime": 1784873212.5799422,
+    "ast_hash": "32028f98534432dcb20244b1a6543729",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-23-erp-implementation-02-purchase-module.md": {
-    "mtime": 1785055017.8086786,
-    "ast_hash": "630efc6e4334813382e5f805f6192e10",
+    "mtime": 1784873212.5799422,
+    "ast_hash": "234958641fa144c456731c489b6d75de",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-23-erp-implementation-03-sales-module.md": {
-    "mtime": 1785055925.3012383,
-    "ast_hash": "2c8afca11cf122b587e946d63bd1fe3a",
+    "mtime": 1784873212.580955,
+    "ast_hash": "906bea1ed51e80a1f8dd07a15f0f39ec",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-23-erp-implementation-04-inventory-transactions.md": {
-    "mtime": 1785051632.0107634,
-    "ast_hash": "87446c71bac62fdffc22dfa96f7b9956",
+    "mtime": 1784873212.580955,
+    "ast_hash": "09224570099e8f6f027144df009b89a5",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-23-erp-implementation-05-roles-access.md": {
@@ -350,8 +350,8 @@
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-24-erp-implementation-00-overview.md": {
-    "mtime": 1785055940.3356764,
-    "ast_hash": "5f6de01b9cebaf9333ac8b1131d528e8",
+    "mtime": 1784909405.3029752,
+    "ast_hash": "e871af01f5c08e8071e4a2b612a8584b",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-24-self-signup-design.md": {
@@ -395,8 +395,8 @@
     "semantic_hash": ""
   },
   "renderer/src/pages/Bills.tsx": {
-    "mtime": 1785052693.070262,
-    "ast_hash": "4ca5029977b25a90501b0d1102b70ad0",
+    "mtime": 1784916541.5690718,
+    "ast_hash": "c872b6aa0be2232bc2545b5ef578d25a",
     "semantic_hash": ""
   },
   "renderer/src/pages/Categories.tsx": {
@@ -405,8 +405,8 @@
     "semantic_hash": ""
   },
   "renderer/src/pages/ItemReturns.tsx": {
-    "mtime": 1785054965.091014,
-    "ast_hash": "83c17a548ec6420be2958bbf00c44039",
+    "mtime": 1784916580.107101,
+    "ast_hash": "dac8f35dd5fe7756c364808fd1d57bd0",
     "semantic_hash": ""
   },
   "renderer/src/pages/Notifications.tsx": {
@@ -420,13 +420,13 @@
     "semantic_hash": ""
   },
   "renderer/src/pages/PaymentTransactions.tsx": {
-    "mtime": 1785052716.4029741,
-    "ast_hash": "2d658b5c87e425ab1b6a4d50d2125a03",
+    "mtime": 1784916555.9046457,
+    "ast_hash": "692b51f9b8214e112f7f2f0041a07e3c",
     "semantic_hash": ""
   },
   "renderer/src/pages/PurchaseOrders.tsx": {
-    "mtime": 1785052574.7711184,
-    "ast_hash": "6e76a01894a18218c4e5e0f8c47d9646",
+    "mtime": 1784916530.1066735,
+    "ast_hash": "de8bf87154aa9028ed9a03d3bd2e7000",
     "semantic_hash": ""
   },
   "renderer/src/pages/ReportGenerationLogs.tsx": {
@@ -442,56 +442,6 @@
   "renderer/src/pages/Suppliers.tsx": {
     "mtime": 1784916507.498098,
     "ast_hash": "64e9b950dff94af5ae443c35915717ba",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/StockMovements.tsx": {
-    "mtime": 1785002709.7712252,
-    "ast_hash": "35f74f8b306b7c888aea32219d4631b5",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/StockTransfers.tsx": {
-    "mtime": 1785051663.6979823,
-    "ast_hash": "20a6c75ea8b237d6c9bf7f6d572407aa",
-    "semantic_hash": ""
-  },
-  "docs/core-apis-fixes.md": {
-    "mtime": 1785055627.9724877,
-    "ast_hash": "b7cc4708d658de7506a5f6b5189b9b10",
-    "semantic_hash": ""
-  },
-  "login.PNG": {
-    "mtime": 1784997577.898692,
-    "ast_hash": "f8e1c3d9aa02ffa0b846720a136de0d8",
-    "semantic_hash": ""
-  },
-  "ss.PNG": {
-    "mtime": 1784997216.1330893,
-    "ast_hash": "e7cf2143e2ae8f60ba1683826403c698",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/BillDetail.tsx": {
-    "mtime": 1785052669.0901177,
-    "ast_hash": "2d3dfe5cbf4f3d2070d66428b3ecac48",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/PurchaseOrderDetail.tsx": {
-    "mtime": 1785052612.5952437,
-    "ast_hash": "8ae22ca7be14d939ea0f9a8a1af5ce42",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Customers.tsx": {
-    "mtime": 1785055711.140539,
-    "ast_hash": "7fbb7e78f414ae7d077705a1d1b5b266",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Invoices.tsx": {
-    "mtime": 1785055742.7645357,
-    "ast_hash": "221c7980c047b9a9cc26d6261b263029",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Orders.tsx": {
-    "mtime": 1785055727.0301907,
-    "ast_hash": "9e3902848e6fc0c50f7ca9a3c5c83933",
     "semantic_hash": ""
   }
 }

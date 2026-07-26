@@ -56,7 +56,7 @@ export default function ItemReturns() {
       storeId: row.storeId ?? '',
       supplierId: row.supplierId ?? '',
       orderId: row.orderId ?? '',
-      totalAmount: row.total_amount != null ? String(row.total_amount) : '',
+      totalAmount: row.totalAmount != null ? String(row.totalAmount) : '',
       status: row.status ?? '',
     });
     setDialogOpen(true);
@@ -68,8 +68,10 @@ export default function ItemReturns() {
       returnType: form.returnType as ItemReturn['returnType'],
       storeId: form.storeId || undefined,
       supplierId: form.supplierId || undefined,
-      orderId: form.orderId || undefined,
-      total_amount: form.totalAmount ? Number(form.totalAmount) : undefined,
+      // orderId is a real FK to Orders (sales) — never send it for a purchase return, it can't
+      // reference a PurchaseOrder. See docs/core-apis-fixes.md #0e.
+      orderId: form.returnType === 'sales' ? form.orderId || undefined : undefined,
+      totalAmount: form.totalAmount ? Number(form.totalAmount) : undefined,
       status: form.status || undefined,
     };
     if (editing) {
@@ -80,12 +82,12 @@ export default function ItemReturns() {
   };
 
   const columns: Column<ItemReturn>[] = [
-    { key: 'return_number', label: 'Return #' },
+    { key: 'id', label: 'ID', render: (row) => row.id.slice(0, 8) },
     { key: 'returnType', label: 'Type' },
     {
-      key: 'total_amount',
+      key: 'totalAmount',
       label: 'Total',
-      render: (row) => `$${Number(row.total_amount || 0).toFixed(2)}`,
+      render: (row) => `$${Number(row.totalAmount || 0).toFixed(2)}`,
     },
     { key: 'status', label: 'Status' },
   ];
@@ -94,9 +96,16 @@ export default function ItemReturns() {
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+        Currently blocked end-to-end — live-tested 2026-07-26: both browsing (list/search 500s) and
+        creating a return (500s with a generic server error, even though this resource's request shape
+        is correct — unlike most others in this app) fail server-side. See docs/core-apis-fixes.md #0e
+        and #1. This looks like a shared backend issue (likely the missing-auth-guard root cause, see
+        #10), not something specific to this form.
+      </div>
       <ERPDataTable
         title="Item Returns"
-        description="Sales and purchase returns share this resource — select the type to distinguish them."
+        description="Sales and purchase returns share this resource — select the type to distinguish them. Purchase returns link to a supplier; there's no way to reference the originating Purchase Order today."
         queryKey="item-returns"
         columns={columns}
         fetchData={(params) => ItemReturnsApi.search(params)}
@@ -113,6 +122,9 @@ export default function ItemReturns() {
             <DialogTitle>{editing ? 'Edit Item Return' : 'Add Item Return'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+              Submitting is disabled — this endpoint currently fails server-side for every request.
+            </div>
             <div className="space-y-2">
               <Label>Return Type</Label>
               <Select value={form.returnType} onValueChange={(v) => setForm({ ...form, returnType: v })}>
@@ -154,16 +166,16 @@ export default function ItemReturns() {
                 />
               </div>
             )}
-            <div className="space-y-2">
-              {/* TODO: verify against live API — Phase 2 spec flags this may be PO-specific wording,
-                  unclear if it accepts a purchase order id for returnType=purchase. */}
-              <Label htmlFor="ret-order-id">Order / Purchase Order ID (optional)</Label>
-              <Input
-                id="ret-order-id"
-                value={form.orderId}
-                onChange={(e) => setForm({ ...form, orderId: e.target.value })}
-              />
-            </div>
+            {form.returnType === 'sales' && (
+              <div className="space-y-2">
+                <Label htmlFor="ret-order-id">Order ID (optional)</Label>
+                <Input
+                  id="ret-order-id"
+                  value={form.orderId}
+                  onChange={(e) => setForm({ ...form, orderId: e.target.value })}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="ret-total">Total Amount</Label>
               <Input
@@ -187,8 +199,8 @@ export default function ItemReturns() {
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Saving…' : 'Save'}
+              <Button type="submit" disabled>
+                {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
               </Button>
             </DialogFooter>
           </form>

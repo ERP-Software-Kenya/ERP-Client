@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { RefreshCw, Search, Plus, Trash2, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, Search, Plus, Trash2, Pencil, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useDebounce } from '../hooks/useDebounce';
 
@@ -17,6 +17,7 @@ interface Props<T extends { id: string }> {
   fetchData(params?: { page?: number; limit?: number; search?: string }): Promise<unknown>;
   queryKey: string;
   onAdd?: () => void;
+  onView?: (row: T) => void;
   onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
   isAdmin?: boolean;
@@ -34,6 +35,7 @@ export function ERPDataTable<T extends { id: string }>({
   fetchData,
   queryKey,
   onAdd,
+  onView,
   onEdit,
   onDelete,
   isAdmin,
@@ -126,7 +128,7 @@ export function ERPDataTable<T extends { id: string }>({
                     {col.label}
                   </th>
                 ))}
-                {(onEdit || onDelete) && isAdmin && <th style={{ width: '100px' }}>Actions</th>}
+                {(onView || onEdit || onDelete) && isAdmin && <th style={{ width: '130px' }}>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -138,7 +140,7 @@ export function ERPDataTable<T extends { id: string }>({
                         <div className="skeleton" style={{ height: '16px', width: '80%' }} />
                       </td>
                     ))}
-                    {(onEdit || onDelete) && isAdmin && (
+                    {(onView || onEdit || onDelete) && isAdmin && (
                       <td><div className="skeleton" style={{ height: '16px', width: '60px' }} /></td>
                     )}
                   </tr>
@@ -162,9 +164,18 @@ export function ERPDataTable<T extends { id: string }>({
                         : String(getCellValue(row, String(col.key)) ?? '—')}
                     </td>
                   ))}
-                  {(onEdit || onDelete) && isAdmin && (
+                  {(onView || onEdit || onDelete) && isAdmin && (
                     <td>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {onView && (
+                          <button
+                            className="btn btn-ghost btn-icon btn-sm"
+                            onClick={() => onView(row)}
+                            title="View"
+                          >
+                            <Eye size={14} />
+                          </button>
+                        )}
                         {onEdit && (
                           <button
                             className="btn btn-ghost btn-icon btn-sm"

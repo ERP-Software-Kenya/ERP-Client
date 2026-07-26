@@ -100,22 +100,53 @@ export interface Category {
   updated_at?: string;
 }
 
+// Verified 2026-07-26 against core-apis source (products.controller.ts,
+// create/update-product.request.ts): fields are camelCase and there is no
+// snake_case conversion layer in api.ts, so these names must match the wire
+// format exactly. `unit` is a fixed backend enum, not free text.
+export type ProductUnit = 'piece' | 'kg' | 'gram' | 'litre' | 'ml' | 'box' | 'pack' | 'dozen';
+
 export interface Product {
   id: string;
-  name: string;
-  code?: string;
-  unit?: string;
-  unit_price?: number;
+  organizationId?: string;
+  categoryId?: string;
+  createdById?: string;
+  name?: string;
   sku?: string;
   barcode?: string;
-  category_id?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
+  description?: string;
+  unit?: ProductUnit;
+  costPrice?: number;
+  retailPrice?: number;
+  loyaltyPrice?: number;
+  wholesalePrice?: number;
+  transferPrice?: number;
+  reorderPoint?: number;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
+// GET/POST /api/v1/products/:id/images — separate from the Product record.
+export interface ProductImage {
+  id: string;
+  productId: string;
+  storageKey: string;
+  sortOrder: number;
+  isPrimary: boolean;
+  uploadedById?: string;
+  url?: string;
+  createdAt: string;
+}
+
+// Verified 2026-07-26 directly against the deployed API's live responses (not
+// just source): CreateInventoryRequest/InventoryResponse are `{name?: string}`
+// scaffold-only, same bug class as PurchaseOrder (docs/core-apis-fixes.md #11).
+// product_id/store_id/quantity/min_quantity/unit/status below do NOT round-trip
+// through the API today even though InventoryItemEntity likely has them in the
+// DB — kept only so any code expecting them still compiles; do not trust them.
 export interface InventoryItem {
   id: string;
+  name?: string;
   product_id?: string;
   store_id?: string;
   quantity?: number;
@@ -137,8 +168,15 @@ export interface Supplier {
   updated_at?: string;
 }
 
+// Verified 2026-07-26 against core-apis source: CreatePurchaseOrderRequest/
+// UpdatePurchaseOrderRequest/PurchaseOrderResponse only carry `name` — the fields
+// below (supplier_id/store_id/total_amount/status/ordered_at) exist on the real
+// DB entity but are NOT reachable through the API at all today. Kept here only so
+// existing Phase 1 code compiles; do not trust them to round-trip. See
+// docs/core-apis-fixes.md #0.
 export interface PurchaseOrder {
   id: string;
+  name?: string;
   supplier_id?: string;
   store_id?: string;
   total_amount?: number;
@@ -148,24 +186,36 @@ export interface PurchaseOrder {
   updated_at?: string;
 }
 
+// Verified 2026-07-26 against core-apis's BillResponse/CreateBillRequest source
+// directly — the real wire contract is orgId/billNumber/amount/status, not
+// purchase_order_id/amount/due_date. Create 500s regardless: the entity's real
+// NOT-NULL columns are supplierId/storeId/totalAmount, which nothing in this DTO
+// sets. There is no field anywhere linking a Bill to a PurchaseOrder. See
+// docs/core-apis-fixes.md #0c.
 export interface Bill {
   id: string;
-  purchase_order_id?: string;
+  orgId?: string;
+  billNumber?: string;
   amount?: number;
-  due_date?: string;
   status?: string;
   created_at?: string;
-  updated_at?: string;
 }
 
+// Verified 2026-07-26 against core-apis's PaymentTransactionResponse/
+// CreatePaymentTransactionRequest source directly. referenceId+referenceType is
+// the confirmed linkage pattern (e.g. referenceType: 'bill', referenceId: <bill.id>).
+// Create 500s regardless — domain model uses orgId, entity column is
+// organizationId. See docs/core-apis-fixes.md #0d.
 export interface PaymentTransaction {
   id: string;
-  reference?: string;
+  orgId?: string;
+  referenceId?: string;
+  referenceType?: string;
   type?: string;
+  method?: string;
   amount?: number;
   status?: string;
   created_at?: string;
-  updated_at?: string;
 }
 
 export interface Notification {
@@ -177,21 +227,21 @@ export interface Notification {
   created_at?: string;
 }
 
+// Verified 2026-07-26 against core-apis's ItemReturnResponse/CreateItemReturnRequest
+// source directly — fully camelCase, matches the entity exactly (this is the one
+// clean full-CRUD resource found in the Phase 2 investigation, see
+// docs/core-apis-fixes.md #0e). There is no `return_number`/`returnNumber` field —
+// that was a guess, not real. `orderId` is a real FK to Orders (sales), it cannot
+// reference a PurchaseOrder.
 export interface ItemReturn {
   id: string;
-  return_number?: string;
   status?: string;
-  total_amount?: number;
-  // TODO: verify against live API — OpenAPI request schema (CreateItemReturnRequest) uses
-  // camelCase (returnType/storeId/orderId/supplierId/totalAmount) while response fields above
-  // are snake_case, matching the rest of this file. Confirm whether GET responses actually
-  // return these fields in snake_case or camelCase before relying on them for display.
+  totalAmount?: number;
   returnType?: 'sales' | 'purchase';
   storeId?: string;
   orderId?: string;
   supplierId?: string;
-  created_at?: string;
-  updated_at?: string;
+  createdAt?: string;
 }
 
 export interface ReportGenerationLog {
@@ -201,48 +251,67 @@ export interface ReportGenerationLog {
   created_at?: string;
 }
 
+// Verified 2026-07-25 against core-apis's StockMovementResponse/StockTransferResponse
+// source directly — these two are camelCase in the real API response, unlike most of
+// this file (same discrepancy already flagged on ItemReturn above). Creating a
+// StockMovement currently 500s server-side regardless of what the client sends —
+// see docs/core-apis-fixes.md #2.
 export interface StockMovement {
   id: string;
-  type?: string;
-  product_id?: string;
-  quantity?: number;
-  created_at?: string;
+  organizationId: string;
+  inventoryId: string;
+  userId?: string;
+  quantity: number;
+  type: string;
+  reason?: string;
 }
 
 export interface StockTransfer {
   id: string;
-  from_store_id?: string;
-  to_store_id?: string;
+  organizationId: string;
+  fromStoreId: string;
+  toStoreId: string;
+  transferNumber: string;
   status?: string;
-  created_at?: string;
 }
 
+// Verified 2026-07-26 against core-apis's OrderResponse/CreateOrderRequest source
+// directly — camelCase, matches the entity well. Create 500s regardless: entity's
+// NOT-NULL organizationId is never set by the command. See docs/core-apis-fixes.md #8.
 export interface Order {
   id: string;
-  order_number?: string;
-  customer_id?: string;
+  orderNumber?: string;
+  storeId?: string;
+  customerId?: string;
   status?: string;
-  total_amount?: number;
-  created_at?: string;
+  subtotal?: number;
+  taxAmount?: number;
+  totalAmount?: number;
+  paymentStatus?: string;
 }
 
+// Verified 2026-07-26 against core-apis's InvoiceResponse/CreateInvoiceRequest
+// source directly — the cleanest resource found in this investigation (no
+// organizationId needed, invoiceNumber auto-generated server-side). Not live-tested
+// — treat as unverified, not working, given every other create tested this session
+// failed regardless of DTO cleanliness (see docs/core-apis-fixes.md callout).
 export interface Invoice {
   id: string;
-  invoice_number?: string;
-  customer_id?: string;
+  orderId?: string;
+  invoiceNumber?: string;
+  totalAmount?: number;
   status?: string;
-  total_amount?: number;
-  due_date?: string;
-  created_at?: string;
 }
 
+// Verified 2026-07-26 against core-apis's CustomerResponse/CreateCustomerRequest
+// source directly. Create 500s regardless: entity's NOT-NULL organizationId is
+// never set by the command. See docs/core-apis-fixes.md #8.
 export interface Customer {
   id: string;
   name?: string;
   email?: string;
   phone?: string;
-  status?: string;
-  created_at?: string;
+  gstin?: string;
 }
 
 export interface Expense {
@@ -254,13 +323,16 @@ export interface Expense {
   created_at?: string;
 }
 
+// Verified 2026-07-26: CreatePurchaseItemRequest is camelCase (purchaseOrderId/
+// productId/quantity/unitPrice), unlike most of this file. Create 500s regardless
+// — entity's real NOT-NULL columns are quantityOrdered/unitCost, not quantity/
+// unitPrice. See docs/core-apis-fixes.md #0b.
 export interface PurchaseItem {
   id: string;
-  purchase_order_id?: string;
-  product_id?: string;
+  purchaseOrderId?: string;
+  productId?: string;
   quantity?: number;
-  unit_price?: number;
-  created_at?: string;
+  unitPrice?: number;
 }
 
 export interface ActivityLog {

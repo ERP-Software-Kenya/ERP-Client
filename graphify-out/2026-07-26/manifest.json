@@ -5,8 +5,8 @@
     "semantic_hash": ""
   },
   ".claude/settings.local.json": {
-    "mtime": 1785055895.5688288,
-    "ast_hash": "0dc0b3b4d3f12ddec454aadb56e92668",
+    "mtime": 1785054822.890207,
+    "ast_hash": "d1895f35b730ecf0bc1127daf1687b75",
     "semantic_hash": ""
   },
   "package.json": {
@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "renderer/src/App.tsx": {
-    "mtime": 1785055759.2241776,
-    "ast_hash": "e6d605f4cafb4da1e6fb7f8485b4d197",
+    "mtime": 1785052544.346453,
+    "ast_hash": "64781d3517e37c6a410c87dc754e57a2",
     "semantic_hash": ""
   },
   "renderer/src/api.ts": {
@@ -160,8 +160,8 @@
     "semantic_hash": "ae0583778fb9190f6b8ec824f37e2916"
   },
   "renderer/src/types.ts": {
-    "mtime": 1785055687.0275445,
-    "ast_hash": "c91c5ceed82013c931f5b977ebe88761",
+    "mtime": 1785054387.7094297,
+    "ast_hash": "931112efa63928412b285491d1556556",
     "semantic_hash": ""
   },
   "renderer/src/vite-env.d.ts": {
@@ -330,8 +330,8 @@
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-23-erp-implementation-03-sales-module.md": {
-    "mtime": 1785055925.3012383,
-    "ast_hash": "2c8afca11cf122b587e946d63bd1fe3a",
+    "mtime": 1784873212.580955,
+    "ast_hash": "906bea1ed51e80a1f8dd07a15f0f39ec",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-23-erp-implementation-04-inventory-transactions.md": {
@@ -350,8 +350,8 @@
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-24-erp-implementation-00-overview.md": {
-    "mtime": 1785055940.3356764,
-    "ast_hash": "5f6de01b9cebaf9333ac8b1131d528e8",
+    "mtime": 1785055025.3454328,
+    "ast_hash": "5f8dba032effbfccd49f2dda2e841907",
     "semantic_hash": ""
   },
   "docs/superpowers/specs/2026-07-24-self-signup-design.md": {
@@ -455,8 +455,8 @@
     "semantic_hash": ""
   },
   "docs/core-apis-fixes.md": {
-    "mtime": 1785055627.9724877,
-    "ast_hash": "b7cc4708d658de7506a5f6b5189b9b10",
+    "mtime": 1785055416.844324,
+    "ast_hash": "0d0abda341545f6644cc696955e64bff",
     "semantic_hash": ""
   },
   "login.PNG": {
@@ -477,21 +477,6 @@
   "renderer/src/pages/PurchaseOrderDetail.tsx": {
     "mtime": 1785052612.5952437,
     "ast_hash": "8ae22ca7be14d939ea0f9a8a1af5ce42",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Customers.tsx": {
-    "mtime": 1785055711.140539,
-    "ast_hash": "7fbb7e78f414ae7d077705a1d1b5b266",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Invoices.tsx": {
-    "mtime": 1785055742.7645357,
-    "ast_hash": "221c7980c047b9a9cc26d6261b263029",
-    "semantic_hash": ""
-  },
-  "renderer/src/pages/Orders.tsx": {
-    "mtime": 1785055727.0301907,
-    "ast_hash": "9e3902848e6fc0c50f7ca9a3c5c83933",
     "semantic_hash": ""
   }
 }

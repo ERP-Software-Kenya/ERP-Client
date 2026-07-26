@@ -1,11 +1,11 @@
 # Graph Report - core-erp-client  (2026-07-26)
 
 ## Corpus Check
-- 96 files · ~65,097 words
+- 93 files · ~62,817 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 761 nodes · 1438 edges · 51 communities (40 shown, 11 thin omitted)
+- 746 nodes · 1372 edges · 49 communities (37 shown, 12 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 3 edges (avg confidence: 0.65)
 - Token cost: 0 input · 0 output
 
@@ -15,7 +15,6 @@
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- api.ts
 - Vehicles Module
 - Electron Main & Build Scripts
 - API Client & Categories
@@ -31,7 +30,6 @@
 - index.html CSP & Fonts
 - ModulePage.tsx
 - Dashboard.tsx
-- CategorySelect.tsx
 - Suppliers Module
 - Electron Launcher Script
 - API Request Helpers
@@ -69,13 +67,13 @@
 1. `useResourceMutations()` - 28 edges
 2. `getDb()` - 25 edges
 3. `Phase 1 — CRUD Foundation Implementation Plan` - 25 edges
-4. `Button` - 24 edges
-5. `setupIpcHandlers()` - 24 edges
-6. `DialogHeader()` - 22 edges
-7. `DialogFooter()` - 22 edges
-8. `DialogContent` - 21 edges
-9. `DialogTitle` - 21 edges
-10. `Input` - 21 edges
+4. `setupIpcHandlers()` - 24 edges
+5. `Button` - 21 edges
+6. `DialogHeader()` - 19 edges
+7. `DialogFooter()` - 19 edges
+8. `DialogContent` - 18 edges
+9. `DialogTitle` - 18 edges
+10. `Input` - 18 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Sidebar()` --calls--> `cn()`  [EXTRACTED]
@@ -96,11 +94,7 @@
 - **Graphify CLI command set (query/path/explain/update)** — claude_graphify_query_command, claude_graphify_path_command, claude_graphify_explain_command, claude_graphify_update_command [INFERRED 0.85]
 - **CSP-allowed external origins** — renderer_index_content_security_policy, renderer_index_core_apis_backend, renderer_index_warehouse_ops_desk, renderer_index_openstreetmap, renderer_index_unsplash, renderer_index_google_fonts [EXTRACTED 1.00]
 
-## Communities (51 total, 11 thin omitted)
-
-### Community 0 - "api.ts"
-Cohesion: 0.09
-Nodes (21): ActivityLogs, Customers, Expenses, Invoices, ItemReturns, makeMutableResource(), makeResource(), Notifications (+13 more)
+## Communities (49 total, 12 thin omitted)
 
 ### Community 2 - "Electron Main & Build Scripts"
 Cohesion: 0.05
@@ -127,8 +121,8 @@ Cohesion: 0.15
 Nodes (38): adminResetPassword(), changePassword(), createUser(), deactivateUser(), getUserById(), getUsers(), hasUsers(), login() (+30 more)
 
 ### Community 11 - "core-apis — Fixes Needed"
-Cohesion: 0.11
-Nodes (18): 0. [BUG, confirmed] `PurchaseOrder` DTOs strip every real field down to `name`, 0b. [BUG, confirmed] `POST /purchase-items` will 500 — DTO/entity field mismatch, 0c. [BUG, confirmed] `POST /bills` will 500 — DTO/entity field mismatch, 0d. [BUG, confirmed] `POST /payment-transactions` will 500 — `orgId` vs `organizationId`, 0e. [Partially resolved] `ItemReturns` DTO/entity/domain-model is clean — but create still 500s live; `orderId` is Orders-only, 1. [BUG, unconfirmed root cause] 8 of 12 full-CRUD resources 500 on new orgs, 2. [BUG, confirmed] `POST /stock-movements` will 500 — DTO/entity field mismatch, 3. [BUG, confirmed symptom, unconfirmed root cause] `POST /stock-transfers` 500s live (+10 more)
+Cohesion: 0.12
+Nodes (16): 0. [BUG, confirmed] `PurchaseOrder` DTOs strip every real field down to `name`, 0b. [BUG, confirmed] `POST /purchase-items` will 500 — DTO/entity field mismatch, 0c. [BUG, confirmed] `POST /bills` will 500 — DTO/entity field mismatch, 0d. [BUG, confirmed] `POST /payment-transactions` will 500 — `orgId` vs `organizationId`, 0e. [Partially resolved] `ItemReturns` DTO/entity/domain-model is clean — but create still 500s live; `orderId` is Orders-only, 1. [BUG, unconfirmed root cause] 8 of 12 full-CRUD resources 500 on new orgs, 2. [BUG, confirmed] `POST /stock-movements` will 500 — DTO/entity field mismatch, 3. [BUG, confirmed symptom, unconfirmed root cause] `POST /stock-transfers` 500s live (+8 more)
 
 ### Community 12 - "Graphify Workflow Docs"
 Cohesion: 0.67
@@ -139,16 +133,8 @@ Cohesion: 0.25
 Nodes (8): Content-Security-Policy meta tag, core-apis-m03n.onrender.com (backend API), Google Fonts service, Inter font family, JetBrains Mono font family, OpenStreetMap embed (frame-src), Unsplash images (img-src), warehouse-ops-desk.preview.emergentagent.com
 
 ### Community 14 - "ModulePage.tsx"
-Cohesion: 0.23
-Nodes (9): NAV_ITEMS, NavItem, Props, SidebarNav(), Props, UserFormData, AppUserRole, Tab (+1 more)
-
-### Community 15 - "Dashboard.tsx"
-Cohesion: 0.43
-Nodes (8): buildUrl(), del(), get(), _getToken(), headers(), post(), put(), readErrorBody()
-
-### Community 16 - "CategorySelect.tsx"
-Cohesion: 0.40
-Nodes (5): Categories, buildIndentedList(), CategorySelect(), CategorySelectProps, Category
+Cohesion: 0.20
+Nodes (8): Sidebar(), ALL_ITEMS, ModuleGroup, ModuleItem, MODULES, useDebounce(), getApiClient(), ModulePage()
 
 ### Community 20 - "Suppliers Module"
 Cohesion: 0.06
@@ -160,7 +146,7 @@ Nodes (4): args, child, electronPath, require
 
 ### Community 22 - "API Request Helpers"
 Cohesion: 0.11
-Nodes (20): Vehicles, ActiveTab, MAINTENANCE_STATUS_COLORS, MOCK_VEHICLES, Props, STATUS_CONFIG, VehicleDetailView(), EMPTY_FORM (+12 more)
+Nodes (19): Vehicles, ActiveTab, MAINTENANCE_STATUS_COLORS, MOCK_VEHICLES, Props, STATUS_CONFIG, VehicleDetailView(), EMPTY_FORM (+11 more)
 
 ### Community 24 - "App Entry Mount"
 Cohesion: 0.67
@@ -171,16 +157,16 @@ Cohesion: 0.08
 Nodes (25): Global Constraints, Phase 1 — CRUD Foundation Implementation Plan, Task 10: Stores page — full CRUD, Task 11: Categories page — full CRUD with hierarchy picker, Task 12: Products page — rewire to real CRUD, Task 13: Suppliers page — full CRUD, Task 14: PurchaseOrders page — full CRUD (basic shell only, no line items), Task 15: Bills page — full CRUD (+17 more)
 
 ### Community 30 - "types.ts"
-Cohesion: 0.08
-Nodes (23): ActivityLog, AppSettings, Bill, Customer, Expense, InventoryItem, Invoice, Notification (+15 more)
+Cohesion: 0.05
+Nodes (60): ActivityLogs, buildUrl(), Customers, del(), Expenses, get(), _getToken(), headers() (+52 more)
 
 ### Community 31 - "Login.tsx"
 Cohesion: 0.06
-Nodes (91): Bills, Inventory, Organizations, PaymentTransactions, Products, PurchaseItems, PurchaseOrders, Stores (+83 more)
+Nodes (95): Bills, Categories, Inventory, Organizations, PaymentTransactions, Products, PurchaseOrders, StockMovements (+87 more)
 
 ### Community 33 - "AuthContext.tsx"
-Cohesion: 0.06
-Nodes (42): configureApi(), App(), GENERIC_KEYS, Sidebar(), Topbar(), ProtectedRoute(), ALL_ITEMS, ModuleGroup (+34 more)
+Cohesion: 0.09
+Nodes (26): configureApi(), App(), GENERIC_KEYS, Topbar(), ProtectedRoute(), AuthContext, AuthContextType, AuthProvider() (+18 more)
 
 ### Community 36 - "ERP Client Conventions"
 Cohesion: 0.18
@@ -195,8 +181,8 @@ Cohesion: 0.20
 Nodes (9): 1. Why this differs from `inventory_management_spec.md`, 2. What the app already has right, structurally, 3. What's actually implemented today (verified by reading routed code, not the unused legacy files), 4. Endpoint capability matrix (verified against live OpenAPI, 2026-07-23), 5. Cross-phase foundation work (built once in Phase 1, reused everywhere), 6. Open items — resolved 2026-07-23, 7. Phase 1 decisions (confirmed 2026-07-23), 8. Implementation sequencing & verification strategy (confirmed 2026-07-23, second session) (+1 more)
 
 ### Community 39 - "Phase 3 — Sales Module"
-Cohesion: 0.18
-Nodes (10): 1. Goal, 2. Current state — this is the most backend-constrained phase, 3. What to actually build now vs. what's blocked, 4. Screens & interactions (scoped to what's buildable), 5. Business rules from spec §5.3 — status, 6. Recommendation, 7. Open questions for this phase, 7b. Open questions — resolved 2026-07-26 by reading `core-apis` source directly (+2 more)
+Cohesion: 0.20
+Nodes (9): 1. Goal, 2. Current state — this is the most backend-constrained phase, 3. What to actually build now vs. what's blocked, 4. Screens & interactions (scoped to what's buildable), 5. Business rules from spec §5.3 — status, 6. Recommendation, 7. Open questions for this phase, 8. Done when (+1 more)
 
 ### Community 40 - "Phase 4 — Inventory Transactions"
 Cohesion: 0.20
@@ -251,24 +237,24 @@ Cohesion: 0.40
 Nodes (4): The check, Verify core-apis Capability Before Building, When the answer is "no list endpoint exists", Why this matters
 
 ## Knowledge Gaps
-- **387 isolated node(s):** `name`, `description`, `type`, `main`, `dev` (+382 more)
+- **381 isolated node(s):** `name`, `description`, `type`, `main`, `dev` (+376 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **11 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **12 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `devDependencies` connect `Dev Dependencies` to `Electron Main & Build Scripts`?**
-  _High betweenness centrality (0.014) - this node is a cross-community bridge._
+  _High betweenness centrality (0.015) - this node is a cross-community bridge._
 - **Why does `dependencies` connect `Runtime Dependencies` to `Electron Main & Build Scripts`?**
-  _High betweenness centrality (0.013) - this node is a cross-community bridge._
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
 - **What connects `name`, `description`, `type` to the rest of the system?**
-  _387 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `api.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.08695652173913043 - nodes in this community are weakly interconnected._
+  _381 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Electron Main & Build Scripts` be split into smaller, more focused modules?**
   _Cohesion score 0.05128205128205128 - nodes in this community are weakly interconnected._
 - **Should `Runtime Dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.05128205128205128 - nodes in this community are weakly interconnected._
 - **Should `Dev Dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.046511627906976744 - nodes in this community are weakly interconnected._
+- **Should `Renderer TS Config` be split into smaller, more focused modules?**
+  _Cohesion score 0.09090909090909091 - nodes in this community are weakly interconnected._
