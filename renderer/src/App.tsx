@@ -23,17 +23,15 @@ import StockTransfers from './pages/StockTransfers';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
 import Invoices from './pages/Invoices';
-import ModulePage from './pages/ModulePage';
+import ActivityLogs from './pages/ActivityLogs';
+import Expenses from './pages/Expenses';
+import PlatformConfigurations from './pages/PlatformConfigurations';
+import PurchaseItems from './pages/PurchaseItems';
+import Roles from './pages/Roles';
+import UserRoles from './pages/UserRoles';
+import Users from './pages/Users';
 import VehiclesPage from './pages/VehiclesPage';
 import VehicleDetailPage from './pages/VehicleDetailPage';
-import { ALL_ITEMS } from './config/modules';
-
-const GENERIC_KEYS = new Set([
-  'activity-logs',
-  'purchase-items',
-  'expenses', 'reports', 'users', 'roles', 'user-roles',
-  'platform-configurations'
-]);
 
 function App() {
   return (
@@ -65,10 +63,13 @@ function App() {
           <Route path="invoices" element={<Invoices />} />
           <Route path="vehicles" element={<VehiclesPage />} />
           <Route path="vehicles/:id" element={<VehicleDetailPage />} />
-          
-          {ALL_ITEMS.filter(i => GENERIC_KEYS.has(i.key)).map(i => (
-            <Route key={i.key} path={i.path.slice(1)} element={<ModulePage i={i} />} />
-          ))}
+          <Route path="activity-logs" element={<ActivityLogs />} />
+          <Route path="expenses" element={<Expenses />} />
+          <Route path="platform-configurations" element={<PlatformConfigurations />} />
+          <Route path="purchase-items" element={<PurchaseItems />} />
+          <Route path="roles" element={<Roles />} />
+          <Route path="user-roles" element={<UserRoles />} />
+          <Route path="users" element={<Users />} />
         </Route>
       </Routes>
     </BrowserRouter>

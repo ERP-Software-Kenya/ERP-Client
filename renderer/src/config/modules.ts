@@ -5,7 +5,6 @@ import {
   Boxes,
   Building,
   Building2,
-  ChartColumn,
   ClipboardList,
   CreditCard,
   FileText,
@@ -44,15 +43,19 @@ export const MODULES: ModuleGroup[] = [
     label: 'Overview',
     items: [
       { key: 'dashboard', title: 'Dashboard', path: '/', icon: LayoutDashboard },
-      { key: 'notifications', title: 'Notifications', path: '/notifications', icon: Bell },
       { key: 'activity-logs', title: 'Activity Logs', path: '/activity-logs', icon: Activity },
+    ],
+  },
+  {
+    label: 'Products',
+    items: [
+      { key: 'products', title: 'Products', path: '/products', icon: Package },
+      { key: 'categories', title: 'Categories', path: '/categories', icon: Tags },
     ],
   },
   {
     label: 'Inventory',
     items: [
-      { key: 'products', title: 'Products', path: '/products', icon: Package },
-      { key: 'categories', title: 'Categories', path: '/categories', icon: Tags },
       { key: 'inventory', title: 'Inventory', path: '/inventory', icon: Boxes },
       { key: 'stock-movements', title: 'Stock Movements', path: '/stock-movements', icon: ArrowRightLeft },
       { key: 'stock-transfers', title: 'Stock Transfers', path: '/stock-transfers', icon: Truck },
@@ -83,6 +86,12 @@ export const MODULES: ModuleGroup[] = [
     ],
   },
   {
+    label: 'Fleet',
+    items: [
+      { key: 'vehicles', title: 'Vehicles', path: '/vehicles', icon: Car },
+    ],
+  },
+  {
     label: 'Finance',
     items: [
       { key: 'payment-transactions', title: 'Payment Transactions', path: '/payment-transactions', icon: CreditCard },
@@ -92,24 +101,23 @@ export const MODULES: ModuleGroup[] = [
   {
     label: 'Reports',
     items: [
-      { key: 'reports', title: 'Reports', path: '/reports', icon: ChartColumn },
       { key: 'report-generation-logs', title: 'Report Logs', path: '/report-generation-logs', icon: ClipboardList },
     ],
   },
   {
-    label: 'Fleet',
-    items: [
-      { key: 'vehicles', title: 'Vehicles', path: '/vehicles', icon: Car },
-    ],
-  },
-  {
-    label: 'Admin',
+    label: 'Administration',
     items: [
       { key: 'users', title: 'Users', path: '/users', icon: UsersRound },
       { key: 'roles', title: 'Roles', path: '/roles', icon: ShieldCheck },
       { key: 'user-roles', title: 'User Roles', path: '/user-roles', icon: UserCog },
       { key: 'organizations', title: 'Organizations', path: '/organizations', icon: Building },
+    ],
+  },
+  {
+    label: 'Settings',
+    items: [
       { key: 'platform-configurations', title: 'Platform Config', path: '/platform-configurations', icon: Settings },
+      { key: 'notifications', title: 'Notifications', path: '/notifications', icon: Bell },
     ],
   },
 ];

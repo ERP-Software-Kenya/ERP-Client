@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, Search, Plus, Trash2, Pencil, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useDebounce } from '../hooks/useDebounce';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { cn } from '../lib/utils';
 
 export interface Column<T> {
   key: keyof T | string;
@@ -69,79 +72,69 @@ export function ERPDataTable<T extends { id: string }>({
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '1rem' }}>
+    <div className="flex h-full flex-col gap-4">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>{title}</h2>
-          {description && <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.2rem' }}>{description}</p>}
+          <h2 className="text-xl font-semibold">{title}</h2>
+          {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {/* Search */}
-          <div style={{ position: 'relative' }}>
-            <Search size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-            <input
-              className="erp-input"
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
               type="text"
               placeholder={searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ paddingLeft: '2.25rem', width: '220px' }}
+              className="w-[220px] pl-9"
             />
           </div>
-          <button className="btn btn-ghost btn-icon" onClick={() => void refetch()} title="Refresh">
-            <RefreshCw size={16} className={loading ? 'animate-spin-slow' : ''} />
-          </button>
+          <Button variant="ghost" size="icon" onClick={() => void refetch()} title="Refresh">
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </Button>
           {onAdd && isAdmin && (
-            <button className="btn btn-primary btn-sm" onClick={onAdd}>
+            <Button size="sm" onClick={onAdd}>
               <Plus size={15} /> Add
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {/* Table */}
-      <div
-        style={{
-          flex: 1,
-          overflow: 'auto',
-          background: 'var(--surface-1)',
-          borderRadius: '0.75rem',
-          border: '1px solid var(--surface-2)',
-        }}
-      >
+      <div className="flex-1 overflow-auto rounded-lg border border-border bg-card">
         {error && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#f87171' }}>
+          <div className="p-8 text-center text-destructive">
             <p>Failed to load: {error}</p>
-            <button className="btn btn-ghost btn-sm" onClick={() => void refetch()} style={{ marginTop: '0.75rem' }}>
+            <Button variant="ghost" size="sm" className="mt-3" onClick={() => void refetch()}>
               Retry
-            </button>
+            </Button>
           </div>
         )}
 
         {!error && (
-          <table className="erp-table">
-            <thead>
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/50">
               <tr>
                 {columns.map((col) => (
-                  <th key={String(col.key)} style={{ width: col.width }}>
+                  <th key={String(col.key)} className="px-4 py-2 text-left font-medium text-muted-foreground" style={{ width: col.width }}>
                     {col.label}
                   </th>
                 ))}
-                {(onView || onEdit || onDelete) && isAdmin && <th style={{ width: '130px' }}>Actions</th>}
+                {(onView || onEdit || onDelete) && isAdmin && <th className="w-[130px] px-4 py-2 text-left font-medium text-muted-foreground">Actions</th>}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {loading && rows.length === 0 &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
                     {columns.map((col) => (
-                      <td key={String(col.key)}>
-                        <div className="skeleton" style={{ height: '16px', width: '80%' }} />
+                      <td key={String(col.key)} className="px-4 py-2">
+                        <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
                       </td>
                     ))}
                     {(onView || onEdit || onDelete) && isAdmin && (
-                      <td><div className="skeleton" style={{ height: '16px', width: '60px' }} /></td>
+                      <td className="px-4 py-2"><div className="h-4 w-[60px] animate-pulse rounded bg-muted" /></td>
                     )}
                   </tr>
                 ))
@@ -149,50 +142,44 @@ export function ERPDataTable<T extends { id: string }>({
 
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={columns.length + 1} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                  <td colSpan={columns.length + 1} className="px-4 py-12 text-center text-muted-foreground">
                     No records found
                   </td>
                 </tr>
               )}
 
               {rows.map((row) => (
-                <tr key={row.id}>
+                <tr key={row.id} className="hover:bg-muted/50">
                   {columns.map((col) => (
-                    <td key={String(col.key)}>
+                    <td key={String(col.key)} className="px-4 py-2">
                       {col.render
                         ? col.render(row)
                         : String(getCellValue(row, String(col.key)) ?? '—')}
                     </td>
                   ))}
                   {(onView || onEdit || onDelete) && isAdmin && (
-                    <td>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <td className="px-4 py-2">
+                      <div className="flex gap-1">
                         {onView && (
-                          <button
-                            className="btn btn-ghost btn-icon btn-sm"
-                            onClick={() => onView(row)}
-                            title="View"
-                          >
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(row)} title="View">
                             <Eye size={14} />
-                          </button>
+                          </Button>
                         )}
                         {onEdit && (
-                          <button
-                            className="btn btn-ghost btn-icon btn-sm"
-                            onClick={() => onEdit(row)}
-                            title="Edit"
-                          >
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(row)} title="Edit">
                             <Pencil size={14} />
-                          </button>
+                          </Button>
                         )}
                         {onDelete && (
-                          <button
-                            className="btn btn-danger btn-icon btn-sm"
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn('h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive')}
                             onClick={() => onDelete(row)}
                             title="Delete"
                           >
                             <Trash2 size={14} />
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -205,30 +192,22 @@ export function ERPDataTable<T extends { id: string }>({
       </div>
 
       {/* Pagination */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
           {total > 0
             ? `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total}`
             : 'No results'}
         </span>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page <= 1}
-          >
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
             <ChevronLeft size={15} />
-          </button>
-          <span style={{ minWidth: '4rem', textAlign: 'center' }}>
+          </Button>
+          <span className="min-w-[4rem] text-center">
             {page} / {totalPages}
           </span>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page >= totalPages}
-          >
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
             <ChevronRight size={15} />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

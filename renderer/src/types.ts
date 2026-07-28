@@ -52,7 +52,6 @@ export type Tab =
   | 'stores'
   | 'payment-transactions'
   | 'expenses'
-  | 'reports'
   | 'report-generation-logs'
   | 'users'
   | 'roles'
@@ -316,17 +315,19 @@ export interface Customer {
 
 export interface Expense {
   id: string;
-  description?: string;
-  amount?: number;
+  organizationId?: string;
+  storeId?: string;
   category?: string;
-  status?: string;
-  created_at?: string;
+  amount?: number;
+  expenseDate?: string;
+  description?: string;
+  createdAt?: string;
 }
 
-// Verified 2026-07-26: CreatePurchaseItemRequest is camelCase (purchaseOrderId/
-// productId/quantity/unitPrice), unlike most of this file. Create 500s regardless
-// — entity's real NOT-NULL columns are quantityOrdered/unitCost, not quantity/
-// unitPrice. See docs/core-apis-fixes.md #0b.
+// Verified 2026-07-28 directly against core-apis source (purchase-item.entity.ts):
+// CreatePurchaseItemRequest sends quantity/unitPrice, but the entity's real NOT-NULL
+// columns are quantityOrdered/unitCost with no default — every create fails on the
+// backend with a NOT NULL violation. This is a real backend bug, not a client fix.
 export interface PurchaseItem {
   id: string;
   purchaseOrderId?: string;
@@ -335,47 +336,69 @@ export interface PurchaseItem {
   unitPrice?: number;
 }
 
+export const ACTIVITY_LOG_ACTIONS = [
+  'login', 'logout',
+  'add_stock', 'remove_stock', 'adjust_stock', 'transfer_stock',
+  'create_product', 'update_product', 'delete_product',
+  'create_purchase_order', 'receive_purchase_order', 'cancel_purchase_order',
+  'create_store', 'update_store',
+  'create_user', 'update_user', 'deactivate_user',
+] as const;
+
 export interface ActivityLog {
   id: string;
+  organizationId?: string;
+  userId?: string;
   action?: string;
-  entity_type?: string;
-  entity_id?: string;
-  user_id?: string;
-  created_at?: string;
+  entityName?: string;
+  entityId?: string;
+  createdAt?: string;
 }
+
+// Verified 2026-07-28 against role.entity.ts: `name` is a Postgres enum (4 fixed
+// values, unique) — free text will fail. organizationId/permissions are required by
+// CreateRoleRequest validation but RoleEntity has no matching columns, so the backend
+// silently discards them after accepting the request.
+export const ROLE_NAMES = ['super_admin', 'org_admin', 'store_manager', 'store_staff'] as const;
 
 export interface Role {
   id: string;
+  organizationId?: string;
   name?: string;
+  permissions?: Record<string, unknown>;
   description?: string;
-  created_at?: string;
+  createdAt?: string;
 }
 
 export interface UserRole {
   id: string;
-  user_id?: string;
-  role_id?: string;
-  created_at?: string;
+  userId?: string;
+  roleId?: string;
+  storeId?: string;
+  createdAt?: string;
 }
 
 export interface PlatformConfiguration {
   id: string;
-  key?: string;
-  value?: string;
+  configKey?: string;
+  configValue?: Record<string, unknown>;
   description?: string;
-  updated_at?: string;
+  updatedAt?: string;
 }
 
 // ── Platform Users (backend /api/v1/users — distinct from the local PIN-based `User` above) ──
 
 export interface PlatformUser {
   id: string;
-  clerkUserId?: string;
+  organizationId?: string;
+  storeId?: string;
   email?: string;
+  passwordHash?: string;
   firstName?: string;
   lastName?: string;
-  status?: string;
-  created_at?: string;
+  phone?: string;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
 // ── Fleet / Vehicles ──────────────────────────────────────────────────────────
