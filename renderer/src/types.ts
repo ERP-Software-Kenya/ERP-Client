@@ -72,6 +72,8 @@ export interface Organization {
   code?: string;
   email?: string;
   phone?: string;
+  address?: string;
+  country?: string;
   status?: string;
   created_at?: string;
   updated_at?: string;
@@ -82,10 +84,60 @@ export interface Store {
   name: string;
   code?: string;
   address?: string;
+  city?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
   organization_id?: string;
   status?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+// ── Addresses ─────────────────────────────────────────────────────────────────
+
+export type LocationType = 'store' | 'warehouse';
+
+export interface Location {
+  id: string;
+  organizationId?: string;
+  name: string;
+  type: LocationType;
+  imageKey?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  phone?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface OrgAddress {
+  id: string;
+  organizationId: string;
+  type?: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state?: string;
+  country: string;
+  postalCode: string;
+  isPrimary?: boolean;
+  createdAt?: string;
+}
+
+export interface UserAddress {
+  id: string;
+  userId: string;
+  type?: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state?: string;
+  country: string;
+  postalCode: string;
+  createdAt?: string;
 }
 
 export interface Category {
@@ -156,12 +208,33 @@ export interface InventoryItem {
   updated_at?: string;
 }
 
+// Matches core-apis' real InventoryResponse DTO (camelCase). Used only by the
+// low-stock/valuation endpoints below — InventoryItem above is a separate,
+// pre-existing, verified-wrong type still used by the generic Inventory resource.
+export interface InventoryStockLevel {
+  id: string;
+  organizationId: string;
+  locationId: string;
+  productId: string;
+  quantityOnHand: number;
+  quantityReserved: number;
+  reorderLevel: number;
+  maxStock?: number;
+  averageCost?: number;
+  binLocation?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;
   code?: string;
   email?: string;
   phone?: string;
+  address?: string;
+  contactPerson?: string;
+  taxId?: string;
   status?: string;
   created_at?: string;
   updated_at?: string;
@@ -250,19 +323,83 @@ export interface ReportGenerationLog {
   created_at?: string;
 }
 
-// Verified 2026-07-25 against core-apis's StockMovementResponse/StockTransferResponse
-// source directly — these two are camelCase in the real API response, unlike most of
-// this file (same discrepancy already flagged on ItemReturn above). Creating a
-// StockMovement currently 500s server-side regardless of what the client sends —
-// see docs/core-apis-fixes.md #2.
+// Matches core-apis StockMovementResponse + StockOperationRequest / AdjustStockRequest.
+export type StockMovementOp =
+  | 'add'
+  | 'remove'
+  | 'adjust'
+  | 'reserve'
+  | 'release-reservation'
+  | 'damage'
+  | 'write-off';
+
+export interface StockOperationBody {
+  inventoryId: string;
+  locationId: string;
+  productId: string;
+  quantity?: number;
+  absoluteQuantity?: number;
+  unitCost?: number;
+  referenceId?: string;
+  referenceType?: string;
+  notes?: string;
+}
+
 export interface StockMovement {
   id: string;
-  organizationId: string;
   inventoryId: string;
-  userId?: string;
+  locationId: string;
+  productId: string;
+  performedById?: string;
+  referenceId?: string;
+  referenceType?: string;
+  movementType: string;
   quantity: number;
-  type: string;
-  reason?: string;
+  quantityBefore: number;
+  quantityAfter: number;
+  unitCost?: number;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface UnpublishedStock {
+  id: string;
+  organizationId: string;
+  locationId: string;
+  productId: string;
+  quantityOnHand: number;
+  averageCost?: number;
+  binLocation?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UnpublishedStockMovement {
+  id: string;
+  unpublishedStockId: string;
+  locationId: string;
+  productId: string;
+  performedById?: string;
+  movementType: string;
+  quantity: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  unitCost?: number;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface ProductLog {
+  id: string;
+  organizationId: string;
+  productId: string;
+  inventoryId?: string;
+  locationId?: string;
+  performedById?: string;
+  action: string;
+  changedFields?: Array<{ field: string; oldValue: unknown; newValue: unknown }>;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
 }
 
 export interface StockTransfer {

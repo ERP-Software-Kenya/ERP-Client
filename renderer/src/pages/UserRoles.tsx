@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { UserRoles as UserRolesApi } from '../api';
 import type { UserRole } from '../types';
 
@@ -16,16 +15,18 @@ interface FormState {
 const EMPTY_FORM: FormState = { userId: '', roleId: '' };
 
 export default function UserRoles() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lastCreated, setLastCreated] = useState<UserRole | null>(null);
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   const createMutation = useMutation({
     mutationFn: (body: Partial<UserRole>) => UserRolesApi.create(body),
     onSuccess: (created) => {
       toast.success('User role assignment created');
       setLastCreated(created);
-      setDialogOpen(false);
+      closeDrawer();
       setForm(EMPTY_FORM);
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to create user role assignment'),
@@ -50,7 +51,7 @@ export default function UserRoles() {
             directly (e.g. from a "last created" panel on those pages).
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>New Assignment</Button>
+        <Button onClick={() => setDrawerOpen(true)}>New Assignment</Button>
       </div>
 
       {lastCreated && (
@@ -60,43 +61,40 @@ export default function UserRoles() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New User Role Assignment</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="ur-user">User ID</Label>
-              <Input
-                id="ur-user"
-                placeholder="UUID"
-                value={form.userId}
-                onChange={(e) => setForm({ ...form, userId: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ur-role">Role ID</Label>
-              <Input
-                id="ur-role"
-                placeholder="UUID"
-                value={form.roleId}
-                onChange={(e) => setForm({ ...form, roleId: e.target.value })}
-                required
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating…' : 'Create'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title="New User Role Assignment"
+        footer={
+          <>
+            <Button type="submit" form="user-role-form" disabled={createMutation.isPending}>
+              {createMutation.isPending ? 'Creating…' : 'Create'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="user-role-form" onSubmit={handleSubmit} className="space-y-4">
+          <Field label="User ID" required>
+            <Input
+              placeholder="UUID"
+              value={form.userId}
+              onChange={(e) => setForm({ ...form, userId: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Role ID" required>
+            <Input
+              placeholder="UUID"
+              value={form.roleId}
+              onChange={(e) => setForm({ ...form, roleId: e.target.value })}
+              required
+            />
+          </Field>
+        </form>
+      </FormDrawer>
     </div>
   );
 }

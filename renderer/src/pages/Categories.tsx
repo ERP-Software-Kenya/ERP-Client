@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { ERPDataTable, Column } from '../components/ERPDataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CategorySelect } from '../components/CategorySelect';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Categories as CategoriesApi } from '../api';
 import { useResourceMutations } from '../hooks/useResourceMutations';
@@ -24,7 +23,7 @@ interface FormState {
 const EMPTY_FORM: FormState = { name: '', code: '', description: '', parent_id: '', status: 'active' };
 
 export default function Categories() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
@@ -38,7 +37,7 @@ export default function Categories() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
 
   const openEdit = (row: Category) => {
@@ -50,8 +49,10 @@ export default function Categories() {
       parent_id: row.parent_id ?? '',
       status: row.status ?? 'active',
     });
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,9 +64,9 @@ export default function Categories() {
       status: form.status,
     };
     if (editing) {
-      updateMutation.mutate({ id: editing.id, body }, { onSuccess: () => setDialogOpen(false) });
+      updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
     } else {
-      createMutation.mutate(body, { onSuccess: () => setDialogOpen(false) });
+      createMutation.mutate(body, { onSuccess: closeDrawer });
     }
   };
 
@@ -93,68 +94,62 @@ export default function Categories() {
         onDelete={(row) => setDeleteTarget(row)}
       />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Edit Category' : 'Add Category'}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="cat-name">Name</Label>
-              <Input
-                id="cat-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cat-code">Code</Label>
-              <Input id="cat-code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cat-description">Description</Label>
-              <Input
-                id="cat-description"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Parent Category</Label>
-              <CategorySelect
-                value={form.parent_id}
-                onValueChange={(v) => setForm({ ...form, parent_id: v })}
-                excludeId={editing?.id}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Saving…' : 'Save'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title={editing ? 'Edit Category' : 'Add Category'}
+        footer={
+          <>
+            <Button type="submit" form="category-form" disabled={isSaving}>
+              {isSaving ? 'Saving…' : 'Save'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="category-form" onSubmit={handleSubmit} className="space-y-4">
+          <Field label="Name" required>
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+              autoFocus
+            />
+          </Field>
+          <Field label="Code">
+            <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          </Field>
+          <Field label="Description">
+            <Input
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </Field>
+          <Field label="Parent Category">
+            <CategorySelect
+              value={form.parent_id}
+              onValueChange={(v) => setForm({ ...form, parent_id: v })}
+              excludeId={editing?.id}
+            />
+          </Field>
+          <Field label="Status">
+            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </form>
+      </FormDrawer>
 
       <ConfirmDialog
         open={!!deleteTarget}

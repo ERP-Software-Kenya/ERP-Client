@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { ActivityLogs as ActivityLogsApi, Organizations as OrganizationsApi } from '../api';
@@ -27,7 +26,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function ActivityLogs() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lastCreated, setLastCreated] = useState<ActivityLog | null>(null);
 
@@ -36,11 +35,13 @@ export default function ActivityLogs() {
     onSuccess: (created) => {
       toast.success('Activity log created');
       setLastCreated(created);
-      setDialogOpen(false);
+      setDrawerOpen(false);
       setForm(EMPTY_FORM);
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to create activity log'),
   });
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +63,7 @@ export default function ActivityLogs() {
             No list endpoint exists for activity logs — there's no directory here, only a create form.
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>New Activity Log</Button>
+        <Button onClick={() => setDrawerOpen(true)}>New Activity Log</Button>
       </div>
 
       {lastCreated && (
@@ -72,78 +73,71 @@ export default function ActivityLogs() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Activity Log</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Organization</Label>
-              <ResourceSelect
-                queryKey="organizations"
-                fetchList={() => OrganizationsApi.list()}
-                getLabel={(org) => org.name}
-                value={form.organizationId}
-                onValueChange={(v) => setForm({ ...form, organizationId: v })}
-                placeholder="Select organization…"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="log-user">User ID (optional)</Label>
-              <Input
-                id="log-user"
-                placeholder="UUID — no user directory exists to pick from"
-                value={form.userId}
-                onChange={(e) => setForm({ ...form, userId: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Action</Label>
-              <Select value={form.action} onValueChange={(v) => setForm({ ...form, action: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ACTIVITY_LOG_ACTIONS.map((a) => (
-                    <SelectItem key={a} value={a}>
-                      {a}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="log-entity-name">Entity Name</Label>
-              <Input
-                id="log-entity-name"
-                placeholder="e.g. Product, PurchaseOrder"
-                value={form.entityName}
-                onChange={(e) => setForm({ ...form, entityName: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="log-entity-id">Entity ID</Label>
-              <Input
-                id="log-entity-id"
-                placeholder="UUID of the affected record"
-                value={form.entityId}
-                onChange={(e) => setForm({ ...form, entityId: e.target.value })}
-                required
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating…' : 'Create'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title="New Activity Log"
+        footer={
+          <>
+            <Button type="submit" form="activity-log-form" disabled={createMutation.isPending}>
+              {createMutation.isPending ? 'Creating…' : 'Create'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="activity-log-form" onSubmit={handleSubmit} className="space-y-5">
+          <Field label="Organization">
+            <ResourceSelect
+              queryKey="organizations"
+              fetchList={() => OrganizationsApi.list()}
+              getLabel={(org) => org.name}
+              value={form.organizationId}
+              onValueChange={(v) => setForm({ ...form, organizationId: v })}
+              placeholder="Select organization…"
+            />
+          </Field>
+          <Field label="User ID (optional)">
+            <Input
+              placeholder="UUID — no user directory exists to pick from"
+              value={form.userId}
+              onChange={(e) => setForm({ ...form, userId: e.target.value })}
+            />
+          </Field>
+          <Field label="Action">
+            <Select value={form.action} onValueChange={(v) => setForm({ ...form, action: v })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ACTIVITY_LOG_ACTIONS.map((a) => (
+                  <SelectItem key={a} value={a}>
+                    {a}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Entity Name" required>
+            <Input
+              placeholder="e.g. Product, PurchaseOrder"
+              value={form.entityName}
+              onChange={(e) => setForm({ ...form, entityName: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Entity ID" required>
+            <Input
+              placeholder="UUID of the affected record"
+              value={form.entityId}
+              onChange={(e) => setForm({ ...form, entityId: e.target.value })}
+              required
+            />
+          </Field>
+        </form>
+      </FormDrawer>
     </div>
   );
 }

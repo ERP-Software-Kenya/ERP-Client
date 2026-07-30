@@ -187,6 +187,7 @@ import type {
   Category,
   Product,
   InventoryItem,
+  InventoryStockLevel,
   Supplier,
   PurchaseOrder,
   Bill,
@@ -208,6 +209,14 @@ import type {
   PlatformUser,
   Vehicle,
   ProductImage,
+  Location,
+  OrgAddress,
+  UserAddress,
+  StockMovementOp,
+  StockOperationBody,
+  UnpublishedStock,
+  UnpublishedStockMovement,
+  ProductLog,
 } from './types';
 
 export const Organizations      = makeMutableResource<Organization>('/api/v1/organizations');
@@ -222,8 +231,30 @@ export const PaymentTransactions = makeMutableResource<PaymentTransaction>('/api
 export const Notifications      = makeMutableResource<Notification>('/api/v1/notifications');
 export const ItemReturns        = makeMutableResource<ItemReturn>('/api/v1/item-returns');
 export const ReportGenerationLogs = makeMutableResource<ReportGenerationLog>('/api/v1/report-generation-logs');
-export const StockMovements     = makeResource<StockMovement>('/api/v1/stock-movements');
 export const StockTransfers     = makeResource<StockTransfer>('/api/v1/stock-transfers');
+
+export async function getStockTransfer(id: string): Promise<StockTransfer> {
+  return get<StockTransfer>(`/api/v1/stock-transfers/${id}`);
+}
+
+export async function completeStockTransfer(
+  id: string,
+  items: Array<{
+    fromInventoryId: string;
+    toInventoryId: string;
+    productId: string;
+    fromLocationId: string;
+    toLocationId: string;
+    quantity: number;
+  }>,
+): Promise<StockTransfer> {
+  return put<StockTransfer>(`/api/v1/stock-transfers/${id}/complete`, { items });
+}
+
+export async function cancelStockTransfer(id: string): Promise<StockTransfer> {
+  return put<StockTransfer>(`/api/v1/stock-transfers/${id}/cancel`, {});
+}
+
 export const Orders             = makeResource<Order>('/api/v1/orders');
 export const Invoices           = makeResource<Invoice>('/api/v1/invoices');
 export const Customers          = makeResource<Customer>('/api/v1/customers');
@@ -235,6 +266,9 @@ export const UserRoles          = makeResource<UserRole>('/api/v1/user-roles');
 export const PlatformConfigurations = makeResource<PlatformConfiguration>('/api/v1/platform-configurations');
 export const Users               = makeResource<PlatformUser>('/api/v1/users');
 export const Vehicles           = makeResource<Vehicle>('/api/v1/vehicles');
+export const Locations          = makeMutableResource<Location>('/api/v1/locations');
+export const OrgAddresses       = makeMutableResource<OrgAddress>('/api/v1/org-addresses');
+export const UserAddresses      = makeMutableResource<UserAddress>('/api/v1/user-addresses');
 
 // ── Product images ────────────────────────────────────────────────────────────
 // Not a CRUD resource — a subresource of Products (products.controller.ts:
@@ -255,4 +289,86 @@ export async function uploadProductImage(productId: string, file: File): Promise
 
 export async function listProductImages(productId: string): Promise<ProductImage[]> {
   return get<ProductImage[]>(`/api/v1/products/${productId}/images`);
+}
+
+// ── Location images (single image; upload replaces) ───────────────────────────
+
+export async function uploadLocationImage(locationId: string, file: File): Promise<Location> {
+  const form = new FormData();
+  form.append('file', file);
+  const resp = await fetch(buildUrl(`/api/v1/locations/${locationId}/image`), {
+    method: 'POST',
+    headers: await authHeader(),
+    body: form,
+  });
+  if (!resp.ok) throw new Error(await readErrorBody(resp));
+  return resp.json() as Promise<Location>;
+}
+
+export async function removeLocationImage(locationId: string): Promise<void> {
+  return del(`/api/v1/locations/${locationId}/image`);
+}
+
+// ── Stock movements (ops endpoints — there is no POST /stock-movements) ───────
+
+export async function getStockMovement(id: string): Promise<StockMovement> {
+  return get<StockMovement>(`/api/v1/stock-movements/${id}`);
+}
+
+export async function listStockMovementsByInventory(inventoryId: string): Promise<StockMovement[]> {
+  return get<StockMovement[]>(`/api/v1/stock-movements/by-inventory/${inventoryId}`);
+}
+
+export async function performStockOperation(op: StockMovementOp, body: StockOperationBody): Promise<void> {
+  await post<unknown>(`/api/v1/stock-movements/${op}`, body);
+}
+
+// ── Unpublished stock ─────────────────────────────────────────────────────────
+
+export async function getUnpublishedStock(id: string): Promise<UnpublishedStock> {
+  return get<UnpublishedStock>(`/api/v1/unpublished-stock/${id}`);
+}
+
+export async function listUnpublishedStockMovements(unpublishedStockId: string): Promise<UnpublishedStockMovement[]> {
+  return get<UnpublishedStockMovement[]>(`/api/v1/unpublished-stock/by-record/${unpublishedStockId}`);
+}
+
+export async function addUnpublishedStock(body: {
+  locationId: string;
+  productId: string;
+  quantity: number;
+  unitCost?: number;
+  notes?: string;
+}): Promise<void> {
+  await post('/api/v1/unpublished-stock/add', body);
+}
+
+export async function publishUnpublishedStock(body: {
+  unpublishedStockId: string;
+  quantity: number;
+  notes?: string;
+}): Promise<void> {
+  await post('/api/v1/unpublished-stock/publish', body);
+}
+
+// ── Product logs (read-only) ──────────────────────────────────────────────────
+
+export async function getProductLog(id: string): Promise<ProductLog> {
+  return get<ProductLog>(`/api/v1/product-logs/${id}`);
+}
+
+export async function listProductLogsByProduct(productId: string): Promise<ProductLog[]> {
+  return get<ProductLog[]>(`/api/v1/product-logs/by-product/${productId}`);
+}
+
+export async function listProductLogsByInventory(inventoryId: string): Promise<ProductLog[]> {
+  return get<ProductLog[]>(`/api/v1/product-logs/by-inventory/${inventoryId}`);
+}
+
+export async function getInventoryLowStock(): Promise<InventoryStockLevel[]> {
+  return get<InventoryStockLevel[]>('/api/v1/inventory/low-stock');
+}
+
+export async function getInventoryValuation(): Promise<InventoryStockLevel[]> {
+  return get<InventoryStockLevel[]>('/api/v1/inventory/valuation');
 }

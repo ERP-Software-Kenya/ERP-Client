@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
-import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { Roles as RolesApi, Organizations as OrganizationsApi } from '../api';
@@ -18,17 +17,19 @@ interface FormState {
 const EMPTY_FORM: FormState = { organizationId: '', name: ROLE_NAMES[0], permissions: '{}' };
 
 export default function Roles() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [lastCreated, setLastCreated] = useState<Role | null>(null);
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   const createMutation = useMutation({
     mutationFn: (body: Partial<Role>) => RolesApi.create(body),
     onSuccess: (created) => {
       toast.success(`Role "${created.name}" created`);
       setLastCreated(created);
-      setDialogOpen(false);
+      closeDrawer();
       setForm(EMPTY_FORM);
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to create role'),
@@ -63,7 +64,7 @@ export default function Roles() {
             has no matching columns, so the backend accepts and silently discards them.
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>New Role</Button>
+        <Button onClick={() => setDrawerOpen(true)}>New Role</Button>
       </div>
 
       {lastCreated && (
@@ -74,59 +75,56 @@ export default function Roles() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Role</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Organization</Label>
-              <ResourceSelect
-                queryKey="organizations"
-                fetchList={() => OrganizationsApi.list()}
-                getLabel={(org) => org.name}
-                value={form.organizationId}
-                onValueChange={(v) => setForm({ ...form, organizationId: v })}
-                placeholder="Select organization…"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Select value={form.name} onValueChange={(v) => setForm({ ...form, name: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLE_NAMES.map((n) => (
-                    <SelectItem key={n} value={n}>
-                      {n}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role-permissions">Permissions (JSON)</Label>
-              <textarea
-                id="role-permissions"
-                className="flex min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
-                value={form.permissions}
-                onChange={(e) => setForm({ ...form, permissions: e.target.value })}
-              />
-              {jsonError && <p className="text-xs text-destructive">{jsonError}</p>}
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating…' : 'Create'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title="New Role"
+        footer={
+          <>
+            <Button type="submit" form="role-form" disabled={createMutation.isPending}>
+              {createMutation.isPending ? 'Creating…' : 'Create'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="role-form" onSubmit={handleSubmit} className="space-y-4">
+          <Field label="Organization">
+            <ResourceSelect
+              queryKey="organizations"
+              fetchList={() => OrganizationsApi.list()}
+              getLabel={(org) => org.name}
+              value={form.organizationId}
+              onValueChange={(v) => setForm({ ...form, organizationId: v })}
+              placeholder="Select organization…"
+            />
+          </Field>
+          <Field label="Name">
+            <Select value={form.name} onValueChange={(v) => setForm({ ...form, name: v })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ROLE_NAMES.map((n) => (
+                  <SelectItem key={n} value={n}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Permissions (JSON)">
+            <textarea
+              className="flex min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
+              value={form.permissions}
+              onChange={(e) => setForm({ ...form, permissions: e.target.value })}
+            />
+            {jsonError && <p className="text-xs text-destructive">{jsonError}</p>}
+          </Field>
+        </form>
+      </FormDrawer>
     </div>
   );
 }

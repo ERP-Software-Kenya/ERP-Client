@@ -3,10 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Bills as BillsApi, PaymentTransactions as PaymentTransactionsApi } from '../api';
 import type { PaymentTransaction } from '../types';
 
@@ -20,7 +19,7 @@ const EMPTY_PAYMENT_FORM: PaymentFormState = { method: '', amount: '' };
 export default function BillDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentDrawerOpen, setPaymentDrawerOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState<PaymentFormState>(EMPTY_PAYMENT_FORM);
 
   const { data: bill, isLoading, error } = useQuery({
@@ -48,11 +47,13 @@ export default function BillDetail() {
     mutationFn: (body: Partial<PaymentTransaction>) => PaymentTransactionsApi.create(body),
     onSuccess: () => {
       toast.success('Payment recorded');
-      setPaymentDialogOpen(false);
+      setPaymentDrawerOpen(false);
       setPaymentForm(EMPTY_PAYMENT_FORM);
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to record payment'),
   });
+
+  const closePaymentDrawer = () => setPaymentDrawerOpen(false);
 
   const handleRecordPayment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +94,7 @@ export default function BillDetail() {
       <div className="rounded-lg border border-border bg-card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-medium">Payments</h2>
-          <Button size="sm" onClick={() => setPaymentDialogOpen(true)}>
+          <Button size="sm" onClick={() => setPaymentDrawerOpen(true)}>
             Record Payment
           </Button>
         </div>
@@ -112,46 +113,43 @@ export default function BillDetail() {
         )}
       </div>
 
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleRecordPayment} className="space-y-4">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              Submitting is disabled — this endpoint currently fails server-side for every request.
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pay-method">Method</Label>
-              <Input
-                id="pay-method"
-                placeholder="e.g. cash, card, bank_transfer"
-                value={paymentForm.method}
-                onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pay-amount">Amount</Label>
-              <Input
-                id="pay-amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={paymentForm.amount}
-                onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setPaymentDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled>
-                Record (blocked — see notice above)
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={paymentDrawerOpen}
+        onClose={closePaymentDrawer}
+        title="Record Payment"
+        footer={
+          <>
+            <Button type="submit" form="payment-form" disabled>
+              Record (blocked — see notice above)
+            </Button>
+            <Button type="button" variant="outline" onClick={closePaymentDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="payment-form" onSubmit={handleRecordPayment} className="space-y-5">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            Submitting is disabled — this endpoint currently fails server-side for every request.
+          </div>
+          <Field label="Method">
+            <Input
+              placeholder="e.g. cash, card, bank_transfer"
+              value={paymentForm.method}
+              onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
+            />
+          </Field>
+          <Field label="Amount">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={paymentForm.amount}
+              onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+            />
+          </Field>
+        </form>
+      </FormDrawer>
     </div>
   );
 }

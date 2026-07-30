@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { ERPDataTable, Column } from '../components/ERPDataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Notifications as NotificationsApi } from '../api';
 import { useResourceMutations } from '../hooks/useResourceMutations';
 import type { Notification } from '../types';
 
 export default function Notifications() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Notification | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Notification | null>(null);
 
@@ -17,14 +17,16 @@ export default function Notifications() {
 
   const openEdit = (row: Notification) => {
     setEditing(row);
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   const toggleRead = () => {
     if (!editing) return;
     updateMutation.mutate(
       { id: editing.id, body: { read: !editing.read } },
-      { onSuccess: () => setDialogOpen(false) },
+      { onSuccess: closeDrawer },
     );
   };
 
@@ -50,22 +52,23 @@ export default function Notifications() {
         onDelete={(row) => setDeleteTarget(row)}
       />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing?.title ?? 'Notification'}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">{editing?.message}</p>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title={editing?.title ?? 'Notification'}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
               Close
             </Button>
             <Button type="button" onClick={toggleRead} disabled={updateMutation.isPending}>
               {updateMutation.isPending ? 'Saving…' : editing?.read ? 'Mark as Unread' : 'Mark as Read'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">{editing?.message}</p>
+      </FormDrawer>
 
       <ConfirmDialog
         open={!!deleteTarget}

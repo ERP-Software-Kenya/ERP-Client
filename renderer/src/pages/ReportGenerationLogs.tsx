@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { ERPDataTable, Column } from '../components/ERPDataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { ReportGenerationLogs as ReportGenerationLogsApi } from '../api';
 import { useResourceMutations } from '../hooks/useResourceMutations';
 import type { ReportGenerationLog } from '../types';
 
 export default function ReportGenerationLogs() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ReportGenerationLog | null>(null);
   const [status, setStatus] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ReportGenerationLog | null>(null);
@@ -24,13 +23,15 @@ export default function ReportGenerationLogs() {
   const openEdit = (row: ReportGenerationLog) => {
     setEditing(row);
     setStatus(row.status ?? '');
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) return;
-    updateMutation.mutate({ id: editing.id, body: { status } }, { onSuccess: () => setDialogOpen(false) });
+    updateMutation.mutate({ id: editing.id, body: { status } }, { onSuccess: closeDrawer });
   };
 
   const columns: Column<ReportGenerationLog>[] = [
@@ -53,31 +54,30 @@ export default function ReportGenerationLogs() {
         onDelete={(row) => setDeleteTarget(row)}
       />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Report Log</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Report Type</Label>
-              <Input value={editing?.report_type ?? ''} disabled />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="log-status">Status</Label>
-              <Input id="log-status" value={status} onChange={(e) => setStatus(e.target.value)} autoFocus />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? 'Saving…' : 'Save'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title="Edit Report Log"
+        footer={
+          <>
+            <Button type="submit" form="report-log-form" disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? 'Saving…' : 'Save'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="report-log-form" onSubmit={handleSubmit} className="space-y-5">
+          <Field label="Report Type">
+            <Input value={editing?.report_type ?? ''} disabled />
+          </Field>
+          <Field label="Status">
+            <Input value={status} onChange={(e) => setStatus(e.target.value)} autoFocus />
+          </Field>
+        </form>
+      </FormDrawer>
 
       <ConfirmDialog
         open={!!deleteTarget}

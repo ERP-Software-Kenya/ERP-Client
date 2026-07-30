@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Customers as CustomersApi } from '../api';
 import type { Customer } from '../types';
 
@@ -18,9 +17,11 @@ interface FormState {
 const EMPTY_FORM: FormState = { name: '', email: '', phone: '', gstin: '' };
 
 export default function Customers() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lastCreated, setLastCreated] = useState<Customer | null>(null);
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   // Wired up and ready, but the submit button below stays disabled: entity's
   // NOT-NULL organizationId is never set by the command, every create 500s.
@@ -33,7 +34,7 @@ export default function Customers() {
     onSuccess: (created) => {
       toast.success(`Customer "${created.name}" created`);
       setLastCreated(created);
-      setDialogOpen(false);
+      closeDrawer();
       setForm(EMPTY_FORM);
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to create customer'),
@@ -61,7 +62,7 @@ export default function Customers() {
             2026-07-26, creation fails on the backend every time (see docs/core-apis-fixes.md #8).
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>New Customer</Button>
+        <Button onClick={() => setDrawerOpen(true)}>New Customer</Button>
       </div>
 
       {lastCreated && (
@@ -72,61 +73,54 @@ export default function Customers() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Customer</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              Submitting is disabled — this endpoint currently fails server-side for every request.
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cust-name">Name</Label>
-              <Input
-                id="cust-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                autoFocus
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cust-email">Email</Label>
-              <Input
-                id="cust-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cust-phone">Phone</Label>
-              <Input
-                id="cust-phone"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cust-gstin">GSTIN</Label>
-              <Input
-                id="cust-gstin"
-                value={form.gstin}
-                onChange={(e) => setForm({ ...form, gstin: e.target.value })}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled>
-                Create (blocked — see notice above)
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title="New Customer"
+        footer={
+          <>
+            <Button type="submit" form="customer-form" disabled>
+              Create (blocked — see notice above)
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="customer-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            Submitting is disabled — this endpoint currently fails server-side for every request.
+          </div>
+          <Field label="Name" required>
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              autoFocus
+              required
+            />
+          </Field>
+          <Field label="Email">
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </Field>
+          <Field label="Phone">
+            <Input
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            />
+          </Field>
+          <Field label="GSTIN">
+            <Input
+              value={form.gstin}
+              onChange={(e) => setForm({ ...form, gstin: e.target.value })}
+            />
+          </Field>
+        </form>
+      </FormDrawer>
     </div>
   );
 }

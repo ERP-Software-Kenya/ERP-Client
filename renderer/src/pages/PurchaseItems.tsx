@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { PurchaseItems as PurchaseItemsApi, PurchaseOrders as PurchaseOrdersApi, Products as ProductsApi } from '../api';
 import type { PurchaseItem } from '../types';
@@ -19,9 +18,11 @@ interface FormState {
 const EMPTY_FORM: FormState = { purchaseOrderId: '', productId: '', quantity: '', unitPrice: '' };
 
 export default function PurchaseItems() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lastCreated, setLastCreated] = useState<PurchaseItem | null>(null);
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   // Verified 2026-07-28 directly against core-apis purchase-item.entity.ts: the
   // entity's NOT-NULL columns are quantityOrdered/unitCost with no default, but
@@ -33,7 +34,7 @@ export default function PurchaseItems() {
     onSuccess: (created) => {
       toast.success('Purchase item created');
       setLastCreated(created);
-      setDialogOpen(false);
+      closeDrawer();
       setForm(EMPTY_FORM);
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to create purchase item'),
@@ -61,7 +62,7 @@ export default function PurchaseItems() {
             mismatch: quantityOrdered/unitCost vs quantity/unitPrice).
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>New Purchase Item</Button>
+        <Button onClick={() => setDrawerOpen(true)}>New Purchase Item</Button>
       </div>
 
       {lastCreated && (
@@ -71,69 +72,64 @@ export default function PurchaseItems() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Purchase Item</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              Submitting is disabled — this endpoint currently fails server-side for every request.
-            </div>
-            <div className="space-y-2">
-              <Label>Purchase Order</Label>
-              <ResourceSelect
-                queryKey="purchase-orders"
-                fetchList={() => PurchaseOrdersApi.list()}
-                getLabel={(po) => po.name || po.id}
-                value={form.purchaseOrderId}
-                onValueChange={(v) => setForm({ ...form, purchaseOrderId: v })}
-                placeholder="Select purchase order…"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Product</Label>
-              <ResourceSelect
-                queryKey="products"
-                fetchList={() => ProductsApi.list()}
-                getLabel={(p) => p.name}
-                value={form.productId}
-                onValueChange={(v) => setForm({ ...form, productId: v })}
-                placeholder="Select product…"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pi-quantity">Quantity</Label>
-              <Input
-                id="pi-quantity"
-                type="number"
-                value={form.quantity}
-                onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pi-unit-price">Unit Price</Label>
-              <Input
-                id="pi-unit-price"
-                type="number"
-                step="0.01"
-                value={form.unitPrice}
-                onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
-                required
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled>
-                Create (blocked — see notice above)
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title="New Purchase Item"
+        footer={
+          <>
+            <Button type="submit" form="purchase-item-form" disabled>
+              Create (blocked — see notice above)
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="purchase-item-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            Submitting is disabled — this endpoint currently fails server-side for every request.
+          </div>
+          <Field label="Purchase Order">
+            <ResourceSelect
+              queryKey="purchase-orders"
+              fetchList={() => PurchaseOrdersApi.list()}
+              getLabel={(po) => po.name || po.id}
+              value={form.purchaseOrderId}
+              onValueChange={(v) => setForm({ ...form, purchaseOrderId: v })}
+              placeholder="Select purchase order…"
+            />
+          </Field>
+          <Field label="Product">
+            <ResourceSelect
+              queryKey="products"
+              fetchList={() => ProductsApi.list()}
+              getLabel={(p) => p.name || p.sku || p.id}
+              value={form.productId}
+              onValueChange={(v) => setForm({ ...form, productId: v })}
+              placeholder="Select product…"
+            />
+          </Field>
+          <Field label="Quantity" required>
+            <Input
+              type="number"
+              value={form.quantity}
+              onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Unit Price" required>
+            <Input
+              type="number"
+              step="0.01"
+              value={form.unitPrice}
+              onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
+              required
+            />
+          </Field>
+        </form>
+      </FormDrawer>
     </div>
   );
 }

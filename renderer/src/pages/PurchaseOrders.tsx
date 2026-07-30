@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ERPDataTable, Column } from '../components/ERPDataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { PurchaseOrders as PurchaseOrdersApi } from '../api';
 import { useResourceMutations } from '../hooks/useResourceMutations';
 import type { PurchaseOrder } from '../types';
@@ -18,7 +17,7 @@ const EMPTY_FORM: FormState = { name: '' };
 
 export default function PurchaseOrders() {
   const navigate = useNavigate();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<PurchaseOrder | null>(null);
@@ -29,25 +28,27 @@ export default function PurchaseOrders() {
     'Purchase Order',
   );
 
+  const closeDrawer = () => setDrawerOpen(false);
+
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
 
   const openEdit = (row: PurchaseOrder) => {
     setEditing(row);
     setForm({ name: row.name ?? '' });
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const body: Partial<PurchaseOrder> = { name: form.name || undefined };
     if (editing) {
-      updateMutation.mutate({ id: editing.id, body }, { onSuccess: () => setDialogOpen(false) });
+      updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
     } else {
-      createMutation.mutate(body, { onSuccess: () => setDialogOpen(false) });
+      createMutation.mutate(body, { onSuccess: closeDrawer });
     }
   };
 
@@ -81,35 +82,34 @@ export default function PurchaseOrders() {
         onDelete={(row) => setDeleteTarget(row)}
       />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Edit Purchase Order' : 'Add Purchase Order'}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              Submitting is disabled — this endpoint currently fails server-side for every request (live-tested 2026-07-26, see docs/core-apis-fixes.md #0).
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="po-name">Name</Label>
-              <Input
-                id="po-name"
-                value={form.name}
-                onChange={(e) => setForm({ name: e.target.value })}
-                autoFocus
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled>
-                {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title={editing ? 'Edit Purchase Order' : 'Add Purchase Order'}
+        footer={
+          <>
+            <Button type="submit" form="purchase-order-form" disabled>
+              {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="purchase-order-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            Submitting is disabled — this endpoint currently fails server-side for every request (live-tested 2026-07-26, see docs/core-apis-fixes.md #0).
+          </div>
+          <Field label="Name">
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ name: e.target.value })}
+              autoFocus
+            />
+          </Field>
+        </form>
+      </FormDrawer>
 
       <ConfirmDialog
         open={!!deleteTarget}

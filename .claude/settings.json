@@ -22,6 +22,6 @@
     ]
   },
   "enabledPlugins": {
-    "superpowers@claude-plugins-official": true
+    "superpowers@superpowers-dev": true
   }
 }

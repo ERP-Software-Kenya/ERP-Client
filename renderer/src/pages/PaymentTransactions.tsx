@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { ERPDataTable, Column } from '../components/ERPDataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { PaymentTransactions as PaymentTransactionsApi } from '../api';
 import { useResourceMutations } from '../hooks/useResourceMutations';
 import type { PaymentTransaction } from '../types';
@@ -21,7 +20,7 @@ interface FormState {
 const EMPTY_FORM: FormState = { referenceId: '', referenceType: '', type: '', method: '', amount: '', status: '' };
 
 export default function PaymentTransactions() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<PaymentTransaction | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<PaymentTransaction | null>(null);
@@ -35,7 +34,7 @@ export default function PaymentTransactions() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
 
   const openEdit = (row: PaymentTransaction) => {
@@ -48,8 +47,10 @@ export default function PaymentTransactions() {
       amount: row.amount != null ? String(row.amount) : '',
       status: row.status ?? '',
     });
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,9 +63,9 @@ export default function PaymentTransactions() {
       status: form.status || undefined,
     };
     if (editing) {
-      updateMutation.mutate({ id: editing.id, body }, { onSuccess: () => setDialogOpen(false) });
+      updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
     } else {
-      createMutation.mutate(body, { onSuccess: () => setDialogOpen(false) });
+      createMutation.mutate(body, { onSuccess: closeDrawer });
     }
   };
 
@@ -101,72 +102,63 @@ export default function PaymentTransactions() {
         onDelete={(row) => setDeleteTarget(row)}
       />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Edit Payment' : 'Add Payment'}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              Submitting is disabled — this endpoint currently fails server-side for every request.
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pay-ref-type">Linked To (type)</Label>
-              <Input
-                id="pay-ref-type"
-                placeholder="e.g. bill"
-                value={form.referenceType}
-                onChange={(e) => setForm({ ...form, referenceType: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pay-ref-id">Linked To (ID)</Label>
-              <Input
-                id="pay-ref-id"
-                value={form.referenceId}
-                onChange={(e) => setForm({ ...form, referenceId: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pay-method">Method</Label>
-              <Input
-                id="pay-method"
-                placeholder="e.g. cash, card, bank_transfer"
-                value={form.method}
-                onChange={(e) => setForm({ ...form, method: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pay-amount">Amount</Label>
-              <Input
-                id="pay-amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pay-status">Status</Label>
-              <Input
-                id="pay-status"
-                placeholder="e.g. completed"
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled>
-                {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title={editing ? 'Edit Payment' : 'Add Payment'}
+        footer={
+          <>
+            <Button type="submit" form="payment-transaction-form" disabled>
+              {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="payment-transaction-form" onSubmit={handleSubmit} className="space-y-5">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            Submitting is disabled — this endpoint currently fails server-side for every request.
+          </div>
+          <Field label="Linked To (type)">
+            <Input
+              placeholder="e.g. bill"
+              value={form.referenceType}
+              onChange={(e) => setForm({ ...form, referenceType: e.target.value })}
+            />
+          </Field>
+          <Field label="Linked To (ID)">
+            <Input
+              value={form.referenceId}
+              onChange={(e) => setForm({ ...form, referenceId: e.target.value })}
+            />
+          </Field>
+          <Field label="Method">
+            <Input
+              placeholder="e.g. cash, card, bank_transfer"
+              value={form.method}
+              onChange={(e) => setForm({ ...form, method: e.target.value })}
+            />
+          </Field>
+          <Field label="Amount">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            />
+          </Field>
+          <Field label="Status">
+            <Input
+              placeholder="e.g. completed"
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+            />
+          </Field>
+        </form>
+      </FormDrawer>
 
       <ConfirmDialog
         open={!!deleteTarget}

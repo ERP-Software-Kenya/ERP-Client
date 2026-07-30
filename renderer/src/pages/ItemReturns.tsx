@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { ERPDataTable, Column } from '../components/ERPDataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { ItemReturns as ItemReturnsApi, Stores as StoresApi, Suppliers as SuppliersApi } from '../api';
 import { useResourceMutations } from '../hooks/useResourceMutations';
@@ -32,7 +31,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function ItemReturns() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ItemReturn | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<ItemReturn | null>(null);
@@ -43,10 +42,12 @@ export default function ItemReturns() {
     'Item Return',
   );
 
+  const closeDrawer = () => setDrawerOpen(false);
+
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
 
   const openEdit = (row: ItemReturn) => {
@@ -59,7 +60,7 @@ export default function ItemReturns() {
       totalAmount: row.totalAmount != null ? String(row.totalAmount) : '',
       status: row.status ?? '',
     });
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -75,9 +76,9 @@ export default function ItemReturns() {
       status: form.status || undefined,
     };
     if (editing) {
-      updateMutation.mutate({ id: editing.id, body }, { onSuccess: () => setDialogOpen(false) });
+      updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
     } else {
-      createMutation.mutate(body, { onSuccess: () => setDialogOpen(false) });
+      createMutation.mutate(body, { onSuccess: closeDrawer });
     }
   };
 
@@ -116,96 +117,88 @@ export default function ItemReturns() {
         onDelete={(row) => setDeleteTarget(row)}
       />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Edit Item Return' : 'Add Item Return'}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              Submitting is disabled — this endpoint currently fails server-side for every request.
-            </div>
-            <div className="space-y-2">
-              <Label>Return Type</Label>
-              <Select value={form.returnType} onValueChange={(v) => setForm({ ...form, returnType: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RETURN_TYPE_OPTIONS.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Store</Label>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title={editing ? 'Edit Item Return' : 'Add Item Return'}
+        footer={
+          <>
+            <Button type="submit" form="item-return-form" disabled>
+              {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="item-return-form" onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            Submitting is disabled — this endpoint currently fails server-side for every request.
+          </div>
+          <Field label="Return Type">
+            <Select value={form.returnType} onValueChange={(v) => setForm({ ...form, returnType: v })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {RETURN_TYPE_OPTIONS.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Store">
+            <ResourceSelect
+              queryKey="stores"
+              fetchList={() => StoresApi.list()}
+              getLabel={(s) => s.name}
+              value={form.storeId}
+              onValueChange={(v) => setForm({ ...form, storeId: v })}
+              placeholder="Select store…"
+              allowNone
+            />
+          </Field>
+          {form.returnType === 'purchase' && (
+            <Field label="Supplier">
               <ResourceSelect
-                queryKey="stores"
-                fetchList={() => StoresApi.list()}
+                queryKey="suppliers"
+                fetchList={() => SuppliersApi.list()}
                 getLabel={(s) => s.name}
-                value={form.storeId}
-                onValueChange={(v) => setForm({ ...form, storeId: v })}
-                placeholder="Select store…"
+                value={form.supplierId}
+                onValueChange={(v) => setForm({ ...form, supplierId: v })}
+                placeholder="Select supplier…"
                 allowNone
               />
-            </div>
-            {form.returnType === 'purchase' && (
-              <div className="space-y-2">
-                <Label>Supplier</Label>
-                <ResourceSelect
-                  queryKey="suppliers"
-                  fetchList={() => SuppliersApi.list()}
-                  getLabel={(s) => s.name}
-                  value={form.supplierId}
-                  onValueChange={(v) => setForm({ ...form, supplierId: v })}
-                  placeholder="Select supplier…"
-                  allowNone
-                />
-              </div>
-            )}
-            {form.returnType === 'sales' && (
-              <div className="space-y-2">
-                <Label htmlFor="ret-order-id">Order ID (optional)</Label>
-                <Input
-                  id="ret-order-id"
-                  value={form.orderId}
-                  onChange={(e) => setForm({ ...form, orderId: e.target.value })}
-                />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="ret-total">Total Amount</Label>
+            </Field>
+          )}
+          {form.returnType === 'sales' && (
+            <Field label="Order ID (optional)">
               <Input
-                id="ret-total"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.totalAmount}
-                onChange={(e) => setForm({ ...form, totalAmount: e.target.value })}
+                value={form.orderId}
+                onChange={(e) => setForm({ ...form, orderId: e.target.value })}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ret-status">Status</Label>
-              <Input
-                id="ret-status"
-                value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled>
-                {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </Field>
+          )}
+          <Field label="Total Amount">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={form.totalAmount}
+              onChange={(e) => setForm({ ...form, totalAmount: e.target.value })}
+            />
+          </Field>
+          <Field label="Status">
+            <Input
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+            />
+          </Field>
+        </form>
+      </FormDrawer>
 
       <ConfirmDialog
         open={!!deleteTarget}

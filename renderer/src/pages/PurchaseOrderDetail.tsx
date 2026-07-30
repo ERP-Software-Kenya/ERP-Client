@@ -4,10 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { PurchaseOrders as PurchaseOrdersApi, PurchaseItems as PurchaseItemsApi, Products as ProductsApi } from '../api';
 import type { PurchaseItem } from '../types';
 
@@ -23,8 +22,10 @@ export default function PurchaseOrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [itemDialogOpen, setItemDialogOpen] = useState(false);
+  const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
   const [itemForm, setItemForm] = useState<ItemFormState>(EMPTY_ITEM_FORM);
+
+  const closeItemDrawer = () => setItemDrawerOpen(false);
 
   const { data: po, isLoading, error } = useQuery({
     queryKey: ['purchase-orders', id],
@@ -40,7 +41,7 @@ export default function PurchaseOrderDetail() {
     mutationFn: (body: Partial<PurchaseItem>) => PurchaseItemsApi.create(body),
     onSuccess: () => {
       toast.success('Line item added');
-      setItemDialogOpen(false);
+      closeItemDrawer();
       setItemForm(EMPTY_ITEM_FORM);
       queryClient.invalidateQueries({ queryKey: ['purchase-orders', id] });
     },
@@ -83,7 +84,7 @@ export default function PurchaseOrderDetail() {
       <div className="rounded-lg border border-border bg-card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-medium">Line Items</h2>
-          <Button size="sm" onClick={() => setItemDialogOpen(true)}>
+          <Button size="sm" onClick={() => setItemDrawerOpen(true)}>
             Add Item
           </Button>
         </div>
@@ -107,58 +108,54 @@ export default function PurchaseOrderDetail() {
         </p>
       </div>
 
-      <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Line Item</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAddItem} className="space-y-4">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              Submitting is disabled — this endpoint currently fails server-side for every request.
-            </div>
-            <div className="space-y-2">
-              <Label>Product</Label>
-              <ResourceSelect
-                queryKey="products"
-                fetchList={() => ProductsApi.list()}
-                getLabel={(p) => p.name || p.sku || p.id}
-                value={itemForm.productId}
-                onValueChange={(v) => setItemForm({ ...itemForm, productId: v })}
-                placeholder="Select product…"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="item-qty">Quantity</Label>
-              <Input
-                id="item-qty"
-                type="number"
-                min="0"
-                value={itemForm.quantity}
-                onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="item-price">Unit Price</Label>
-              <Input
-                id="item-price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={itemForm.unitPrice}
-                onChange={(e) => setItemForm({ ...itemForm, unitPrice: e.target.value })}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setItemDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled>
-                Add (blocked — see notice above)
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={itemDrawerOpen}
+        onClose={closeItemDrawer}
+        title="Add Line Item"
+        footer={
+          <>
+            <Button type="submit" form="purchase-order-item-form" disabled>
+              Add (blocked — see notice above)
+            </Button>
+            <Button type="button" variant="outline" onClick={closeItemDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="purchase-order-item-form" onSubmit={handleAddItem} className="space-y-4">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            Submitting is disabled — this endpoint currently fails server-side for every request.
+          </div>
+          <Field label="Product">
+            <ResourceSelect
+              queryKey="products"
+              fetchList={() => ProductsApi.list()}
+              getLabel={(p) => p.name || p.sku || p.id}
+              value={itemForm.productId}
+              onValueChange={(v) => setItemForm({ ...itemForm, productId: v })}
+              placeholder="Select product…"
+            />
+          </Field>
+          <Field label="Quantity">
+            <Input
+              type="number"
+              min="0"
+              value={itemForm.quantity}
+              onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })}
+            />
+          </Field>
+          <Field label="Unit Price">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={itemForm.unitPrice}
+              onChange={(e) => setItemForm({ ...itemForm, unitPrice: e.target.value })}
+            />
+          </Field>
+        </form>
+      </FormDrawer>
     </div>
   );
 }

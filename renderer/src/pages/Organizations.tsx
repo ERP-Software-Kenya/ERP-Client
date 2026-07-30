@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { ERPDataTable, Column } from '../components/ERPDataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Organizations as OrganizationsApi } from '../api';
 import { useResourceMutations } from '../hooks/useResourceMutations';
@@ -17,13 +16,23 @@ interface FormState {
   code: string;
   email: string;
   phone: string;
+  address: string;
+  country: string;
   status: string;
 }
 
-const EMPTY_FORM: FormState = { name: '', code: '', email: '', phone: '', status: 'active' };
+const EMPTY_FORM: FormState = {
+  name: '',
+  code: '',
+  email: '',
+  phone: '',
+  address: '',
+  country: '',
+  status: 'active',
+};
 
 export default function Organizations() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Organization | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Organization | null>(null);
@@ -37,7 +46,7 @@ export default function Organizations() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
 
   const openEdit = (row: Organization) => {
@@ -47,10 +56,14 @@ export default function Organizations() {
       code: row.code ?? '',
       email: row.email ?? '',
       phone: row.phone ?? '',
+      address: row.address ?? '',
+      country: row.country ?? '',
       status: row.status ?? 'active',
     });
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,12 +72,14 @@ export default function Organizations() {
       code: form.code || undefined,
       email: form.email || undefined,
       phone: form.phone || undefined,
+      address: form.address || undefined,
+      country: form.country || undefined,
       status: form.status,
     };
     if (editing) {
-      updateMutation.mutate({ id: editing.id, body }, { onSuccess: () => setDialogOpen(false) });
+      updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
     } else {
-      createMutation.mutate(body, { onSuccess: () => setDialogOpen(false) });
+      createMutation.mutate(body, { onSuccess: closeDrawer });
     }
   };
 
@@ -92,65 +107,65 @@ export default function Organizations() {
         onDelete={(row) => setDeleteTarget(row)}
       />
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Edit Organization' : 'Add Organization'}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="org-name">Name</Label>
-              <Input
-                id="org-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="org-code">Code</Label>
-              <Input id="org-code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="org-email">Email</Label>
-              <Input
-                id="org-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="org-phone">Phone</Label>
-              <Input id="org-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? 'Saving…' : 'Save'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title={editing ? 'Edit Organization' : 'Add Organization'}
+        footer={
+          <>
+            <Button type="submit" form="organization-form" disabled={isSaving}>
+              {isSaving ? 'Saving…' : 'Save'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="organization-form" onSubmit={handleSubmit} className="space-y-4">
+          <Field label="Name" required>
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+              autoFocus
+            />
+          </Field>
+          <Field label="Code">
+            <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          </Field>
+          <Field label="Email">
+            <Input
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </Field>
+          <Field label="Phone">
+            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </Field>
+          <Field label="Address">
+            <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+          </Field>
+          <Field label="Country">
+            <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+          </Field>
+          <Field label="Status">
+            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </form>
+      </FormDrawer>
 
       <ConfirmDialog
         open={!!deleteTarget}

@@ -1,156 +1,309 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { StockMovements as StockMovementsApi, Inventory as InventoryApi, Organizations as OrganizationsApi } from '../api';
-import type { StockMovement, InventoryItem } from '../types';
+import {
+  Inventory as InventoryApi,
+  Locations as LocationsApi,
+  Products as ProductsApi,
+  listStockMovementsByInventory,
+  performStockOperation,
+} from '../api';
+import type { InventoryItem, StockMovement, StockMovementOp } from '../types';
 
-const TYPE_OPTIONS = ['IN', 'OUT'];
+const OPS: { value: StockMovementOp; label: string }[] = [
+  { value: 'add', label: 'Add' },
+  { value: 'remove', label: 'Remove' },
+  { value: 'adjust', label: 'Adjust (set absolute qty)' },
+  { value: 'reserve', label: 'Reserve' },
+  { value: 'release-reservation', label: 'Release reservation' },
+  { value: 'damage', label: 'Damage' },
+  { value: 'write-off', label: 'Write-off' },
+];
 
 interface FormState {
-  organization_id: string;
-  inventory_id: string;
-  type: string;
+  op: StockMovementOp;
+  inventoryId: string;
+  locationId: string;
+  productId: string;
   quantity: string;
-  reason: string;
+  absoluteQuantity: string;
+  unitCost: string;
+  referenceId: string;
+  referenceType: string;
+  notes: string;
 }
 
-const EMPTY_FORM: FormState = { organization_id: '', inventory_id: '', type: TYPE_OPTIONS[0], quantity: '', reason: '' };
+const EMPTY_FORM: FormState = {
+  op: 'add',
+  inventoryId: '',
+  locationId: '',
+  productId: '',
+  quantity: '',
+  absoluteQuantity: '',
+  unitCost: '',
+  referenceId: '',
+  referenceType: '',
+  notes: '',
+};
 
-// GET /inventory only returns `{id, name?}` live (docs/core-apis-fixes.md #11)
-// — product_id/store_id never round-trip, so there's nothing more descriptive
-// to show than the id itself.
 function inventoryLabel(item: InventoryItem): string {
-  return item.name || `Inventory item ${item.id.slice(0, 8)}`;
+  return item.name || `Inventory ${item.id.slice(0, 8)}`;
 }
 
 export default function StockMovements() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [historyInventoryId, setHistoryInventoryId] = useState('');
 
-  // Wired up and ready, but the submit button below stays disabled: creating a
-  // StockMovement 500s on every call today — a confirmed core-apis DTO/entity
-  // mismatch bug, not a client issue. Live-tested 2026-07-26 with a real
-  // inventoryId (no confounding FK) — clean confirmation. See
-  // docs/core-apis-fixes.md #2. Remove the `disabled` prop once that's fixed.
-  const createMutation = useMutation({
-    mutationFn: (body: Partial<StockMovement>) => StockMovementsApi.create(body),
-    onSuccess: () => {
-      toast.success('Stock adjustment recorded');
-      setDialogOpen(false);
-      setForm(EMPTY_FORM);
+  const closeDrawer = () => setDrawerOpen(false);
+
+  const { data: history = [], isFetching: historyLoading, refetch: refetchHistory } = useQuery({
+    queryKey: ['stock-movements', 'by-inventory', historyInventoryId],
+    queryFn: () => listStockMovementsByInventory(historyInventoryId),
+    enabled: !!historyInventoryId,
+  });
+
+  const opMutation = useMutation({
+    mutationFn: () => {
+      const base = {
+        inventoryId: form.inventoryId,
+        locationId: form.locationId,
+        productId: form.productId,
+        unitCost: form.unitCost ? Number(form.unitCost) : undefined,
+        referenceId: form.referenceId || undefined,
+        referenceType: form.referenceType || undefined,
+        notes: form.notes || undefined,
+      };
+      if (form.op === 'adjust') {
+        return performStockOperation('adjust', {
+          ...base,
+          absoluteQuantity: Number(form.absoluteQuantity),
+        });
+      }
+      return performStockOperation(form.op, {
+        ...base,
+        quantity: Number(form.quantity),
+      });
     },
-    onError: (error: Error) => toast.error(error.message || 'Failed to record stock adjustment'),
+    onSuccess: () => {
+      toast.success(`Stock ${form.op} recorded`);
+      queryClient.invalidateQueries({ queryKey: ['stock-movements'] });
+      if (historyInventoryId && historyInventoryId === form.inventoryId) refetchHistory();
+      setForm(EMPTY_FORM);
+      closeDrawer();
+    },
+    onError: (error: Error) => toast.error(error.message || 'Stock operation failed'),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({
-      organizationId: form.organization_id || undefined,
-      inventoryId: form.inventory_id || undefined,
-      type: form.type,
-      quantity: form.quantity ? Number(form.quantity) : undefined,
-      reason: form.reason || undefined,
-    });
+    if (!form.inventoryId || !form.locationId || !form.productId) {
+      toast.error('Inventory, location, and product are required');
+      return;
+    }
+    if (form.op === 'adjust') {
+      if (form.absoluteQuantity === '' || Number.isNaN(Number(form.absoluteQuantity))) {
+        toast.error('Absolute quantity is required for adjust');
+        return;
+      }
+    } else if (!form.quantity || Number(form.quantity) <= 0) {
+      toast.error('Quantity must be a positive number');
+      return;
+    }
+    opMutation.mutate();
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Stock Adjustments</h1>
+          <h1 className="text-2xl font-semibold">Stock Ledger</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Log damage/loss/found/correction adjustments against an inventory balance.
-            <span className="text-amber-500 font-medium"> Currently blocked</span> — the backend
-            fails to save new stock movements (core-apis DTO/entity mismatch, see
-            docs/core-apis-fixes.md #2). This form is ready to use once that's fixed.
+            Run inventory operations (add, remove, adjust, reserve, damage, write-off) and view
+            movement history for an inventory record.
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>New Stock Adjustment</Button>
+        <Button onClick={() => setDrawerOpen(true)}>New Operation</Button>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Stock Adjustment</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              Submitting is disabled — this endpoint currently fails server-side for every request.
-            </div>
-            <div className="space-y-2">
-              <Label>Organization</Label>
-              <ResourceSelect
-                queryKey="organizations"
-                fetchList={() => OrganizationsApi.list()}
-                getLabel={(o) => o.name}
-                value={form.organization_id}
-                onValueChange={(v) => setForm({ ...form, organization_id: v })}
-                placeholder="Select organization…"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Inventory item</Label>
+      <FormSection title="Movement history">
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <div className="min-w-[240px] flex-1">
+            <Field label="Inventory">
               <ResourceSelect
                 queryKey="inventory"
                 fetchList={() => InventoryApi.list()}
                 getLabel={inventoryLabel}
-                value={form.inventory_id}
-                onValueChange={(v) => setForm({ ...form, inventory_id: v })}
-                placeholder="Select inventory item…"
+                value={historyInventoryId}
+                onValueChange={setHistoryInventoryId}
+                placeholder="Select inventory…"
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Type</Label>
-              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TYPE_OPTIONS.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sm-quantity">Quantity</Label>
+            </Field>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!historyInventoryId || historyLoading}
+            onClick={() => refetchHistory()}
+          >
+            {historyLoading ? 'Loading…' : 'Refresh'}
+          </Button>
+        </div>
+
+        {!historyInventoryId ? (
+          <p className="text-sm text-muted-foreground">Select an inventory record to load movements.</p>
+        ) : history.length === 0 && !historyLoading ? (
+          <p className="text-sm text-muted-foreground">No movements for this inventory yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-left">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Type</th>
+                  <th className="px-3 py-2 font-medium">Qty</th>
+                  <th className="px-3 py-2 font-medium">Before</th>
+                  <th className="px-3 py-2 font-medium">After</th>
+                  <th className="px-3 py-2 font-medium">Notes</th>
+                  <th className="px-3 py-2 font-medium">When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((row: StockMovement) => (
+                  <tr key={row.id} className="border-t border-border">
+                    <td className="px-3 py-2">{row.movementType}</td>
+                    <td className="px-3 py-2">{row.quantity}</td>
+                    <td className="px-3 py-2">{row.quantityBefore}</td>
+                    <td className="px-3 py-2">{row.quantityAfter}</td>
+                    <td className="px-3 py-2">{row.notes || '—'}</td>
+                    <td className="px-3 py-2">
+                      {row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </FormSection>
+
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title="Stock Operation"
+        footer={
+          <>
+            <Button type="submit" form="stock-op-form" disabled={opMutation.isPending}>
+              {opMutation.isPending ? 'Submitting…' : 'Submit'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="stock-op-form" onSubmit={handleSubmit} className="space-y-4">
+          <Field label="Operation" required>
+            <Select
+              value={form.op}
+              onValueChange={(v) => setForm({ ...form, op: v as StockMovementOp })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {OPS.map((op) => (
+                  <SelectItem key={op.value} value={op.value}>
+                    {op.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field label="Inventory" required>
+            <ResourceSelect
+              queryKey="inventory"
+              fetchList={() => InventoryApi.list()}
+              getLabel={inventoryLabel}
+              value={form.inventoryId}
+              onValueChange={(inventoryId) => setForm({ ...form, inventoryId })}
+            />
+          </Field>
+          <Field label="Location" required>
+            <ResourceSelect
+              queryKey="locations"
+              fetchList={() => LocationsApi.list()}
+              getLabel={(l) => l.name}
+              value={form.locationId}
+              onValueChange={(locationId) => setForm({ ...form, locationId })}
+            />
+          </Field>
+          <Field label="Product" required>
+            <ResourceSelect
+              queryKey="products"
+              fetchList={() => ProductsApi.list()}
+              getLabel={(p) => p.name || p.id}
+              value={form.productId}
+              onValueChange={(productId) => setForm({ ...form, productId })}
+            />
+          </Field>
+
+          {form.op === 'adjust' ? (
+            <Field label="Absolute quantity" required>
               <Input
-                id="sm-quantity"
+                type="number"
+                value={form.absoluteQuantity}
+                onChange={(e) => setForm({ ...form, absoluteQuantity: e.target.value })}
+                required
+              />
+            </Field>
+          ) : (
+            <Field label="Quantity" required>
+              <Input
                 type="number"
                 min="0"
+                step="any"
                 value={form.quantity}
                 onChange={(e) => setForm({ ...form, quantity: e.target.value })}
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sm-reason">Reason</Label>
+            </Field>
+          )}
+
+          <Field label="Unit cost">
+            <Input
+              type="number"
+              min="0"
+              step="any"
+              value={form.unitCost}
+              onChange={(e) => setForm({ ...form, unitCost: e.target.value })}
+            />
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Reference ID">
               <Input
-                id="sm-reason"
-                placeholder="Damage, Loss, Found, Correction…"
-                value={form.reason}
-                onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                value={form.referenceId}
+                onChange={(e) => setForm({ ...form, referenceId: e.target.value })}
               />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled>
-                Create (blocked — see notice above)
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </Field>
+            <Field label="Reference type">
+              <Input
+                value={form.referenceType}
+                onChange={(e) => setForm({ ...form, referenceType: e.target.value })}
+              />
+            </Field>
+          </div>
+          <Field label="Notes">
+            <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+          </Field>
+        </form>
+      </FormDrawer>
     </div>
   );
 }

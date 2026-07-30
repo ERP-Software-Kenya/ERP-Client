@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { PlatformConfigurations as PlatformConfigurationsApi } from '../api';
 import type { PlatformConfiguration } from '../types';
 
@@ -17,7 +16,7 @@ interface FormState {
 const EMPTY_FORM: FormState = { configKey: '', configValue: '{}', description: '' };
 
 export default function PlatformConfigurations() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [lastCreated, setLastCreated] = useState<PlatformConfiguration | null>(null);
@@ -27,11 +26,13 @@ export default function PlatformConfigurations() {
     onSuccess: (created) => {
       toast.success('Platform configuration created');
       setLastCreated(created);
-      setDialogOpen(false);
+      setDrawerOpen(false);
       setForm(EMPTY_FORM);
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to create platform configuration'),
   });
+
+  const closeDrawer = () => setDrawerOpen(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +60,7 @@ export default function PlatformConfigurations() {
             No list endpoint exists for platform configurations — there's no directory here, only a create form.
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>New Configuration</Button>
+        <Button onClick={() => setDrawerOpen(true)}>New Configuration</Button>
       </div>
 
       {lastCreated && (
@@ -70,50 +71,45 @@ export default function PlatformConfigurations() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New Platform Configuration</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="cfg-key">Config Key</Label>
-              <Input
-                id="cfg-key"
-                value={form.configKey}
-                onChange={(e) => setForm({ ...form, configKey: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cfg-value">Config Value (JSON)</Label>
-              <textarea
-                id="cfg-value"
-                className="flex min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
-                value={form.configValue}
-                onChange={(e) => setForm({ ...form, configValue: e.target.value })}
-              />
-              {jsonError && <p className="text-xs text-destructive">{jsonError}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cfg-description">Description (optional)</Label>
-              <Input
-                id="cfg-description"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating…' : 'Create'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title="New Platform Configuration"
+        footer={
+          <>
+            <Button type="submit" form="platform-config-form" disabled={createMutation.isPending}>
+              {createMutation.isPending ? 'Creating…' : 'Create'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="platform-config-form" onSubmit={handleSubmit} className="space-y-5">
+          <Field label="Config Key" required>
+            <Input
+              value={form.configKey}
+              onChange={(e) => setForm({ ...form, configKey: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Config Value (JSON)">
+            <textarea
+              className="flex min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono"
+              value={form.configValue}
+              onChange={(e) => setForm({ ...form, configValue: e.target.value })}
+            />
+            {jsonError && <p className="text-xs text-destructive">{jsonError}</p>}
+          </Field>
+          <Field label="Description (optional)">
+            <Input
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </Field>
+        </form>
+      </FormDrawer>
     </div>
   );
 }
