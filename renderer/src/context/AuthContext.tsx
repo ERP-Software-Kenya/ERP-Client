@@ -94,32 +94,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let hasLoadedOnce = false;
     let unsubscribe: (() => void) | undefined;
 
-    clerk.load().then(() => {
-      if (!mounted) return;
-      unsubscribe = clerk.addListener(async ({ session }: ClerkResources) => {
+    clerk
+      .load()
+      .then(() => {
         if (!mounted) return;
-        try {
-          if (signingOut.current) {
-            lastSessionId.current = null;
-            setUser(null);
-            return;
+        unsubscribe = clerk.addListener(async ({ session }: ClerkResources) => {
+          if (!mounted) return;
+          try {
+            if (signingOut.current) {
+              lastSessionId.current = null;
+              setUser(null);
+              return;
+            }
+            if (session) {
+              if (session.id === lastSessionId.current) return;
+              lastSessionId.current = session.id;
+              await refresh();
+            } else {
+              lastSessionId.current = null;
+              setUser(null);
+            }
+          } finally {
+            if (!hasLoadedOnce) {
+              hasLoadedOnce = true;
+              setLoading(false);
+            }
           }
-          if (session) {
-            if (session.id === lastSessionId.current) return;
-            lastSessionId.current = session.id;
-            await refresh();
-          } else {
-            lastSessionId.current = null;
-            setUser(null);
-          }
-        } finally {
-          if (!hasLoadedOnce) {
-            hasLoadedOnce = true;
-            setLoading(false);
-          }
-        }
+        });
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        console.error('Clerk failed to load', error);
+        toast.error(error instanceof Error ? error.message : 'Auth failed to start');
+        setLoading(false);
       });
-    });
 
     return () => {
       mounted = false;

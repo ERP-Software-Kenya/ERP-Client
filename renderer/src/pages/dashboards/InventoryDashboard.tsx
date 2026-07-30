@@ -1,13 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
-import { Boxes, AlertTriangle, TrendingUp } from 'lucide-react';
-import { Inventory, getInventoryLowStock, getInventoryValuation } from '../../api';
+import { Link } from 'react-router-dom';
+import { Package, AlertTriangle, DollarSign, Layers } from 'lucide-react';
+import { Inventory, useInventoryLowStock, useInventoryValuation } from '../../api';
+import type { InventoryItem } from '../../types';
 
 function StatCard({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ size?: number }> }) {
   return (
-    <div className="p-6 bg-card border border-border rounded-xl shadow-sm">
-      <div className="flex items-center justify-between space-y-0 pb-2">
-        <h3 className="tracking-tight text-sm font-medium text-muted-foreground">{label}</h3>
-        <div className="p-2 rounded-full bg-purple-500/10 text-purple-500">
+    <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+      <div className="flex items-center justify-between pb-2">
+        <h3 className="text-sm font-medium tracking-tight text-muted-foreground">{label}</h3>
+        <div className="rounded-full bg-blue-500/10 p-2 text-blue-500">
           <Icon size={16} />
         </div>
       </div>
@@ -16,49 +17,84 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: string; 
   );
 }
 
-export default function InventoryDashboard() {
-  const { data: totalData, isLoading: totalLoading, isError: totalIsError } = useQuery({
-    queryKey: ['dashboard', 'inventory', 'total'],
-    queryFn: () => Inventory.search({ limit: 1 }),
-    staleTime: 5 * 60 * 1000,
-  });
-  const { data: lowStock, isLoading: lowStockLoading, isError: lowStockIsError } = useQuery({
-    queryKey: ['dashboard', 'inventory', 'low-stock'],
-    queryFn: getInventoryLowStock,
-    staleTime: 5 * 60 * 1000,
-  });
-  const { data: valuation, isLoading: valuationLoading, isError: valuationIsError } = useQuery({
-    queryKey: ['dashboard', 'inventory', 'valuation'],
-    queryFn: getInventoryValuation,
-    staleTime: 5 * 60 * 1000,
-  });
+function formatValuation(items: InventoryItem[] | undefined): string {
+  if (!items?.length) return '$0.00';
+  const total = items.reduce((sum, row) => sum + (row.averageCost ?? 0) * row.quantityOnHand, 0);
+  return `$${total.toFixed(2)}`;
+}
 
-  const totalStockValue = (valuation ?? []).reduce((sum, item) => sum + item.quantityOnHand * (item.averageCost ?? 0), 0);
+export default function InventoryDashboard() {
+  const { data: searchData, isLoading: totalLoading, isError: totalError } = Inventory.useSearch({ limit: 1 });
+  const { data: lowStock, isLoading: lowLoading, isError: lowError } = useInventoryLowStock();
+  const { data: valuation, isLoading: valLoading, isError: valError } = useInventoryValuation();
+
+  const lowItems = lowStock ?? [];
 
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold tracking-tight">Inventory Dashboard</h2>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Inventory Items" value={totalLoading ? '…' : totalIsError ? 'Not available' : String(totalData?.total ?? 0)} icon={Boxes} />
-        <StatCard label="Low Stock Items" value={lowStockLoading ? '…' : lowStockIsError ? 'Not available' : String(lowStock?.length ?? 0)} icon={AlertTriangle} />
-        <StatCard label="Stock Value" value={valuationLoading ? '…' : valuationIsError ? 'Not available' : totalStockValue.toLocaleString()} icon={TrendingUp} />
-        <StatCard label="Expiring (30 days)" value="Not available" icon={AlertTriangle} />
+        <StatCard
+          label="Inventory records"
+          value={totalLoading ? '…' : totalError ? 'Not available' : String(searchData?.total ?? 0)}
+          icon={Layers}
+        />
+        <StatCard
+          label="Low-stock SKUs"
+          value={lowLoading ? '…' : lowError ? 'Not available' : String(lowItems.length)}
+          icon={AlertTriangle}
+        />
+        <StatCard
+          label="Valuation (on-hand × avg cost)"
+          value={valLoading ? '…' : valError ? 'Not available' : formatValuation(valuation)}
+          icon={DollarSign}
+        />
+        <StatCard label="Published products" value="Not available" icon={Package} />
       </div>
-      {lowStock && lowStock.length > 0 && (
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
-            <h3 className="font-semibold text-sm">Low Stock Alerts</h3>
-          </div>
-          <div className="divide-y divide-border">
-            {lowStock.slice(0, 10).map((item) => (
-              <div key={item.id} className="px-5 py-3 text-sm flex items-center justify-between">
-                <span className="font-mono text-xs text-muted-foreground">Product {item.productId}</span>
-                <span>{item.quantityOnHand} on hand (reorder at {item.reorderLevel})</span>
-              </div>
-            ))}
-          </div>
+
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-semibold">Low stock</h3>
+          <Link to="/inventory" className="text-sm text-primary hover:underline">
+            View all inventory
+          </Link>
         </div>
-      )}
+        {lowLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : lowError ? (
+          <p className="text-sm text-muted-foreground">Low-stock data is not available.</p>
+        ) : lowItems.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No items below reorder level.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-2 pr-4">Product</th>
+                  <th className="py-2 pr-4">Store</th>
+                  <th className="py-2 pr-4">On hand</th>
+                  <th className="py-2">Reorder</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lowItems.slice(0, 20).map((row) => (
+                  <tr key={row.id} className="border-b border-border/60">
+                    <td className="py-2 pr-4">
+                      <Link to={`/inventory/${row.id}`} className="hover:underline">
+                        {row.productId.slice(0, 8)}…
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-4">{row.locationId.slice(0, 8)}…</td>
+                    <td className="py-2 pr-4">{row.quantityOnHand}</td>
+                    <td className="py-2">{row.reorderLevel}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

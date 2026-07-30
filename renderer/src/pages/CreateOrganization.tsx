@@ -5,6 +5,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
+import { clerk } from '../lib/clerk';
 import { AuthService } from '../services/auth.service';
 
 export default function CreateOrganization() {
@@ -21,7 +22,13 @@ export default function CreateOrganization() {
     e.preventDefault();
     setLoading(true);
     try {
-      await AuthService.createOrganization({ name: name.trim(), slug: slug.trim() });
+      const clerkOrg = await clerk.createOrganization({ name: name.trim(), slug: slug.trim() });
+      await clerk.setActive({ organization: clerkOrg.id });
+      await AuthService.createOrganization({
+        name: name.trim(),
+        slug: slug.trim(),
+        clerkOrgId: clerkOrg.id,
+      });
       await refresh();
       toast.success('Organization created');
       navigate('/');

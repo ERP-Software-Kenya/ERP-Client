@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Bills as BillsApi, PaymentTransactions as PaymentTransactionsApi } from '../api';
-import type { PaymentTransaction } from '../types';
+import { Bills, PaymentTransactions } from '../api';
 
 interface PaymentFormState {
   method: string;
@@ -22,49 +20,48 @@ export default function BillDetail() {
   const [paymentDrawerOpen, setPaymentDrawerOpen] = useState(false);
   const [paymentForm, setPaymentForm] = useState<PaymentFormState>(EMPTY_PAYMENT_FORM);
 
-  const { data: bill, isLoading, error } = useQuery({
-    queryKey: ['bills', id],
-    queryFn: () => BillsApi.getById(id!),
-    enabled: !!id,
-  });
+  const { data: bill, isLoading, error } = Bills.useGet(id);
 
-  // Reads fine (search works), but will always come back empty — nothing can
-  // create a payment today (see #0d below), so there's nothing to filter to.
-  const { data: paymentsResult } = useQuery({
-    queryKey: ['payment-transactions', 'for-bill', id],
-    queryFn: () => PaymentTransactionsApi.search({ limit: 100 }),
-    enabled: !!id,
-  });
-  const linkedPayments = (paymentsResult?.data ?? []).filter(
-    (p) => p.referenceType === 'bill' && p.referenceId === id,
-  );
+  // Search may 500 (same class of backend issues as the list page). Treat errors as
+  // empty + notice — don't leave a blank crash when filtering linked payments.
+  const {
+    data: paymentsResult,
+    isError: paymentsError,
+    error: paymentsErr,
+  } = PaymentTransactions.useSearch({ limit: 100 });
+  const linkedPayments = paymentsError
+    ? []
+    : (paymentsResult?.items ?? []).filter(
+        (p) => p.referenceType === 'bill' && p.referenceId === id,
+      );
 
   // Wired up and ready, but the submit button below stays disabled: POST
   // /payment-transactions 500s on every call — domain model uses `orgId`, the
   // entity's real NOT-NULL column is `organizationId`. See
   // docs/core-apis-fixes.md #0d. Remove the `disabled` prop once that's fixed.
-  const createPaymentMutation = useMutation({
-    mutationFn: (body: Partial<PaymentTransaction>) => PaymentTransactionsApi.create(body),
-    onSuccess: () => {
-      toast.success('Payment recorded');
-      setPaymentDrawerOpen(false);
-      setPaymentForm(EMPTY_PAYMENT_FORM);
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to record payment'),
-  });
+  const createPaymentMutation = PaymentTransactions.useCreate();
 
   const closePaymentDrawer = () => setPaymentDrawerOpen(false);
 
   const handleRecordPayment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
-    createPaymentMutation.mutate({
-      referenceId: id,
-      referenceType: 'bill',
-      type: 'payment',
-      method: paymentForm.method || undefined,
-      amount: paymentForm.amount ? Number(paymentForm.amount) : undefined,
-    });
+    createPaymentMutation.mutate(
+      {
+        referenceId: id,
+        referenceType: 'bill',
+        type: 'payment',
+        method: paymentForm.method || undefined,
+        amount: paymentForm.amount ? Number(paymentForm.amount) : undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Payment recorded');
+          setPaymentDrawerOpen(false);
+          setPaymentForm(EMPTY_PAYMENT_FORM);
+        },
+      },
+    );
   };
 
   if (isLoading) return <div className="p-6 text-muted-foreground">Loading…</div>;
@@ -98,7 +95,12 @@ export default function BillDetail() {
             Record Payment
           </Button>
         </div>
-        {linkedPayments.length === 0 ? (
+        {paymentsError ? (
+          <p className="text-xs text-destructive">
+            Unable to load payments — the backend is returning errors and needs a fix
+            {paymentsErr instanceof Error && paymentsErr.message ? ` (${paymentsErr.message})` : ''}.
+          </p>
+        ) : linkedPayments.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             No payments recorded. (Recording is currently blocked — see docs/core-apis-fixes.md #0d.)
           </p>

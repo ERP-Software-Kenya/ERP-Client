@@ -6,7 +6,7 @@ export interface MeResponse {
   email: string;
   firstName?: string;
   lastName?: string;
-  imageUrl?: string;
+  avatarUrl?: string;
   roles: string[];
   isOnboarded: boolean;
   organization?: { id: string; name: string; slug: string; logoUrl?: string };

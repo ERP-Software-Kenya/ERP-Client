@@ -1,19 +1,21 @@
 import { useState } from 'react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
-import { Notifications as NotificationsApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { Notifications } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { Notification } from '../types';
 
-export default function Notifications() {
+export default function NotificationsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Notification | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Notification | null>(null);
 
-  // create is intentionally unused here — no Add form for this system-generated resource.
-  const { updateMutation, removeMutation } = useResourceMutations(NotificationsApi, 'notifications', 'Notification');
+  const updateMutation = Notifications.useUpdate();
+  const removeMutation = Notifications.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, error, refetch } = Notifications.useSearch({ page, search: debouncedSearch });
 
   const openEdit = (row: Notification) => {
     setEditing(row);
@@ -40,12 +42,18 @@ export default function Notifications() {
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
-      <ERPDataTable
+      <DataTable
         title="Notifications"
         description="System-generated notifications. Mark as read or delete."
-        queryKey="notifications"
         columns={columns}
-        fetchData={(params) => NotificationsApi.search(params)}
+        rows={data?.items ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        loading={isLoading}
+        error={error ? String(error) : null}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search notifications…"
         isAdmin={true}
         onEdit={openEdit}

@@ -108,3 +108,117 @@
   background-color: var(--color-border);
   border-radius: 20px;
 }
+
+/* Login split visual panel */
+.login-visual {
+  position: relative;
+  overflow: hidden;
+  width: 50%;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background: hsl(222 47% 16%);
+  color: hsl(210 40% 98%);
+}
+
+.login-aurora {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+}
+
+.login-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.7;
+  animation: login-blob 14s ease-in-out infinite;
+}
+
+.login-blob-a {
+  width: 55%;
+  height: 55%;
+  top: 12%;
+  left: 8%;
+  background: hsl(217 91% 60%);
+}
+
+.login-blob-b {
+  width: 50%;
+  height: 50%;
+  right: 0;
+  bottom: 10%;
+  background: hsl(199 89% 48%);
+  animation-delay: -7s;
+}
+
+.login-copy {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 2rem;
+}
+
+.login-brand {
+  margin: 0;
+  font-size: clamp(2.75rem, 5vw, 4rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.login-tagline {
+  margin: 0.85rem 0 0;
+  font-size: 1.1rem;
+  opacity: 0.82;
+}
+
+@keyframes login-blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(10%, 12%) scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-blob {
+    animation: none !important;
+  }
+}
+
+/* POS: print only the receipt sheet */
+.pos-print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 10mm;
+    size: auto;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .pos-print-root,
+  .pos-print-root * {
+    visibility: visible !important;
+  }
+
+  .pos-print-root {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white;
+  }
+
+  .pos-no-print {
+    display: none !important;
+  }
+}

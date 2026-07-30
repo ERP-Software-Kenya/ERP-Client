@@ -1,13 +1,8 @@
 import { useState } from 'react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
-import { ConfirmDialog } from '../components/ConfirmDialog';
-import { ResourceSelect } from '../components/ResourceSelect';
+import { toast } from 'sonner';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { UserAddresses as UserAddressesApi, Users as UsersApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
-import type { UserAddress } from '../types';
 
 interface FormState {
   userId: string;
@@ -31,92 +26,44 @@ const EMPTY_FORM: FormState = {
   postalCode: '',
 };
 
-export default function UserAddresses() {
+export default function UserAddressesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editing, setEditing] = useState<UserAddress | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [deleteTarget, setDeleteTarget] = useState<UserAddress | null>(null);
-
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(
-    UserAddressesApi,
-    'user-addresses',
-    'Address',
-  );
-
-  const openCreate = () => {
-    setEditing(null);
-    setForm(EMPTY_FORM);
-    setDrawerOpen(true);
-  };
-
-  const openEdit = (row: UserAddress) => {
-    setEditing(row);
-    setForm({
-      userId: row.userId ?? '',
-      type: row.type ?? '',
-      line1: row.line1 ?? '',
-      line2: row.line2 ?? '',
-      city: row.city ?? '',
-      state: row.state ?? '',
-      country: row.country ?? '',
-      postalCode: row.postalCode ?? '',
-    });
-    setDrawerOpen(true);
-  };
 
   const closeDrawer = () => setDrawerOpen(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const body: Partial<UserAddress> = {
-      userId: form.userId,
-      type: form.type || undefined,
-      line1: form.line1,
-      line2: form.line2 || undefined,
-      city: form.city,
-      state: form.state || undefined,
-      country: form.country,
-      postalCode: form.postalCode,
-    };
-    if (editing) {
-      updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
-    } else {
-      createMutation.mutate(body, { onSuccess: closeDrawer });
-    }
+    toast.error('User address API is unavailable — nothing was saved');
   };
 
-  const columns: Column<UserAddress>[] = [
-    { key: 'line1', label: 'Address' },
-    { key: 'city', label: 'City' },
-    { key: 'country', label: 'Country' },
-    { key: 'type', label: 'Type' },
-  ];
-
-  const isSaving = createMutation.isPending || updateMutation.isPending;
-
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
-      <ERPDataTable
-        title="User Addresses"
-        description="Manage addresses linked to users."
-        queryKey="user-addresses"
-        columns={columns}
-        fetchData={(params) => UserAddressesApi.search(params)}
-        searchPlaceholder="Search addresses…"
-        isAdmin={true}
-        onAdd={openCreate}
-        onEdit={openEdit}
-        onDelete={(row) => setDeleteTarget(row)}
-      />
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold">User Addresses</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            Addresses linked to users. No backend endpoints exist for this resource.
+          </p>
+        </div>
+        <Button onClick={() => { setForm(EMPTY_FORM); setDrawerOpen(true); }} variant="outline">
+          View form (unavailable)
+        </Button>
+      </div>
+
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+        No user-addresses API in core-apis — there is no list, create, update, or delete. Save is
+        disabled.
+      </div>
 
       <FormDrawer
         open={drawerOpen}
         onClose={closeDrawer}
-        title={editing ? 'Edit Address' : 'Add Address'}
+        title="Add Address"
         footer={
           <>
-            <Button type="submit" form="user-address-form" disabled={isSaving}>
-              {isSaving ? 'Saving…' : 'Save'}
+            <Button type="submit" form="user-address-form" disabled>
+              Save (API unavailable)
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>
               Cancel
@@ -125,14 +72,15 @@ export default function UserAddresses() {
         }
       >
         <form id="user-address-form" onSubmit={handleSubmit} className="space-y-4">
-          <Field label="User" required>
-            <ResourceSelect
-              queryKey="users"
-              fetchList={() => UsersApi.list()}
-              getLabel={(u) => [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id}
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+            Submitting is disabled — no backend endpoints for user addresses.
+          </div>
+          <Field label="User ID">
+            <Input
               value={form.userId}
-              onValueChange={(v) => setForm({ ...form, userId: v })}
-              placeholder="Select user…"
+              onChange={(e) => setForm({ ...form, userId: e.target.value })}
+              placeholder="UUID"
+              disabled
             />
           </Field>
           <Field label="Type">
@@ -140,47 +88,37 @@ export default function UserAddresses() {
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value })}
               placeholder="e.g. home, work"
+              disabled
             />
           </Field>
-          <Field label="Address Line 1" required>
-            <Input value={form.line1} onChange={(e) => setForm({ ...form, line1: e.target.value })} required autoFocus />
+          <Field label="Address Line 1">
+            <Input value={form.line1} onChange={(e) => setForm({ ...form, line1: e.target.value })} disabled />
           </Field>
           <Field label="Address Line 2">
-            <Input value={form.line2} onChange={(e) => setForm({ ...form, line2: e.target.value })} />
+            <Input value={form.line2} onChange={(e) => setForm({ ...form, line2: e.target.value })} disabled />
           </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="City" required>
-              <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />
+            <Field label="City">
+              <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} disabled />
             </Field>
             <Field label="State">
-              <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
+              <Input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} disabled />
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Country" required>
-              <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} required />
+            <Field label="Country">
+              <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} disabled />
             </Field>
-            <Field label="Postal Code" required>
+            <Field label="Postal Code">
               <Input
                 value={form.postalCode}
                 onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-                required
+                disabled
               />
             </Field>
           </div>
         </form>
       </FormDrawer>
-
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete Address"
-        description={`Delete "${deleteTarget?.line1}"? This can't be undone.`}
-        isPending={removeMutation.isPending}
-        onConfirm={() =>
-          deleteTarget && removeMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })
-        }
-      />
     </div>
   );
 }

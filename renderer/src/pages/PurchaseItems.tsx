@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FormDrawer, Field } from '../components/FormDrawer';
+import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { PurchaseItems as PurchaseItemsApi, PurchaseOrders as PurchaseOrdersApi, Products as ProductsApi } from '../api';
+import { PurchaseItems, Products } from '../api';
 import type { PurchaseItem } from '../types';
 
 interface FormState {
@@ -17,10 +16,12 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { purchaseOrderId: '', productId: '', quantity: '', unitPrice: '' };
 
-export default function PurchaseItems() {
+export default function PurchaseItemsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lastCreated, setLastCreated] = useState<PurchaseItem | null>(null);
+  const [lookupId, setLookupId] = useState('');
+  const [activeId, setActiveId] = useState<string | undefined>();
 
   const closeDrawer = () => setDrawerOpen(false);
 
@@ -29,25 +30,38 @@ export default function PurchaseItems() {
   // this create endpoint only accepts quantity/unitPrice. Every create fails with
   // a NOT NULL constraint violation on the backend. Remove `disabled` once the
   // backend request DTO is fixed to match its own entity.
-  const createMutation = useMutation({
-    mutationFn: (body: Partial<PurchaseItem>) => PurchaseItemsApi.create(body),
-    onSuccess: (created) => {
-      toast.success('Purchase item created');
-      setLastCreated(created);
-      closeDrawer();
-      setForm(EMPTY_FORM);
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to create purchase item'),
-  });
+  const createMutation = PurchaseItems.useCreate();
+  const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = PurchaseItems.useGet(activeId);
+
+  const loadItem = () => {
+    const trimmed = lookupId.trim();
+    if (!trimmed) {
+      toast.error('Enter a purchase item UUID');
+      return;
+    }
+    setActiveId(trimmed);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({
-      purchaseOrderId: form.purchaseOrderId || undefined,
-      productId: form.productId || undefined,
-      quantity: form.quantity ? Number(form.quantity) : undefined,
-      unitPrice: form.unitPrice ? Number(form.unitPrice) : undefined,
-    });
+    createMutation.mutate(
+      {
+        purchaseOrderId: form.purchaseOrderId || undefined,
+        productId: form.productId || undefined,
+        quantity: form.quantity ? Number(form.quantity) : undefined,
+        unitPrice: form.unitPrice ? Number(form.unitPrice) : undefined,
+      },
+      {
+        onSuccess: (created) => {
+          toast.success('Purchase item created');
+          setLastCreated(created);
+          setLookupId(created.id);
+          setActiveId(created.id);
+          closeDrawer();
+          setForm(EMPTY_FORM);
+        },
+      },
+    );
   };
 
   return (
@@ -56,7 +70,8 @@ export default function PurchaseItems() {
         <div>
           <h1 className="text-2xl font-semibold">Purchase Items</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            No list endpoint exists for purchase items — there's no directory here, only a create form.
+            No list endpoint exists for purchase items — there's no directory here. Create (when unblocked) or look
+            up by UUID. Purchase orders also have no reliable list today, so paste a PO ID.
             <span className="text-amber-500 font-medium"> Currently blocked</span> — verified 2026-07-28
             against the backend entity, creation fails on the server every time (NOT NULL column
             mismatch: quantityOrdered/unitCost vs quantity/unitPrice).
@@ -64,6 +79,54 @@ export default function PurchaseItems() {
         </div>
         <Button onClick={() => setDrawerOpen(true)}>New Purchase Item</Button>
       </div>
+
+      <FormSection title="Look up purchase item">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="max-w-md flex-1"
+            placeholder="Purchase item UUID"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+          />
+          <Button type="button" onClick={loadItem}>
+            Load
+          </Button>
+        </div>
+      </FormSection>
+
+      {activeId && (
+        <FormSection title="Purchase item details">
+          {lookupLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : lookupError || !lookedUp ? (
+            <p className="text-sm text-destructive">
+              Purchase item not found
+              {lookupError instanceof Error && lookupError.message ? `: ${lookupError.message}` : '.'}
+            </p>
+          ) : (
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
+              <p>
+                <span className="text-muted-foreground">ID:</span> {lookedUp.id}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Purchase order:</span>{' '}
+                {lookedUp.purchaseOrderId ?? '—'}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Product:</span> {lookedUp.productId ?? '—'}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Quantity:</span>{' '}
+                {lookedUp.quantity != null ? lookedUp.quantity : '—'}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Unit price:</span>{' '}
+                {lookedUp.unitPrice != null ? lookedUp.unitPrice : '—'}
+              </p>
+            </div>
+          )}
+        </FormSection>
+      )}
 
       {lastCreated && (
         <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">
@@ -91,20 +154,17 @@ export default function PurchaseItems() {
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
             Submitting is disabled — this endpoint currently fails server-side for every request.
           </div>
-          <Field label="Purchase Order">
-            <ResourceSelect
-              queryKey="purchase-orders"
-              fetchList={() => PurchaseOrdersApi.list()}
-              getLabel={(po) => po.name || po.id}
+          <Field label="Purchase Order ID" required>
+            <Input
+              placeholder="Paste a Purchase Order UUID"
               value={form.purchaseOrderId}
-              onValueChange={(v) => setForm({ ...form, purchaseOrderId: v })}
-              placeholder="Select purchase order…"
+              onChange={(e) => setForm({ ...form, purchaseOrderId: e.target.value })}
+              required
             />
           </Field>
           <Field label="Product">
             <ResourceSelect
-              queryKey="products"
-              fetchList={() => ProductsApi.list()}
+              resource={Products}
               getLabel={(p) => p.name || p.sku || p.id}
               value={form.productId}
               onValueChange={(v) => setForm({ ...form, productId: v })}

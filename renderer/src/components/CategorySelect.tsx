@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Categories } from '../api';
 import type { Category } from '../types';
@@ -8,7 +7,7 @@ const NONE_VALUE = '__none__';
 function buildIndentedList(categories: Category[], excludeId?: string): { id: string; label: string }[] {
   const byParent = new Map<string | undefined, Category[]>();
   categories.forEach((c) => {
-    const key = c.parent_id || undefined;
+    const key = c.parentId || undefined;
     if (!byParent.has(key)) byParent.set(key, []);
     byParent.get(key)!.push(c);
   });
@@ -32,11 +31,7 @@ interface CategorySelectProps {
 }
 
 export function CategorySelect({ value, onValueChange, excludeId }: CategorySelectProps) {
-  const { data } = useQuery({
-    queryKey: ['categories', 'tree'],
-    queryFn: () => Categories.list(),
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data } = Categories.useList();
   const options = buildIndentedList(data ?? [], excludeId);
 
   return (

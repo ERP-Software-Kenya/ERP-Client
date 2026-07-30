@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
 import { ShoppingCart, CheckSquare, DollarSign, TrendingUp } from 'lucide-react';
 import { PurchaseOrders, Bills, PaymentTransactions } from '../../api';
 
@@ -17,20 +16,10 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: string; 
 }
 
 export default function PurchaseDashboard() {
-  const { data: poData, isLoading: poLoading, isError: poIsError } = useQuery({
-    queryKey: ['dashboard', 'purchase', 'total-pos'],
-    queryFn: () => PurchaseOrders.search({ limit: 1 }),
-    staleTime: 5 * 60 * 1000,
-  });
-  const { data: billsData, isLoading: billsLoading, isError: billsIsError } = useQuery({
-    queryKey: ['dashboard', 'purchase', 'bills'],
-    queryFn: () => Bills.search({ limit: 1 }),
-    staleTime: 5 * 60 * 1000,
-  });
-  const { data: paymentsData, isLoading: paymentsLoading, isError: paymentsIsError } = useQuery({
-    queryKey: ['dashboard', 'purchase', 'payments'],
-    queryFn: () => PaymentTransactions.search({ limit: 1 }),
-    staleTime: 5 * 60 * 1000,
+  const { data: poData, isLoading: poLoading, isError: poIsError } = PurchaseOrders.useSearch({ limit: 1 });
+  const { data: billsData, isLoading: billsLoading, isError: billsIsError } = Bills.useSearch({ limit: 1 });
+  const { data: paymentsData, isLoading: paymentsLoading, isError: paymentsIsError } = PaymentTransactions.useSearch({
+    limit: 1,
   });
 
   return (

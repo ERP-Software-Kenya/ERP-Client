@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Car, Search, Filter, Plus, Gauge, Wrench,
@@ -6,11 +6,10 @@ import {
   X, Loader2, Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Vehicles } from '../api';
 import type { Vehicle } from '../types';
 
-// ── Mock store (in-memory, shared via module scope for demo) ──────────────────
-// In production, swap all MOCK_STORE operations with real API calls.
+// ── Local mock only — core-apis has no vehicles endpoints. ────────────────────
+// Edits stay in memory for this session; nothing is persisted to the server.
 export const MOCK_STORE: Vehicle[] = [
   {
     id: 'T-9502',
@@ -288,7 +287,8 @@ export function VehicleModal({ vehicle, onClose, onSaved }: VehicleModalProps) {
               {isEdit ? `Edit Vehicle — ${vehicle.registration_number}` : 'Add New Vehicle'}
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
-              {isEdit ? 'Update vehicle information and status.' : 'Register a new vehicle in the fleet.'}
+              Local mock only — not saved to the server.
+              {isEdit ? ' Update in-memory demo data.' : ' Add to the in-memory demo list.'}
             </p>
           </div>
           <button
@@ -416,7 +416,7 @@ export function VehicleModal({ vehicle, onClose, onSaved }: VehicleModalProps) {
             <button type="submit" disabled={saving}
               className="px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-              {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Vehicle'}
+              {saving ? 'Saving…' : isEdit ? 'Save (local mock)' : 'Add (local mock)'}
             </button>
           </div>
         </form>
@@ -430,24 +430,15 @@ export function VehiclesView() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [mockEpoch, setMockEpoch] = useState(0);
   const [modalVehicle, setModalVehicle] = useState<Vehicle | null | 'new'>(undefined as unknown as null);
   const [showModal, setShowModal] = useState(false);
 
-  const loadVehicles = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await Vehicles.search({ limit: 50 });
-      setVehicles(result.data.length > 0 ? result.data : [...MOCK_STORE]);
-    } catch {
-      setVehicles([...MOCK_STORE]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void loadVehicles(); }, [loadVehicles]);
+  const loading = false;
+  const vehicles = useMemo(() => {
+    void mockEpoch;
+    return [...MOCK_STORE];
+  }, [mockEpoch]);
 
   const openCreate = () => { setModalVehicle(null); setShowModal(true); };
   const openEdit = (v: Vehicle, e: React.MouseEvent) => {
@@ -459,22 +450,21 @@ export function VehiclesView() {
 
   const handleSaved = (saved: Vehicle) => {
     setShowModal(false);
-    // Refresh list from mock store
-    setVehicles([...MOCK_STORE]);
+    setMockEpoch((n) => n + 1);
     toast.success(
       modalVehicle === null
-        ? `Vehicle ${saved.registration_number} created`
-        : `Vehicle ${saved.registration_number} updated`
+        ? `Vehicle ${saved.registration_number} saved locally (mock — not on server)`
+        : `Vehicle ${saved.registration_number} updated locally (mock — not on server)`,
     );
   };
 
   const handleDelete = (v: Vehicle, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(`Remove vehicle ${v.registration_number} from the fleet?`)) return;
+    if (!confirm(`Remove vehicle ${v.registration_number} from the local mock list?`)) return;
     const idx = MOCK_STORE.findIndex((m) => m.id === v.id);
     if (idx >= 0) MOCK_STORE.splice(idx, 1);
-    setVehicles([...MOCK_STORE]);
-    toast.success(`Vehicle ${v.registration_number} removed`);
+    setMockEpoch((n) => n + 1);
+    toast.success(`Vehicle ${v.registration_number} removed from local mock`);
   };
 
   const statuses = ['All', 'In Transit', 'Available', 'Maintenance', 'Out of Service'];
@@ -508,7 +498,7 @@ export function VehiclesView() {
               Fleet Vehicles
             </h1>
             <p className="text-muted-foreground text-sm mt-1 font-medium">
-              Monitor and manage your entire vehicle fleet
+              Demo UI only — core-apis has no vehicles endpoints
             </p>
           </div>
           <button
@@ -516,8 +506,13 @@ export function VehiclesView() {
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95"
             onClick={openCreate}
           >
-            <Plus size={18} /> Add Vehicle
+            <Plus size={18} /> Add Vehicle (local mock)
           </button>
+        </div>
+
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+          No vehicles API in core-apis. The list and create/edit/delete below use an in-memory{' '}
+          <code className="text-xs">MOCK_STORE</code> only — changes are not saved to the server.
         </div>
 
         {/* KPI Cards */}

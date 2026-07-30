@@ -1,217 +1,191 @@
 import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
+import { ResourceSelect } from '../components/ResourceSelect';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import {
-  Locations as LocationsApi,
-  Products as ProductsApi,
-  getUnpublishedStock,
-  listUnpublishedStockMovements,
-  addUnpublishedStock,
-  publishUnpublishedStock,
+  Locations,
+  Products,
+  useUnpublishedStock,
+  useUnpublishedStockMovements,
+  useAddUnpublishedStock,
+  usePublishUnpublishedStock,
 } from '../api';
-import type { UnpublishedStockMovement } from '../types';
+
+interface AddForm {
+  locationId: string;
+  productId: string;
+  quantity: string;
+  unitCost: string;
+  notes: string;
+}
+
+interface PublishForm {
+  quantity: string;
+  notes: string;
+}
+
+const EMPTY_ADD: AddForm = { locationId: '', productId: '', quantity: '', unitCost: '', notes: '' };
+const EMPTY_PUBLISH: PublishForm = { quantity: '', notes: '' };
 
 export default function UnpublishedStockPage() {
   const [lookupId, setLookupId] = useState('');
-  const [activeId, setActiveId] = useState('');
+  const [activeId, setActiveId] = useState<string | undefined>();
   const [addOpen, setAddOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
-  const [addForm, setAddForm] = useState({
-    locationId: '',
-    productId: '',
-    quantity: '',
-    unitCost: '',
-    notes: '',
-  });
-  const [publishForm, setPublishForm] = useState({
-    unpublishedStockId: '',
-    quantity: '',
-    notes: '',
-  });
+  const [addForm, setAddForm] = useState<AddForm>(EMPTY_ADD);
+  const [publishForm, setPublishForm] = useState<PublishForm>(EMPTY_PUBLISH);
 
-  const {
-    data: record,
-    isFetching: recordLoading,
-    error: recordError,
-    refetch: refetchRecord,
-  } = useQuery({
-    queryKey: ['unpublished-stock', activeId],
-    queryFn: () => getUnpublishedStock(activeId),
-    enabled: !!activeId,
-    retry: false,
-  });
+  const { data: record, isLoading, error, refetch } = useUnpublishedStock(activeId);
+  const { data: movements, isLoading: movLoading } = useUnpublishedStockMovements(activeId);
+  const addMutation = useAddUnpublishedStock();
+  const publishMutation = usePublishUnpublishedStock();
 
-  const {
-    data: movements = [],
-    isFetching: movementsLoading,
-    refetch: refetchMovements,
-  } = useQuery({
-    queryKey: ['unpublished-stock', activeId, 'movements'],
-    queryFn: () => listUnpublishedStockMovements(activeId),
-    enabled: !!activeId,
-    retry: false,
-  });
+  const loadRecord = () => {
+    const trimmed = lookupId.trim();
+    if (!trimmed) {
+      toast.error('Enter an unpublished stock UUID');
+      return;
+    }
+    setActiveId(trimmed);
+  };
 
-  const addMutation = useMutation({
-    mutationFn: () =>
-      addUnpublishedStock({
+  const submitAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.locationId || !addForm.productId || !addForm.quantity) {
+      toast.error('Store, product, and quantity are required');
+      return;
+    }
+    addMutation.mutate(
+      {
         locationId: addForm.locationId,
         productId: addForm.productId,
         quantity: Number(addForm.quantity),
         unitCost: addForm.unitCost ? Number(addForm.unitCost) : undefined,
         notes: addForm.notes || undefined,
-      }),
-    onSuccess: () => {
-      toast.success('Unpublished stock added');
-      setAddOpen(false);
-      setAddForm({ locationId: '', productId: '', quantity: '', unitCost: '', notes: '' });
-    },
-    onError: (err: Error) => toast.error(err.message || 'Add failed'),
-  });
+      },
+      {
+        onSuccess: () => {
+          setAddOpen(false);
+          setAddForm(EMPTY_ADD);
+          toast.success('Staging stock added — look up the record by UUID (no list API yet)');
+        },
+        onError: (err: Error) => toast.error(err.message || 'Failed to add staging stock'),
+      },
+    );
+  };
 
-  const publishMutation = useMutation({
-    mutationFn: () =>
-      publishUnpublishedStock({
-        unpublishedStockId: publishForm.unpublishedStockId,
-        quantity: Number(publishForm.quantity),
-        notes: publishForm.notes || undefined,
-      }),
-    onSuccess: () => {
-      toast.success('Stock published to inventory');
-      setPublishOpen(false);
-      if (activeId && activeId === publishForm.unpublishedStockId) {
-        refetchRecord();
-        refetchMovements();
-      }
-      setPublishForm({ unpublishedStockId: '', quantity: '', notes: '' });
-    },
-    onError: (err: Error) => toast.error(err.message || 'Publish failed'),
-  });
-
-  const handleLookup = (e: React.FormEvent) => {
+  const submitPublish = (e: React.FormEvent) => {
     e.preventDefault();
-    const id = lookupId.trim();
-    if (!id) {
-      toast.error('Enter an unpublished stock UUID');
+    if (!record || !publishForm.quantity) {
+      toast.error('Quantity is required');
       return;
     }
-    setActiveId(id);
+    publishMutation.mutate(
+      {
+        unpublishedStockId: record.id,
+        quantity: Number(publishForm.quantity),
+        notes: publishForm.notes || undefined,
+      },
+      {
+        onSuccess: () => {
+          setPublishOpen(false);
+          setPublishForm(EMPTY_PUBLISH);
+          void refetch();
+          toast.success('Published to inventory');
+        },
+        onError: (err: Error) => toast.error(err.message || 'Failed to publish'),
+      },
+    );
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-semibold">Unpublished Stock</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Holding pool before publishing to live inventory. No list API — look up by UUID, then
-            add to the pool or publish quantities live.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setAddOpen(true)}>
-            Add to pool
-          </Button>
-          <Button
-            onClick={() => {
-              setPublishForm((f) => ({
-                ...f,
-                unpublishedStockId: activeId || f.unpublishedStockId,
-              }));
-              setPublishOpen(true);
-            }}
-          >
-            Publish
-          </Button>
-        </div>
+      <div>
+        <h2 className="text-xl font-semibold">Unpublished stock</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Staging area before stock hits live inventory. Create and publish by UUID only.
+        </p>
+      </div>
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
+        No list endpoint — look up a staging record by UUID after adding (or paste a known ID).
       </div>
 
-      <form onSubmit={handleLookup} className="flex flex-wrap items-end gap-3">
-        <div className="min-w-[280px] flex-1">
-          <Field label="Unpublished stock ID">
-            <Input
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
-              placeholder="Paste UUID…"
-            />
-          </Field>
+      <FormSection title="Look up record">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="max-w-md flex-1"
+            placeholder="Unpublished stock UUID"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+          />
+          <Button type="button" onClick={loadRecord}>
+            Load
+          </Button>
+          <Button type="button" variant="outline" onClick={() => setAddOpen(true)}>
+            Add staging stock
+          </Button>
         </div>
-        <Button type="submit" disabled={recordLoading}>
-          {recordLoading ? 'Loading…' : 'Look up'}
-        </Button>
-      </form>
+      </FormSection>
 
-      {recordError && activeId && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {(recordError as Error).message || 'Lookup failed'}
-        </div>
-      )}
-
-      {record && (
+      {activeId && (
         <FormSection title="Record">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <div>
-              <dt className="text-muted-foreground">ID</dt>
-              <dd className="font-mono text-xs break-all">{record.id}</dd>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : error || !record ? (
+            <p className="text-sm text-destructive">Record not found.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-2 text-sm sm:grid-cols-2">
+                <p>
+                  <span className="text-muted-foreground">On hand:</span> {record.quantityOnHand}
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Product:</span> {record.productId.slice(0, 8)}…
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Store:</span> {record.locationId.slice(0, 8)}…
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Avg cost:</span>{' '}
+                  {record.averageCost != null ? record.averageCost : '—'}
+                </p>
+              </div>
+              <Button type="button" onClick={() => setPublishOpen(true)}>
+                Publish to inventory
+              </Button>
             </div>
-            <div>
-              <dt className="text-muted-foreground">Qty on hand</dt>
-              <dd>{record.quantityOnHand}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Location</dt>
-              <dd className="font-mono text-xs break-all">{record.locationId}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Product</dt>
-              <dd className="font-mono text-xs break-all">{record.productId}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Avg cost</dt>
-              <dd>{record.averageCost ?? '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Bin</dt>
-              <dd>{record.binLocation ?? '—'}</dd>
-            </div>
-          </dl>
+          )}
         </FormSection>
       )}
 
       {activeId && (
-        <FormSection title="Movements">
-          {movementsLoading ? (
+        <FormSection title="Staging movements">
+          {movLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : movements.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No movements for this record.</p>
+          ) : (movements?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">No movements.</p>
           ) : (
-            <div className="overflow-x-auto rounded-md border border-border">
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-muted/40 text-left">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Type</th>
-                    <th className="px-3 py-2 font-medium">Qty</th>
-                    <th className="px-3 py-2 font-medium">Before</th>
-                    <th className="px-3 py-2 font-medium">After</th>
-                    <th className="px-3 py-2 font-medium">Notes</th>
-                    <th className="px-3 py-2 font-medium">When</th>
+                <thead>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    <th className="py-2 pr-4">Type</th>
+                    <th className="py-2 pr-4">Qty</th>
+                    <th className="py-2 pr-4">Before → After</th>
+                    <th className="py-2">When</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {movements.map((row: UnpublishedStockMovement) => (
-                    <tr key={row.id} className="border-t border-border">
-                      <td className="px-3 py-2">{row.movementType}</td>
-                      <td className="px-3 py-2">{row.quantity}</td>
-                      <td className="px-3 py-2">{row.quantityBefore}</td>
-                      <td className="px-3 py-2">{row.quantityAfter}</td>
-                      <td className="px-3 py-2">{row.notes || '—'}</td>
-                      <td className="px-3 py-2">
-                        {row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}
+                  {movements!.map((m) => (
+                    <tr key={m.id} className="border-b border-border/60">
+                      <td className="py-2 pr-4">{m.movementType}</td>
+                      <td className="py-2 pr-4">{m.quantity}</td>
+                      <td className="py-2 pr-4">
+                        {m.quantityBefore} → {m.quantityAfter}
                       </td>
+                      <td className="py-2">{m.createdAt ? new Date(m.createdAt).toLocaleString() : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -227,12 +201,8 @@ export default function UnpublishedStockPage() {
         title="Add unpublished stock"
         footer={
           <>
-            <Button
-              type="submit"
-              form="unpublished-add-form"
-              disabled={addMutation.isPending}
-            >
-              {addMutation.isPending ? 'Saving…' : 'Add'}
+            <Button type="submit" form="unpub-add-form" disabled={addMutation.isPending}>
+              {addMutation.isPending ? 'Adding…' : 'Add'}
             </Button>
             <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
               Cancel
@@ -240,34 +210,21 @@ export default function UnpublishedStockPage() {
           </>
         }
       >
-        <form
-          id="unpublished-add-form"
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!addForm.locationId || !addForm.productId || !addForm.quantity) {
-              toast.error('Location, product, and quantity are required');
-              return;
-            }
-            addMutation.mutate();
-          }}
-        >
-          <Field label="Location" required>
+        <form id="unpub-add-form" onSubmit={submitAdd} className="space-y-4">
+          <Field label="Store" required>
             <ResourceSelect
-              queryKey="locations"
-              fetchList={() => LocationsApi.list()}
-              getLabel={(l) => l.name}
+              resource={Locations}
+              getLabel={(l) => (l.type ? `${l.name} (${l.type})` : l.name)}
               value={addForm.locationId}
-              onValueChange={(locationId) => setAddForm({ ...addForm, locationId })}
+              onValueChange={(v) => setAddForm({ ...addForm, locationId: v })}
             />
           </Field>
           <Field label="Product" required>
             <ResourceSelect
-              queryKey="products"
-              fetchList={() => ProductsApi.list()}
-              getLabel={(p) => p.name || p.id}
+              resource={Products}
+              getLabel={(p) => p.name || p.id.slice(0, 8)}
               value={addForm.productId}
-              onValueChange={(productId) => setAddForm({ ...addForm, productId })}
+              onValueChange={(v) => setAddForm({ ...addForm, productId: v })}
             />
           </Field>
           <Field label="Quantity" required>
@@ -277,7 +234,6 @@ export default function UnpublishedStockPage() {
               step="any"
               value={addForm.quantity}
               onChange={(e) => setAddForm({ ...addForm, quantity: e.target.value })}
-              required
             />
           </Field>
           <Field label="Unit cost">
@@ -290,10 +246,7 @@ export default function UnpublishedStockPage() {
             />
           </Field>
           <Field label="Notes">
-            <Input
-              value={addForm.notes}
-              onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })}
-            />
+            <Input value={addForm.notes} onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })} />
           </Field>
         </form>
       </FormDrawer>
@@ -301,14 +254,10 @@ export default function UnpublishedStockPage() {
       <FormDrawer
         open={publishOpen}
         onClose={() => setPublishOpen(false)}
-        title="Publish unpublished stock"
+        title="Publish to live inventory"
         footer={
           <>
-            <Button
-              type="submit"
-              form="unpublished-publish-form"
-              disabled={publishMutation.isPending}
-            >
+            <Button type="submit" form="unpub-publish-form" disabled={publishMutation.isPending}>
               {publishMutation.isPending ? 'Publishing…' : 'Publish'}
             </Button>
             <Button type="button" variant="outline" onClick={() => setPublishOpen(false)}>
@@ -317,42 +266,18 @@ export default function UnpublishedStockPage() {
           </>
         }
       >
-        <form
-          id="unpublished-publish-form"
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!publishForm.unpublishedStockId || !publishForm.quantity) {
-              toast.error('Unpublished stock ID and quantity are required');
-              return;
-            }
-            publishMutation.mutate();
-          }}
-        >
-          <Field label="Unpublished stock ID" required>
-            <Input
-              value={publishForm.unpublishedStockId}
-              onChange={(e) =>
-                setPublishForm({ ...publishForm, unpublishedStockId: e.target.value })
-              }
-              required
-            />
-          </Field>
-          <Field label="Quantity" required>
+        <form id="unpub-publish-form" onSubmit={submitPublish} className="space-y-4">
+          <Field label="Quantity" required hint={record ? `Staging on hand: ${record.quantityOnHand}` : undefined}>
             <Input
               type="number"
               min="0"
               step="any"
               value={publishForm.quantity}
               onChange={(e) => setPublishForm({ ...publishForm, quantity: e.target.value })}
-              required
             />
           </Field>
           <Field label="Notes">
-            <Input
-              value={publishForm.notes}
-              onChange={(e) => setPublishForm({ ...publishForm, notes: e.target.value })}
-            />
+            <Input value={publishForm.notes} onChange={(e) => setPublishForm({ ...publishForm, notes: e.target.value })} />
           </Field>
         </form>
       </FormDrawer>

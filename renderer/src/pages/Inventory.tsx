@@ -1,263 +1,243 @@
-import { useState } from 'react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field } from '../components/FormDrawer';
+import { ResourceSelect } from '../components/ResourceSelect';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Inventory as InventoryApi, Products as ProductsApi, Stores as StoresApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { Inventory, Locations, Products } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { InventoryItem } from '../types';
 
-const STATUS_OPTIONS = ['active', 'inactive'];
-
-interface CreateFormState {
-  product_id: string;
-  store_id: string;
-  quantity: string;
-  min_quantity: string;
-  unit: string;
-  status: string;
+interface CreateForm {
+  locationId: string;
+  productId: string;
+  reorderLevel: string;
+  maxStock: string;
+  binLocation: string;
 }
 
-interface EditFormState {
-  min_quantity: string;
-  status: string;
+interface EditForm {
+  reorderLevel: string;
+  maxStock: string;
+  binLocation: string;
 }
 
-const EMPTY_CREATE_FORM: CreateFormState = {
-  product_id: '',
-  store_id: '',
-  quantity: '',
-  min_quantity: '',
-  unit: '',
-  status: 'active',
-};
+const EMPTY_CREATE: CreateForm = { locationId: '', productId: '', reorderLevel: '', maxStock: '', binLocation: '' };
+const EMPTY_EDIT: EditForm = { reorderLevel: '', maxStock: '', binLocation: '' };
 
-export default function Inventory() {
+export default function InventoryPage() {
+  const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryItem | null>(null);
-  const [createForm, setCreateForm] = useState<CreateFormState>(EMPTY_CREATE_FORM);
-  const [editForm, setEditForm] = useState<EditFormState>({ min_quantity: '', status: 'active' });
+  const [createForm, setCreateForm] = useState<CreateForm>(EMPTY_CREATE);
+  const [editForm, setEditForm] = useState<EditForm>(EMPTY_EDIT);
   const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(
-    InventoryApi,
-    'inventory',
-    'Inventory item',
-  );
+  const createMutation = Inventory.useCreate();
+  const updateMutation = Inventory.useUpdate();
+  const removeMutation = Inventory.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, error, refetch } = Inventory.useSearch({ page, search: debouncedSearch });
 
-  const closeDrawer = () => setDrawerOpen(false);
+  const { data: products } = Products.useList();
+  const { data: locations } = Locations.useList();
+  const productName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of products ?? []) m.set(p.id, p.name || p.sku || p.id.slice(0, 8));
+    return m;
+  }, [products]);
+  const locationName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of locations ?? []) {
+      m.set(l.id, l.type ? `${l.name} (${l.type})` : l.name);
+    }
+    return m;
+  }, [locations]);
 
   const openCreate = () => {
     setEditing(null);
-    setCreateForm(EMPTY_CREATE_FORM);
+    setCreateForm(EMPTY_CREATE);
     setDrawerOpen(true);
   };
 
   const openEdit = (row: InventoryItem) => {
     setEditing(row);
     setEditForm({
-      min_quantity: row.min_quantity != null ? String(row.min_quantity) : '',
-      status: row.status ?? 'active',
+      reorderLevel: row.reorderLevel != null ? String(row.reorderLevel) : '',
+      maxStock: row.maxStock != null ? String(row.maxStock) : '',
+      binLocation: row.binLocation ?? '',
     });
     setDrawerOpen(true);
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const closeDrawer = () => setDrawerOpen(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const body: Partial<InventoryItem> = {
-      product_id: createForm.product_id || undefined,
-      store_id: createForm.store_id || undefined,
-      quantity: createForm.quantity ? Number(createForm.quantity) : undefined,
-      min_quantity: createForm.min_quantity ? Number(createForm.min_quantity) : undefined,
-      unit: createForm.unit || undefined,
-      status: createForm.status,
-    };
-    createMutation.mutate(body, { onSuccess: closeDrawer });
+    if (editing) {
+      updateMutation.mutate(
+        {
+          id: editing.id,
+          body: {
+            reorderLevel: editForm.reorderLevel ? Number(editForm.reorderLevel) : undefined,
+            maxStock: editForm.maxStock ? Number(editForm.maxStock) : undefined,
+            binLocation: editForm.binLocation || undefined,
+          },
+        },
+        { onSuccess: closeDrawer },
+      );
+      return;
+    }
+    if (!createForm.locationId || !createForm.productId) {
+      toast.error('Store and product are required');
+      return;
+    }
+    createMutation.mutate(
+      {
+        locationId: createForm.locationId,
+        productId: createForm.productId,
+        reorderLevel: createForm.reorderLevel ? Number(createForm.reorderLevel) : 0,
+        maxStock: createForm.maxStock ? Number(createForm.maxStock) : undefined,
+        binLocation: createForm.binLocation || undefined,
+      },
+      { onSuccess: closeDrawer },
+    );
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editing) return;
-    const body: Partial<InventoryItem> = {
-      min_quantity: editForm.min_quantity ? Number(editForm.min_quantity) : undefined,
-      status: editForm.status,
-    };
-    updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
-  };
-
-  // Live-tested 2026-07-26 directly against the deployed API: GET /inventory
-  // and /inventory/list both return only `{id, name?}` per row — product_id/
-  // store_id/quantity/min_quantity/status never round-trip today (see
-  // docs/core-apis-fixes.md #11). Showing columns for fields the API can't
-  // return would silently render blanks that look like real "no data" rather
-  // than a backend limitation, so only the fields that actually exist are shown.
   const columns: Column<InventoryItem>[] = [
-    { key: 'id', label: 'ID', render: (row) => row.id.slice(0, 8) },
-    { key: 'name', label: 'Name', render: (row) => row.name || '(no name — API does not return product/store/quantity fields)' },
+    {
+      key: 'productId',
+      label: 'Product',
+      render: (row) => productName.get(row.productId) ?? row.productId.slice(0, 8),
+    },
+    {
+      key: 'locationId',
+      label: 'Store',
+      render: (row) => locationName.get(row.locationId) ?? row.locationId.slice(0, 8),
+    },
+    { key: 'quantityOnHand', label: 'On hand' },
+    { key: 'quantityReserved', label: 'Reserved' },
+    {
+      key: 'available',
+      label: 'Available',
+      render: (row) => row.quantityOnHand - row.quantityReserved,
+    },
+    { key: 'reorderLevel', label: 'Reorder' },
+    { key: 'binLocation', label: 'Bin' },
   ];
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
-      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-        Currently blocked — live-tested 2026-07-26: the create/update DTOs only expose `name`, and
-        `POST /inventory` 500s on every call (see docs/core-apis-fixes.md #11). List/search do work, but
-        only return `id`/`name` — product, store, quantity, and reorder level aren't reachable via the
-        API at all today, despite likely existing in the database.
-      </div>
-      <ERPDataTable
-        title="Inventory Management"
-        description="Monitor stock balances across locations. Quantity changes go through Stock Movements (Phase 4)."
-        queryKey="inventory"
+      <DataTable
+        title="Inventory"
+        description="Create records per product and store. Quantities change through stock operations, not this form."
         columns={columns}
-        fetchData={(params) => InventoryApi.search(params)}
+        rows={data?.items ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        loading={isLoading}
+        error={error ? String(error) : null}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search inventory…"
-        isAdmin={true}
+        isAdmin
         onAdd={openCreate}
+        onView={(row) => navigate(`/inventory/${row.id}`)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
       />
 
-      {!editing && (
-        <FormDrawer
-          open={drawerOpen}
-          onClose={closeDrawer}
-          title="Add Inventory Balance"
-          footer={
+      <FormDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        title={editing ? 'Edit inventory settings' : 'New inventory record'}
+        subtitle={editing ? 'Reorder, max stock, and bin only' : 'Pick store and product once'}
+        footer={
+          <>
+            <Button type="submit" form="inventory-form" disabled={isSaving}>
+              {isSaving ? 'Saving…' : 'Save'}
+            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="inventory-form" onSubmit={handleSubmit} className="space-y-4">
+          {!editing && (
             <>
-              <Button type="submit" form="inventory-create-form" disabled>
-                {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
-              </Button>
-              <Button type="button" variant="outline" onClick={closeDrawer}>
-                Cancel
-              </Button>
+              <Field label="Store" required>
+                <ResourceSelect
+                  resource={Locations}
+                  getLabel={(l) => (l.type ? `${l.name} (${l.type})` : l.name)}
+                  value={createForm.locationId}
+                  onValueChange={(v) => setCreateForm({ ...createForm, locationId: v })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Need a new place?{' '}
+                  <Link to="/locations" className="underline hover:text-foreground">
+                    Create at Locations
+                  </Link>
+                </p>
+              </Field>
+              <Field label="Product" required>
+                <ResourceSelect
+                  resource={Products}
+                  getLabel={(p) => p.name || p.sku || p.id.slice(0, 8)}
+                  value={createForm.productId}
+                  onValueChange={(v) => setCreateForm({ ...createForm, productId: v })}
+                />
+              </Field>
             </>
-          }
-        >
-          <form id="inventory-create-form" onSubmit={handleCreateSubmit} className="space-y-4">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              Submitting is disabled — this endpoint currently fails server-side for every request
-              (live-tested 2026-07-26, see docs/core-apis-fixes.md #11).
-            </div>
-            <Field label="Product">
-              <ResourceSelect
-                queryKey="products"
-                fetchList={() => ProductsApi.list()}
-                getLabel={(p) => p.name || p.sku || p.id}
-                value={createForm.product_id}
-                onValueChange={(v) => setCreateForm({ ...createForm, product_id: v })}
-                placeholder="Select product…"
-              />
-            </Field>
-            <Field label="Store">
-              <ResourceSelect
-                queryKey="stores"
-                fetchList={() => StoresApi.list()}
-                getLabel={(s) => s.name}
-                value={createForm.store_id}
-                onValueChange={(v) => setCreateForm({ ...createForm, store_id: v })}
-                placeholder="Select store…"
-              />
-            </Field>
-            <Field label="Initial Quantity" required>
-              <Input
-                type="number"
-                min="0"
-                value={createForm.quantity}
-                onChange={(e) => setCreateForm({ ...createForm, quantity: e.target.value })}
-                required
-              />
-            </Field>
-            <Field label="Reorder Level (min quantity)">
-              <Input
-                type="number"
-                min="0"
-                value={createForm.min_quantity}
-                onChange={(e) => setCreateForm({ ...createForm, min_quantity: e.target.value })}
-              />
-            </Field>
-            <Field label="Unit">
-              <Input
-                value={createForm.unit}
-                onChange={(e) => setCreateForm({ ...createForm, unit: e.target.value })}
-              />
-            </Field>
-            <Field label="Status">
-              <Select value={createForm.status} onValueChange={(v) => setCreateForm({ ...createForm, status: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </form>
-        </FormDrawer>
-      )}
-
-      {editing && (
-        <FormDrawer
-          open={drawerOpen}
-          onClose={closeDrawer}
-          title="Edit Inventory Balance"
-          footer={
-            <>
-              <Button type="submit" form="inventory-edit-form" disabled>
-                {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
-              </Button>
-              <Button type="button" variant="outline" onClick={closeDrawer}>
-                Cancel
-              </Button>
-            </>
-          }
-        >
-          <form id="inventory-edit-form" onSubmit={handleEditSubmit} className="space-y-4">
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-              Submitting is disabled — the update DTO shares the same `name`-only scaffold bug as
-              create (see docs/core-apis-fixes.md #11), and quantity isn't returned by the API at all
-              (see the notice above the table), so there's nothing reliable to edit here yet.
-            </div>
-            <Field label="Reorder Level (min quantity)">
-              <Input
-                type="number"
-                min="0"
-                value={editForm.min_quantity}
-                onChange={(e) => setEditForm({ ...editForm, min_quantity: e.target.value })}
-                autoFocus
-              />
-            </Field>
-            <Field label="Status">
-              <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </form>
-        </FormDrawer>
-      )}
+          )}
+          <Field label="Reorder level">
+            <Input
+              type="number"
+              min="0"
+              value={editing ? editForm.reorderLevel : createForm.reorderLevel}
+              onChange={(e) =>
+                editing
+                  ? setEditForm({ ...editForm, reorderLevel: e.target.value })
+                  : setCreateForm({ ...createForm, reorderLevel: e.target.value })
+              }
+            />
+          </Field>
+          <Field label="Max stock">
+            <Input
+              type="number"
+              min="0"
+              value={editing ? editForm.maxStock : createForm.maxStock}
+              onChange={(e) =>
+                editing
+                  ? setEditForm({ ...editForm, maxStock: e.target.value })
+                  : setCreateForm({ ...createForm, maxStock: e.target.value })
+              }
+            />
+          </Field>
+          <Field label="Bin location">
+            <Input
+              value={editing ? editForm.binLocation : createForm.binLocation}
+              onChange={(e) =>
+                editing
+                  ? setEditForm({ ...editForm, binLocation: e.target.value })
+                  : setCreateForm({ ...createForm, binLocation: e.target.value })
+              }
+            />
+          </Field>
+        </form>
+      </FormDrawer>
 
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete Inventory Balance"
-        description="Delete this inventory balance record? This can't be undone."
+        title="Delete inventory record"
+        description="Remove this inventory row? Stock history may remain in the system."
         isPending={removeMutation.isPending}
         onConfirm={() =>
           deleteTarget && removeMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })

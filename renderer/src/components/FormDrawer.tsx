@@ -1,12 +1,3 @@
-/**
- * Shared CRUD form recipe (FormDrawer pattern):
- * 1. Local `FormState` + `EMPTY_FORM` (numbers as strings).
- * 2. `openCreate` / `openEdit` set state and `setDrawerOpen(true)`.
- * 3. Wrap the form in `<FormDrawer open … title footer={…}>`.
- * 4. Use `<Field>` / `<FormSection>` for label + layout chrome.
- * 5. `handleSubmit` → coerce empty → undefined, numbers → Number → `useResourceMutations`.
- * 6. Keep ConfirmDialog for deletes; wire field names to core-apis DTOs only.
- */
 import { useEffect, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -21,15 +12,7 @@ export interface FormDrawerProps {
   footer?: ReactNode;
 }
 
-export function FormDrawer({
-  open,
-  onClose,
-  title,
-  subtitle,
-  width = 520,
-  children,
-  footer,
-}: FormDrawerProps) {
+export function FormDrawer({ open, onClose, title, subtitle, width = 520, children, footer }: FormDrawerProps) {
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -68,11 +51,7 @@ export function FormDrawer({
 
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
 
-        {footer && (
-          <div className="flex flex-shrink-0 items-center gap-3 border-t border-border bg-muted/40 px-6 py-4">
-            {footer}
-          </div>
-        )}
+        {footer && <div className="flex flex-shrink-0 items-center gap-3 border-t border-border bg-muted/40 px-6 py-4">{footer}</div>}
       </div>
     </div>
   );
@@ -103,20 +82,10 @@ export function Field({
   );
 }
 
-export function FormSection({
-  title,
-  children,
-  className,
-}: {
-  title?: string;
-  children: ReactNode;
-  className?: string;
-}) {
+export function FormSection({ title, children, className }: { title?: string; children: ReactNode; className?: string }) {
   return (
     <div className={cn('space-y-4 rounded-lg border border-border p-4', className)}>
-      {title && (
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-      )}
+      {title && <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>}
       {children}
     </div>
   );

@@ -1,13 +1,22 @@
 import { useState } from 'react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { toast } from 'sonner';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { ItemReturns as ItemReturnsApi, Stores as StoresApi, Suppliers as SuppliersApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import {
+  ItemReturns,
+  Stores,
+  Suppliers,
+  Locations,
+  Products,
+  Inventory,
+  useStockOperation,
+} from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { ItemReturn } from '../types';
 
 const RETURN_TYPE_OPTIONS = ['sales', 'purchase'] as const;
@@ -30,17 +39,74 @@ const EMPTY_FORM: FormState = {
   status: '',
 };
 
-export default function ItemReturns() {
+interface RestockForm {
+  inventoryId: string;
+  locationId: string;
+  productId: string;
+  quantity: string;
+  unitCost: string;
+}
+
+const EMPTY_RESTOCK: RestockForm = { inventoryId: '', locationId: '', productId: '', quantity: '', unitCost: '' };
+
+export default function ItemReturnsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ItemReturn | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<ItemReturn | null>(null);
+  const [restockTarget, setRestockTarget] = useState<ItemReturn | null>(null);
+  const [restockForm, setRestockForm] = useState<RestockForm>(EMPTY_RESTOCK);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(
-    ItemReturnsApi,
-    'item-returns',
-    'Item Return',
-  );
+  const createMutation = ItemReturns.useCreate();
+  const updateMutation = ItemReturns.useUpdate();
+  const removeMutation = ItemReturns.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, error, refetch } = ItemReturns.useSearch({ page, search: debouncedSearch });
+
+  // A sales return puts stock back on the shelf (add); a purchase return sends stock back
+  // to the supplier (remove). core-apis has no line-items endpoint for returns (ReturnItemEntity
+  // exists in the schema but nothing exposes it via the API), so quantity/product/location can't
+  // be auto-derived here — this just pre-selects the right operation and tags the movement back
+  // to the return via referenceId/referenceType.
+  const stockOp = useStockOperation();
+
+  const openRestock = (row: ItemReturn) => {
+    setRestockTarget(row);
+    setRestockForm(EMPTY_RESTOCK);
+  };
+
+  const handleRestockSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restockForm.inventoryId || !restockForm.locationId || !restockForm.productId || !restockForm.quantity) {
+      toast.error('Inventory, store, product, and quantity are required');
+      return;
+    }
+    if (!restockTarget) return;
+    const op = restockTarget.returnType === 'purchase' ? 'remove' : 'add';
+    stockOp.mutate(
+      {
+        op,
+        body: {
+          inventoryId: restockForm.inventoryId,
+          locationId: restockForm.locationId,
+          productId: restockForm.productId,
+          quantity: Number(restockForm.quantity),
+          unitCost: restockForm.unitCost ? Number(restockForm.unitCost) : undefined,
+          referenceId: restockTarget.id,
+          referenceType: 'item_return',
+          notes: `${restockTarget.returnType} return ${restockTarget.id.slice(0, 8)}`,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success('Stock movement recorded for this return');
+          setRestockTarget(null);
+          setRestockForm(EMPTY_RESTOCK);
+        },
+        onError: (error: Error) => toast.error(error.message || 'Restock failed'),
+      },
+    );
+  };
 
   const closeDrawer = () => setDrawerOpen(false);
 
@@ -65,6 +131,13 @@ export default function ItemReturns() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // storeId and returnType are NOT NULL columns on the backend (item-return.entity.ts) —
+    // the request DTO has no validator decorators to catch a missing value, so this guard
+    // is the only thing preventing a DB constraint violation.
+    if (!form.storeId) {
+      toast.error('Store is required');
+      return;
+    }
     const body: Partial<ItemReturn> = {
       returnType: form.returnType as ItemReturn['returnType'],
       storeId: form.storeId || undefined,
@@ -91,25 +164,33 @@ export default function ItemReturns() {
       render: (row) => `$${Number(row.totalAmount || 0).toFixed(2)}`,
     },
     { key: 'status', label: 'Status' },
+    {
+      key: 'restock',
+      label: 'Stock',
+      render: (row) => (
+        <Button type="button" variant="outline" size="sm" onClick={() => openRestock(row)}>
+          Restock
+        </Button>
+      ),
+    },
   ];
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
-      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-        Currently blocked end-to-end — live-tested 2026-07-26: both browsing (list/search 500s) and
-        creating a return (500s with a generic server error, even though this resource's request shape
-        is correct — unlike most others in this app) fail server-side. See docs/core-apis-fixes.md #0e
-        and #1. This looks like a shared backend issue (likely the missing-auth-guard root cause, see
-        #10), not something specific to this form.
-      </div>
-      <ERPDataTable
+      <DataTable
         title="Item Returns"
         description="Sales and purchase returns share this resource — select the type to distinguish them. Purchase returns link to a supplier; there's no way to reference the originating Purchase Order today."
-        queryKey="item-returns"
         columns={columns}
-        fetchData={(params) => ItemReturnsApi.search(params)}
+        rows={data?.items ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        loading={isLoading}
+        error={error ? String(error) : null}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search returns…"
         isAdmin={true}
         onAdd={openCreate}
@@ -123,8 +204,8 @@ export default function ItemReturns() {
         title={editing ? 'Edit Item Return' : 'Add Item Return'}
         footer={
           <>
-            <Button type="submit" form="item-return-form" disabled>
-              {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
+            <Button type="submit" form="item-return-form" disabled={isSaving}>
+              {isSaving ? 'Saving…' : 'Save'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>
               Cancel
@@ -133,9 +214,6 @@ export default function ItemReturns() {
         }
       >
         <form id="item-return-form" onSubmit={handleSubmit} className="space-y-4">
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            Submitting is disabled — this endpoint currently fails server-side for every request.
-          </div>
           <Field label="Return Type">
             <Select value={form.returnType} onValueChange={(v) => setForm({ ...form, returnType: v })}>
               <SelectTrigger>
@@ -150,22 +228,19 @@ export default function ItemReturns() {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Store">
+          <Field label="Store" required>
             <ResourceSelect
-              queryKey="stores"
-              fetchList={() => StoresApi.list()}
+              resource={Stores}
               getLabel={(s) => s.name}
               value={form.storeId}
               onValueChange={(v) => setForm({ ...form, storeId: v })}
               placeholder="Select store…"
-              allowNone
             />
           </Field>
           {form.returnType === 'purchase' && (
             <Field label="Supplier">
               <ResourceSelect
-                queryKey="suppliers"
-                fetchList={() => SuppliersApi.list()}
+                resource={Suppliers}
                 getLabel={(s) => s.name}
                 value={form.supplierId}
                 onValueChange={(v) => setForm({ ...form, supplierId: v })}
@@ -195,6 +270,74 @@ export default function ItemReturns() {
             <Input
               value={form.status}
               onChange={(e) => setForm({ ...form, status: e.target.value })}
+            />
+          </Field>
+        </form>
+      </FormDrawer>
+
+      <FormDrawer
+        open={!!restockTarget}
+        onClose={() => setRestockTarget(null)}
+        title={`Restock — ${restockTarget?.returnType === 'purchase' ? 'remove from' : 'add to'} inventory`}
+        footer={
+          <>
+            <Button type="submit" form="return-restock-form" disabled={stockOp.isPending}>
+              {stockOp.isPending ? 'Recording…' : 'Record movement'}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setRestockTarget(null)}>
+              Cancel
+            </Button>
+          </>
+        }
+      >
+        <form id="return-restock-form" onSubmit={handleRestockSubmit} className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            {restockTarget?.returnType === 'purchase'
+              ? 'Purchase return: removes stock (sent back to supplier).'
+              : 'Sales return: adds stock (back on the shelf).'}{' '}
+            Returns have no line items in the API today, so pick the product/store manually.
+          </p>
+          <Field label="Store" required>
+            <ResourceSelect
+              resource={Locations}
+              getLabel={(l) => (l.type ? `${l.name} (${l.type})` : l.name)}
+              value={restockForm.locationId}
+              onValueChange={(locationId) => setRestockForm({ ...restockForm, locationId })}
+            />
+          </Field>
+          <Field label="Product" required>
+            <ResourceSelect
+              resource={Products}
+              getLabel={(p) => p.name || p.id}
+              value={restockForm.productId}
+              onValueChange={(productId) => setRestockForm({ ...restockForm, productId })}
+            />
+          </Field>
+          <Field label="Inventory record" required>
+            <ResourceSelect
+              resource={Inventory}
+              getLabel={(i) => `Product ${i.productId.slice(0, 8)} @ Store ${i.locationId.slice(0, 8)}`}
+              value={restockForm.inventoryId}
+              onValueChange={(inventoryId) => setRestockForm({ ...restockForm, inventoryId })}
+            />
+          </Field>
+          <Field label="Quantity" required>
+            <Input
+              type="number"
+              min="0"
+              step="any"
+              value={restockForm.quantity}
+              onChange={(e) => setRestockForm({ ...restockForm, quantity: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Unit cost">
+            <Input
+              type="number"
+              min="0"
+              step="any"
+              value={restockForm.unitCost}
+              onChange={(e) => setRestockForm({ ...restockForm, unitCost: e.target.value })}
             />
           </Field>
         </form>

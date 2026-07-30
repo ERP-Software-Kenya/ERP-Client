@@ -1,19 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import {
-  Locations as LocationsApi,
-  uploadLocationImage,
-  removeLocationImage,
-} from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { Locations, useUploadLocationImage, useRemoveLocationImage } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { Location, LocationType } from '../types';
 
 const TYPE_OPTIONS: LocationType[] = ['store', 'warehouse'];
@@ -34,22 +30,31 @@ interface PendingImage {
 
 const EMPTY_FORM: FormState = { name: '', type: '', address: '', city: '', country: '', phone: '' };
 
-export default function Locations() {
-  const queryClient = useQueryClient();
+export default function LocationsPage() {
+  const { pathname } = useLocation();
+  const warehouseOnly = pathname.startsWith('/warehouse');
+  const emptyForm: FormState = warehouseOnly ? { ...EMPTY_FORM, type: 'warehouse' } : EMPTY_FORM;
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Location | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = useState<FormState>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<Location | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
   const [hasServerImage, setHasServerImage] = useState(false);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(
-    LocationsApi,
-    'locations',
-    'Location',
-  );
+  const createMutation = Locations.useCreate();
+  const updateMutation = Locations.useUpdate();
+  const removeMutation = Locations.useDelete();
+  const uploadImageMutation = useUploadLocationImage();
+  const removeImageMutation = useRemoveLocationImage();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, error, refetch } = Locations.useSearch({
+    page,
+    search: debouncedSearch,
+    filters: warehouseOnly ? { type: 'warehouse' } : undefined,
+  });
 
   const pendingRef = useRef<PendingImage | null>(null);
   pendingRef.current = pendingImage;
@@ -70,7 +75,7 @@ export default function Locations() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm(EMPTY_FORM);
+    setForm(emptyForm);
     setHasServerImage(false);
     clearPending();
     setDrawerOpen(true);
@@ -99,11 +104,10 @@ export default function Locations() {
   const uploadFor = async (locationId: string, file: File) => {
     setUploading(true);
     try {
-      const updated = await uploadLocationImage(locationId, file);
+      const updated = await uploadImageMutation.mutateAsync({ locationId, file });
       toast.success('Location image uploaded');
       setHasServerImage(!!updated.imageKey);
       setEditing((prev) => (prev && prev.id === locationId ? { ...prev, ...updated } : prev));
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to upload image');
       throw err;
@@ -117,11 +121,10 @@ export default function Locations() {
     if (!editing) return;
     setUploading(true);
     try {
-      await removeLocationImage(editing.id);
+      await removeImageMutation.mutateAsync(editing.id);
       toast.success('Location image removed');
       setHasServerImage(false);
       setEditing((prev) => (prev ? { ...prev, imageKey: undefined } : prev));
-      queryClient.invalidateQueries({ queryKey: ['locations'] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove image');
     } finally {
@@ -193,17 +196,30 @@ export default function Locations() {
     },
   ];
 
-  const isSaving = createMutation.isPending || updateMutation.isPending || uploading;
+  const isSaving =
+    createMutation.isPending || updateMutation.isPending || uploading || uploadImageMutation.isPending || removeImageMutation.isPending;
+
+  const pageTitle = warehouseOnly ? 'Warehouses' : 'Locations';
+  const pageDescription = warehouseOnly
+    ? 'Manage warehouse places used by inventory and stock.'
+    : 'Manage store and warehouse locations.';
+  const entityLabel = warehouseOnly ? 'Warehouse' : 'Location';
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
-      <ERPDataTable
-        title="Locations"
-        description="Manage store and warehouse locations."
-        queryKey="locations"
+      <DataTable
+        title={pageTitle}
+        description={pageDescription}
         columns={columns}
-        fetchData={(params) => LocationsApi.search(params)}
-        searchPlaceholder="Search locations…"
+        rows={data?.items ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        loading={isLoading}
+        error={error ? String(error) : null}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
+        searchPlaceholder={warehouseOnly ? 'Search warehouses…' : 'Search locations…'}
         isAdmin={true}
         onAdd={openCreate}
         onEdit={openEdit}
@@ -213,7 +229,7 @@ export default function Locations() {
       <FormDrawer
         open={drawerOpen}
         onClose={closeDrawer}
-        title={editing ? 'Edit Location' : 'Add Location'}
+        title={editing ? `Edit ${entityLabel}` : `Add ${entityLabel}`}
         footer={
           <>
             <Button type="submit" form="location-form" disabled={isSaving}>
@@ -309,7 +325,7 @@ export default function Locations() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete Location"
+        title={`Delete ${entityLabel}`}
         description={`Delete "${deleteTarget?.name}"? This can't be undone.`}
         isPending={removeMutation.isPending}
         onConfirm={() =>

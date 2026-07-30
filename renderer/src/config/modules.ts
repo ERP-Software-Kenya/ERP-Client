@@ -12,7 +12,6 @@ import {
   CalendarX,
   Car,
   CheckSquare,
-  ClipboardCheck,
   ClipboardList,
   Clock,
   CreditCard,
@@ -39,6 +38,7 @@ import {
   RotateCcw,
   Route,
   Ruler,
+  ScanLine,
   Search,
   Settings,
   ShoppingBag,
@@ -89,6 +89,7 @@ export const MODULES: ModuleGroup[] = [
     label: 'Sales',
     icon: ShoppingBag,
     items: [
+      { key: 'pos', title: 'POS / Billing', path: '/pos', icon: ScanLine },
       { key: 'customers', title: 'Customers', path: '/customers', icon: Users2 },
       { key: 'quotations', title: 'Quotations', path: '/sales/quotations', icon: FileText, disabled: true },
       { key: 'orders', title: 'Sales Orders', path: '/orders', icon: ClipboardList },
@@ -139,9 +140,8 @@ export const MODULES: ModuleGroup[] = [
     label: 'Warehouse',
     icon: Warehouse,
     items: [
-      { key: 'warehouses', title: 'Warehouses', path: '/warehouse', icon: Building, disabled: true },
+      { key: 'warehouses', title: 'Warehouses', path: '/warehouse', icon: Building },
       { key: 'stores', title: 'Stores', path: '/stores', icon: Store },
-      { key: 'locations', title: 'Locations', path: '/locations', icon: MapPin },
       { key: 'warehouse-grn', title: 'GRN', path: '/warehouse/grn', icon: PackagePlus, disabled: true },
       { key: 'gin', title: 'GIN', path: '/warehouse/gin', icon: PackageMinus, disabled: true },
     ],
@@ -197,7 +197,6 @@ export const MODULES: ModuleGroup[] = [
       { key: 'user-addresses', title: 'User Addresses', path: '/user-addresses', icon: MapPin },
       { key: 'activity-logs', title: 'Activity Logs', path: '/activity-logs', icon: Activity },
       { key: 'expenses', title: 'Expenses', path: '/expenses', icon: Wallet },
-      { key: 'audit-log', title: 'Audit Log', path: '/audit-log', icon: ClipboardCheck },
     ],
   },
   {

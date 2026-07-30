@@ -1,24 +1,23 @@
 import { useState } from 'react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { ReportGenerationLogs as ReportGenerationLogsApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { ReportGenerationLogs } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { ReportGenerationLog } from '../types';
 
-export default function ReportGenerationLogs() {
+export default function ReportGenerationLogsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ReportGenerationLog | null>(null);
   const [status, setStatus] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ReportGenerationLog | null>(null);
 
-  const { updateMutation, removeMutation } = useResourceMutations(
-    ReportGenerationLogsApi,
-    'report-generation-logs',
-    'Report log',
-  );
+  const updateMutation = ReportGenerationLogs.useUpdate();
+  const removeMutation = ReportGenerationLogs.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, error, refetch } = ReportGenerationLogs.useSearch({ page, search: debouncedSearch });
 
   const openEdit = (row: ReportGenerationLog) => {
     setEditing(row);
@@ -42,12 +41,18 @@ export default function ReportGenerationLogs() {
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
-      <ERPDataTable
+      <DataTable
         title="Report Generation Logs"
         description="System-generated report job logs. Update status or delete."
-        queryKey="report-generation-logs"
         columns={columns}
-        fetchData={(params) => ReportGenerationLogsApi.search(params)}
+        rows={data?.items ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        loading={isLoading}
+        error={error ? String(error) : null}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search report logs…"
         isAdmin={true}
         onEdit={openEdit}

@@ -1,182 +1,202 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { useMemo, useState } from 'react';
+import { FormSection, Field } from '../components/FormDrawer';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import {
-  Products as ProductsApi,
-  Inventory as InventoryApi,
-  listProductLogsByProduct,
-  listProductLogsByInventory,
-  getProductLog,
-} from '../api';
-import type { InventoryItem, ProductLog } from '../types';
+import { Products, Inventory, Locations, useProductLogsByProduct, useProductLogsByInventory, useProductLog } from '../api';
 
-type Mode = 'product' | 'inventory' | 'id';
+type Mode = 'product' | 'inventory' | 'log';
 
-function inventoryLabel(item: InventoryItem): string {
-  return item.name || `Inventory ${item.id.slice(0, 8)}`;
-}
-
-export default function ProductLogs() {
+export default function ProductLogsPage() {
   const [mode, setMode] = useState<Mode>('product');
   const [productId, setProductId] = useState('');
   const [inventoryId, setInventoryId] = useState('');
   const [logId, setLogId] = useState('');
-  const [active, setActive] = useState<{ mode: Mode; id: string } | null>(null);
+  const [logLookupId, setLogLookupId] = useState('');
 
-  const listQuery = useQuery({
-    queryKey: ['product-logs', active?.mode, active?.id],
-    queryFn: async (): Promise<ProductLog[]> => {
-      if (!active) return [];
-      if (active.mode === 'product') return listProductLogsByProduct(active.id);
-      if (active.mode === 'inventory') return listProductLogsByInventory(active.id);
-      const one = await getProductLog(active.id);
-      return [one];
-    },
-    enabled: !!active?.id,
-    retry: false,
-  });
+  const { data: locations } = Locations.useList();
+  const storeLabel = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of locations ?? []) {
+      m.set(l.id, l.type ? `${l.name} (${l.type})` : l.name);
+    }
+    return m;
+  }, [locations]);
 
-  const handleLoad = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (mode === 'product') {
-      if (!productId) {
-        toast.error('Select a product');
-        return;
-      }
-      setActive({ mode: 'product', id: productId });
-      return;
-    }
-    if (mode === 'inventory') {
-      if (!inventoryId) {
-        toast.error('Select an inventory record');
-        return;
-      }
-      setActive({ mode: 'inventory', id: inventoryId });
-      return;
-    }
-    const id = logId.trim();
-    if (!id) {
-      toast.error('Enter a product log UUID');
-      return;
-    }
-    setActive({ mode: 'id', id });
+  const { data: byProduct, isLoading: productLoading } = useProductLogsByProduct(
+    mode === 'product' && productId ? productId : undefined,
+  );
+  const { data: byInventory, isLoading: inventoryLoading } = useProductLogsByInventory(
+    mode === 'inventory' && inventoryId ? inventoryId : undefined,
+  );
+  const { data: singleLog, isLoading: logLoading, refetch: refetchLog } = useProductLog(
+    mode === 'log' && logLookupId ? logLookupId : undefined,
+  );
+
+  const loadLog = () => {
+    setLogLookupId(logId.trim());
+    void refetchLog();
   };
-
-  const rows = listQuery.data ?? [];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Product Logs</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Read-only audit trail for product and inventory changes.
-        </p>
+        <h2 className="text-xl font-semibold">Product logs</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Audit trail by product, inventory record, or log ID.</p>
       </div>
 
-      <form onSubmit={handleLoad} className="space-y-4">
-        <Field label="Lookup by">
-          <Select value={mode} onValueChange={(v) => setMode(v as Mode)}>
-            <SelectTrigger className="max-w-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="product">Product</SelectItem>
-              <SelectItem value="inventory">Inventory</SelectItem>
-              <SelectItem value="id">Log ID</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
+      <Field label="View mode">
+        <Select value={mode} onValueChange={(v) => setMode(v as Mode)}>
+          <SelectTrigger className="max-w-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="product">By product</SelectItem>
+            <SelectItem value="inventory">By inventory record</SelectItem>
+            <SelectItem value="log">By log ID</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
 
-        {mode === 'product' && (
+      {mode === 'product' && (
+        <FormSection title="Filter">
           <Field label="Product">
             <ResourceSelect
-              queryKey="products"
-              fetchList={() => ProductsApi.list()}
-              getLabel={(p) => p.name || p.id}
+              resource={Products}
+              getLabel={(p) => p.name || p.sku || p.id.slice(0, 8)}
               value={productId}
               onValueChange={setProductId}
             />
           </Field>
-        )}
-        {mode === 'inventory' && (
-          <Field label="Inventory">
+          {!productId ? (
+            <p className="text-sm text-muted-foreground">Select a product.</p>
+          ) : productLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (byProduct?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">No logs for this product.</p>
+          ) : (
+            <LogTable rows={byProduct!} />
+          )}
+        </FormSection>
+      )}
+
+      {mode === 'inventory' && (
+        <FormSection title="Filter">
+          <Field label="Inventory record">
             <ResourceSelect
-              queryKey="inventory"
-              fetchList={() => InventoryApi.list()}
-              getLabel={inventoryLabel}
+              resource={Inventory}
+              getLabel={(i) => {
+                const store = storeLabel.get(i.locationId) ?? i.locationId.slice(0, 8);
+                return `${i.productId.slice(0, 8)} @ ${store}`;
+              }}
               value={inventoryId}
               onValueChange={setInventoryId}
             />
           </Field>
-        )}
-        {mode === 'id' && (
-          <Field label="Product log ID">
-            <Input
-              value={logId}
-              onChange={(e) => setLogId(e.target.value)}
-              placeholder="Paste UUID…"
-            />
-          </Field>
-        )}
-
-        <Button type="submit" disabled={listQuery.isFetching}>
-          {listQuery.isFetching ? 'Loading…' : 'Load logs'}
-        </Button>
-      </form>
-
-      {listQuery.error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          {(listQuery.error as Error).message || 'Failed to load logs'}
-        </div>
+          {!inventoryId ? (
+            <p className="text-sm text-muted-foreground">Select an inventory record.</p>
+          ) : inventoryLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (byInventory?.length ?? 0) === 0 ? (
+            <p className="text-sm text-muted-foreground">No logs for this record.</p>
+          ) : (
+            <LogTable rows={byInventory!} />
+          )}
+        </FormSection>
       )}
 
-      <FormSection title="Results">
-        {!active ? (
-          <p className="text-sm text-muted-foreground">Choose a lookup and load logs.</p>
-        ) : rows.length === 0 && !listQuery.isFetching ? (
-          <p className="text-sm text-muted-foreground">No logs found.</p>
-        ) : (
-          <div className="overflow-x-auto rounded-md border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-left">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Action</th>
-                  <th className="px-3 py-2 font-medium">Product</th>
-                  <th className="px-3 py-2 font-medium">Inventory</th>
-                  <th className="px-3 py-2 font-medium">Changed fields</th>
-                  <th className="px-3 py-2 font-medium">When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} className="border-t border-border align-top">
-                    <td className="px-3 py-2">{row.action}</td>
-                    <td className="px-3 py-2 font-mono text-xs break-all">{row.productId}</td>
-                    <td className="px-3 py-2 font-mono text-xs break-all">
-                      {row.inventoryId || '—'}
-                    </td>
-                    <td className="px-3 py-2 text-xs max-w-md">
-                      {row.changedFields?.length
-                        ? row.changedFields
-                            .map((c) => `${c.field}: ${String(c.oldValue)} → ${String(c.newValue)}`)
-                            .join('; ')
-                        : '—'}
-                    </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
-                      {row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {mode === 'log' && (
+        <FormSection title="Look up log">
+          <div className="flex flex-wrap gap-2">
+            <Input
+              className="max-w-md flex-1"
+              placeholder="Log UUID"
+              value={logId}
+              onChange={(e) => setLogId(e.target.value)}
+            />
+            <Button type="button" onClick={loadLog}>
+              Load
+            </Button>
           </div>
-        )}
-      </FormSection>
+          {!logLookupId ? (
+            <p className="text-sm text-muted-foreground">Enter a log ID.</p>
+          ) : logLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : !singleLog ? (
+            <p className="text-sm text-destructive">Log not found.</p>
+          ) : (
+            <div className="mt-4 space-y-2 text-sm">
+              <p>
+                <span className="text-muted-foreground">Action:</span> {singleLog.action}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Product:</span> {singleLog.productId.slice(0, 8)}…
+              </p>
+              {singleLog.inventoryId && (
+                <p>
+                  <span className="text-muted-foreground">Inventory:</span> {singleLog.inventoryId.slice(0, 8)}…
+                </p>
+              )}
+              <p>
+                <span className="text-muted-foreground">When:</span>{' '}
+                {singleLog.createdAt ? new Date(singleLog.createdAt).toLocaleString() : '—'}
+              </p>
+              {singleLog.changedFields?.length ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-muted-foreground">
+                        <th className="py-2 pr-4">Field</th>
+                        <th className="py-2 pr-4">Old</th>
+                        <th className="py-2">New</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {singleLog.changedFields.map((c, i) => (
+                        <tr key={i} className="border-b border-border/60">
+                          <td className="py-2 pr-4">{c.field}</td>
+                          <td className="py-2 pr-4">{String(c.oldValue ?? '—')}</td>
+                          <td className="py-2">{String(c.newValue ?? '—')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </FormSection>
+      )}
+    </div>
+  );
+}
+
+function LogTable({ rows }: { rows: Array<{ id: string; action: string; createdAt?: string; changedFields?: Array<{ field: string }> }> }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border text-left text-muted-foreground">
+            <th className="py-2 pr-4">ID</th>
+            <th className="py-2 pr-4">Action</th>
+            <th className="py-2 pr-4">Fields</th>
+            <th className="py-2">When</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((log) => (
+            <tr key={log.id} className="border-b border-border/60">
+              <td className="py-2 pr-4 font-mono text-xs">{log.id.slice(0, 8)}…</td>
+              <td className="py-2 pr-4">{log.action}</td>
+              <td className="py-2 pr-4">
+                {log.changedFields?.length ? log.changedFields.map((c) => c.field).join(', ') : '—'}
+              </td>
+              <td className="py-2">{log.createdAt ? new Date(log.createdAt).toLocaleString() : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

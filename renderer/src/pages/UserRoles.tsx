@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FormDrawer, Field } from '../components/FormDrawer';
+import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { UserRoles as UserRolesApi } from '../api';
+import { UserRoles } from '../api';
 import type { UserRole } from '../types';
 
 interface FormState {
@@ -14,30 +13,44 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { userId: '', roleId: '' };
 
-export default function UserRoles() {
+export default function UserRolesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lastCreated, setLastCreated] = useState<UserRole | null>(null);
+  const [lookupId, setLookupId] = useState('');
+  const [activeId, setActiveId] = useState<string | undefined>();
 
   const closeDrawer = () => setDrawerOpen(false);
 
-  const createMutation = useMutation({
-    mutationFn: (body: Partial<UserRole>) => UserRolesApi.create(body),
-    onSuccess: (created) => {
-      toast.success('User role assignment created');
-      setLastCreated(created);
-      closeDrawer();
-      setForm(EMPTY_FORM);
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to create user role assignment'),
-  });
+  const createMutation = UserRoles.useCreate();
+  const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = UserRoles.useGet(activeId);
+
+  const loadLookup = () => {
+    const trimmed = lookupId.trim();
+    if (!trimmed) {
+      toast.error('Enter a user-role assignment UUID');
+      return;
+    }
+    setActiveId(trimmed);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({
-      userId: form.userId || undefined,
-      roleId: form.roleId || undefined,
-    });
+    createMutation.mutate(
+      {
+        userId: form.userId || undefined,
+        roleId: form.roleId || undefined,
+      },
+      {
+        onSuccess: (created) => {
+          setLastCreated(created);
+          setLookupId(created.id);
+          setActiveId(created.id);
+          closeDrawer();
+          setForm(EMPTY_FORM);
+        },
+      },
+    );
   };
 
   return (
@@ -46,13 +59,42 @@ export default function UserRoles() {
         <div>
           <h1 className="text-2xl font-semibold">User Roles</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            No list endpoint exists for user role assignments — there's no directory here, only a create
-            form. Neither Users nor Roles has a list endpoint, so both IDs below must be pasted in
-            directly (e.g. from a "last created" panel on those pages).
+            Create + get-by-id only — no list/search directory. Neither Users nor Roles has a list
+            endpoint, so both IDs below must be pasted in directly (e.g. from a &quot;last created&quot;
+            panel on those pages).
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)}>New Assignment</Button>
       </div>
+
+      <FormSection title="Look up assignment">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="max-w-md flex-1"
+            placeholder="User-role assignment UUID"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+          />
+          <Button type="button" onClick={loadLookup}>
+            Load
+          </Button>
+        </div>
+        {activeId && (
+          <div className="mt-3 text-sm">
+            {lookupLoading ? (
+              <p className="text-muted-foreground">Loading…</p>
+            ) : lookupError || !lookedUp ? (
+              <p className="text-destructive">Assignment not found.</p>
+            ) : (
+              <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                <div>ID: {lookedUp.id}</div>
+                <div>User ID: {lookedUp.userId ?? '—'}</div>
+                <div>Role ID: {lookedUp.roleId ?? '—'}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </FormSection>
 
       {lastCreated && (
         <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">

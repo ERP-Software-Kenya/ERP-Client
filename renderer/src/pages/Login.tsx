@@ -5,6 +5,7 @@ import { clerk } from '../lib/clerk';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import LoginVisualPanel from '../components/auth/LoginVisualPanel';
 import { toast } from 'sonner';
 
 type Mode = 'sign-in' | 'sign-up' | 'verify-signup' | 'verify-second-factor';
@@ -290,14 +291,17 @@ export default function Login() {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-      <div className="w-full max-w-md p-8 bg-card border border-border rounded-xl shadow-lg">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-primary mb-2">Core ERP Client</h1>
-          <p className="text-muted-foreground">{title}</p>
-        </div>
+    <div className="min-h-screen flex bg-background text-foreground">
+      <LoginVisualPanel />
 
-        {mode === 'sign-in' && (
+      <div className="flex-1 flex items-center justify-center px-6 py-10 overflow-y-auto">
+        <div className="w-full max-w-md">
+          <div className="mb-8">
+            <h1 className="text-2xl font-semibold tracking-tight mb-1 lg:hidden">Core ERP Client</h1>
+            <p className="text-muted-foreground">{title}</p>
+          </div>
+
+          {mode === 'sign-in' && (
           <form onSubmit={handleSignIn} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -345,9 +349,9 @@ export default function Login() {
               </button>
             </p>
           </form>
-        )}
+          )}
 
-        {mode === 'sign-up' && (
+          {mode === 'sign-up' && (
           <form onSubmit={handleSignUp} className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -428,9 +432,9 @@ export default function Login() {
               </button>
             </p>
           </form>
-        )}
+          )}
 
-        {(mode === 'verify-signup' || mode === 'verify-second-factor') && (
+          {(mode === 'verify-signup' || mode === 'verify-second-factor') && (
           <form
             onSubmit={mode === 'verify-signup' ? handleVerifySignup : handleVerifySecondFactor}
             className="space-y-6"
@@ -473,7 +477,8 @@ export default function Login() {
               </button>
             </p>
           </form>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

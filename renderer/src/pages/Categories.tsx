@@ -1,38 +1,37 @@
 import { useState } from 'react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CategorySelect } from '../components/CategorySelect';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Categories as CategoriesApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { Categories } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { Category } from '../types';
 
-const STATUS_OPTIONS = ['active', 'inactive'];
-
+// Every field here matches core-apis' CreateCategoryRequest/UpdateCategoryRequest exactly
+// (categories.controller.ts + the request DTOs): no `code` field exists on the backend,
+// and `isActive` is only settable via update (create always starts active).
 interface FormState {
   name: string;
-  code: string;
   description: string;
-  parent_id: string;
-  status: string;
+  parentId: string;
+  isActive: boolean;
 }
 
-const EMPTY_FORM: FormState = { name: '', code: '', description: '', parent_id: '', status: 'active' };
+const EMPTY_FORM: FormState = { name: '', description: '', parentId: '', isActive: true };
 
-export default function Categories() {
+export default function CategoriesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(
-    CategoriesApi,
-    'categories',
-    'Category',
-  );
+  const createMutation = Categories.useCreate();
+  const updateMutation = Categories.useUpdate();
+  const removeMutation = Categories.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, error, refetch } = Categories.useSearch({ page, search: debouncedSearch });
 
   const openCreate = () => {
     setEditing(null);
@@ -44,10 +43,9 @@ export default function Categories() {
     setEditing(row);
     setForm({
       name: row.name ?? '',
-      code: row.code ?? '',
       description: row.description ?? '',
-      parent_id: row.parent_id ?? '',
-      status: row.status ?? 'active',
+      parentId: row.parentId ?? '',
+      isActive: row.isActive !== false,
     });
     setDrawerOpen(true);
   };
@@ -58,10 +56,9 @@ export default function Categories() {
     e.preventDefault();
     const body: Partial<Category> = {
       name: form.name,
-      code: form.code || undefined,
       description: form.description || undefined,
-      parent_id: form.parent_id || undefined,
-      status: form.status,
+      parentId: form.parentId || undefined,
+      ...(editing ? { isActive: form.isActive } : {}),
     };
     if (editing) {
       updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
@@ -72,21 +69,30 @@ export default function Categories() {
 
   const columns: Column<Category>[] = [
     { key: 'name', label: 'Name' },
-    { key: 'code', label: 'Code' },
     { key: 'description', label: 'Description' },
-    { key: 'status', label: 'Status' },
+    {
+      key: 'isActive',
+      label: 'Status',
+      render: (row) => (row.isActive === false ? 'Inactive' : 'Active'),
+    },
   ];
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
-      <ERPDataTable
+      <DataTable
         title="Categories"
         description="Manage the product category hierarchy."
-        queryKey="categories"
         columns={columns}
-        fetchData={(params) => CategoriesApi.search(params)}
+        rows={data?.items ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        loading={isLoading}
+        error={error ? String(error) : null}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search categories…"
         isAdmin={true}
         onAdd={openCreate}
@@ -118,9 +124,6 @@ export default function Categories() {
               autoFocus
             />
           </Field>
-          <Field label="Code">
-            <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
-          </Field>
           <Field label="Description">
             <Input
               value={form.description}
@@ -129,25 +132,24 @@ export default function Categories() {
           </Field>
           <Field label="Parent Category">
             <CategorySelect
-              value={form.parent_id}
-              onValueChange={(v) => setForm({ ...form, parent_id: v })}
+              value={form.parentId}
+              onValueChange={(v) => setForm({ ...form, parentId: v })}
               excludeId={editing?.id}
             />
           </Field>
-          <Field label="Status">
-            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+          {editing && (
+            <Field label="Active">
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  id="category-active"
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-input"
+                  checked={form.isActive}
+                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                />
+              </div>
+            </Field>
+          )}
         </form>
       </FormDrawer>
 

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 import Login from './pages/Login';
@@ -11,7 +11,8 @@ import InventoryDashboard from './pages/dashboards/InventoryDashboard';
 import WarehouseDashboard from './pages/dashboards/WarehouseDashboard';
 import SalesDashboard from './pages/dashboards/SalesDashboard';
 import Products from './pages/Products';
-import Inventory from './pages/Inventory';
+import InventoryPage from './pages/Inventory';
+import InventoryDetailPage from './pages/InventoryDetail';
 import Organizations from './pages/Organizations';
 import Stores from './pages/Stores';
 import Locations from './pages/Locations';
@@ -25,10 +26,10 @@ import PaymentTransactions from './pages/PaymentTransactions';
 import ItemReturns from './pages/ItemReturns';
 import Notifications from './pages/Notifications';
 import ReportGenerationLogs from './pages/ReportGenerationLogs';
-import StockMovements from './pages/StockMovements';
-import StockTransfers from './pages/StockTransfers';
-import UnpublishedStock from './pages/UnpublishedStock';
-import ProductLogs from './pages/ProductLogs';
+import StockMovementsPage from './pages/StockMovements';
+import StockTransfersPage from './pages/StockTransfers';
+import UnpublishedStockPage from './pages/UnpublishedStock';
+import ProductLogsPage from './pages/ProductLogs';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
 import Invoices from './pages/Invoices';
@@ -44,10 +45,11 @@ import OrgAddresses from './pages/OrgAddresses';
 import UserAddresses from './pages/UserAddresses';
 import VehiclesPage from './pages/VehiclesPage';
 import VehicleDetailPage from './pages/VehicleDetailPage';
+import POSTerminal from './pages/pos/POSTerminal';
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/sso-callback" element={<SSOCallback />} />
@@ -57,9 +59,11 @@ function App() {
         <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="products" element={<Products />} />
-          <Route path="inventory" element={<Inventory />} />
+          <Route path="inventory" element={<InventoryPage />} />
+          <Route path="inventory/:id" element={<InventoryDetailPage />} />
           <Route path="organizations" element={<Organizations />} />
           <Route path="stores" element={<Stores />} />
+          <Route path="warehouse" element={<Locations />} />
           <Route path="locations" element={<Locations />} />
           <Route path="categories" element={<Categories />} />
           <Route path="suppliers" element={<Suppliers />} />
@@ -69,16 +73,17 @@ function App() {
           <Route path="dashboard/inventory" element={<InventoryDashboard />} />
           <Route path="dashboard/warehouse" element={<WarehouseDashboard />} />
           <Route path="dashboard/sales" element={<SalesDashboard />} />
+          <Route path="pos" element={<POSTerminal />} />
           <Route path="bills" element={<Bills />} />
           <Route path="bills/:id" element={<BillDetail />} />
           <Route path="payment-transactions" element={<PaymentTransactions />} />
           <Route path="item-returns" element={<ItemReturns />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="report-generation-logs" element={<ReportGenerationLogs />} />
-          <Route path="stock-movements" element={<StockMovements />} />
-          <Route path="stock-transfers" element={<StockTransfers />} />
-          <Route path="unpublished-stock" element={<UnpublishedStock />} />
-          <Route path="product-logs" element={<ProductLogs />} />
+          <Route path="stock-movements" element={<StockMovementsPage />} />
+          <Route path="stock-transfers" element={<StockTransfersPage />} />
+          <Route path="unpublished-stock" element={<UnpublishedStockPage />} />
+          <Route path="product-logs" element={<ProductLogsPage />} />
           <Route path="customers" element={<Customers />} />
           <Route path="orders" element={<Orders />} />
           <Route path="invoices" element={<Invoices />} />
@@ -96,7 +101,7 @@ function App() {
           <Route path="user-addresses" element={<UserAddresses />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

@@ -24,6 +24,12 @@ Newest entries first. Keep each entry to the four lines above — no extra narra
 
 ## Ledger
 
+### 2026-07-30 — Packaged Electron stuck on blank screen (BrowserRouter + empty resources)
+
+**What happened:** `npm run dist` / unpacked EXE showed a stuck blank dark window; `release/win-unpacked/resources` was sometimes empty after interrupted packs.
+**Why it was wrong:** Production loads `file://` HTML, but `BrowserRouter` sees pathname `/D:/.../index.html` so no routes match. Separately, electron-builder was packaging `@clerk/clerk-js`’s huge production `node_modules` tree (hang / incomplete resources).
+**Do instead:** Use `HashRouter` for Electron `file://`. Package only bundled `dist/**` (`!node_modules/**/*`, `npmRebuild: false`). Never ship/test a `win-unpacked` whose `resources` lacks `app.asar`.
+
 ### 2026-07-24 — Docs claimed source-level verification and completed work that don't exist in the repo
 
 **What happened:** `docs/requirements.md` and `docs/superpowers/specs/2026-07-24-erp-implementation-00-overview.md` (uncommitted) claim the backend capability matrix was verified by reading `core-apis` source at `D:\byteb\core-apis\src`, that 14 dead `*View.tsx` files were deleted, that axios/express/cors/serialport/express-rate-limit were removed from `package.json`, and that Clerk self-signup was "shipped." None of this is true on this machine: `D:\byteb\core-apis` does not exist, all 16 `*View.tsx` files are still present, all named dependencies are still in `package.json`, and `Login.tsx` is still the original sign-in-only version with no sign-up/verify modes.

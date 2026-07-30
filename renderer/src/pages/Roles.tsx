@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FormDrawer, Field } from '../components/FormDrawer';
+import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { Roles as RolesApi, Organizations as OrganizationsApi } from '../api';
+import { Input } from '../components/ui/input';
+import { Roles, Organizations } from '../api';
 import { ROLE_NAMES, type Role } from '../types';
 
 interface FormState {
@@ -16,24 +16,27 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { organizationId: '', name: ROLE_NAMES[0], permissions: '{}' };
 
-export default function Roles() {
+export default function RolesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [lastCreated, setLastCreated] = useState<Role | null>(null);
+  const [lookupId, setLookupId] = useState('');
+  const [activeId, setActiveId] = useState<string | undefined>();
 
   const closeDrawer = () => setDrawerOpen(false);
 
-  const createMutation = useMutation({
-    mutationFn: (body: Partial<Role>) => RolesApi.create(body),
-    onSuccess: (created) => {
-      toast.success(`Role "${created.name}" created`);
-      setLastCreated(created);
-      closeDrawer();
-      setForm(EMPTY_FORM);
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to create role'),
-  });
+  const createMutation = Roles.useCreate();
+  const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = Roles.useGet(activeId);
+
+  const loadLookup = () => {
+    const trimmed = lookupId.trim();
+    if (!trimmed) {
+      toast.error('Enter a role UUID');
+      return;
+    }
+    setActiveId(trimmed);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,11 +48,22 @@ export default function Roles() {
       return;
     }
     setJsonError(null);
-    createMutation.mutate({
-      organizationId: form.organizationId || undefined,
-      name: form.name,
-      permissions,
-    });
+    createMutation.mutate(
+      {
+        organizationId: form.organizationId || undefined,
+        name: form.name,
+        permissions,
+      },
+      {
+        onSuccess: (created) => {
+          setLastCreated(created);
+          setLookupId(created.id);
+          setActiveId(created.id);
+          closeDrawer();
+          setForm(EMPTY_FORM);
+        },
+      },
+    );
   };
 
   return (
@@ -58,14 +72,42 @@ export default function Roles() {
         <div>
           <h1 className="text-2xl font-semibold">Roles</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            No list endpoint exists for roles — there's no directory here, only a create form.
-            Name is one of 4 fixed values (unique per role) — the backend rejects anything else.
-            Organization and Permissions are required by validation but the role entity currently
-            has no matching columns, so the backend accepts and silently discards them.
+            Create + get-by-id only — no list/search directory. Name is one of 4 fixed values (unique
+            per role) — the backend rejects anything else. Organization and Permissions are required
+            by validation but the role entity currently has no matching columns, so the backend
+            accepts and silently discards them.
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)}>New Role</Button>
       </div>
+
+      <FormSection title="Look up role">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="max-w-md flex-1"
+            placeholder="Role UUID"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+          />
+          <Button type="button" onClick={loadLookup}>
+            Load
+          </Button>
+        </div>
+        {activeId && (
+          <div className="mt-3 text-sm">
+            {lookupLoading ? (
+              <p className="text-muted-foreground">Loading…</p>
+            ) : lookupError || !lookedUp ? (
+              <p className="text-destructive">Role not found.</p>
+            ) : (
+              <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                <div>ID: {lookedUp.id}</div>
+                <div>Name: {lookedUp.name}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </FormSection>
 
       {lastCreated && (
         <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">
@@ -93,8 +135,7 @@ export default function Roles() {
         <form id="role-form" onSubmit={handleSubmit} className="space-y-4">
           <Field label="Organization">
             <ResourceSelect
-              queryKey="organizations"
-              fetchList={() => OrganizationsApi.list()}
+              resource={Organizations}
               getLabel={(org) => org.name}
               value={form.organizationId}
               onValueChange={(v) => setForm({ ...form, organizationId: v })}

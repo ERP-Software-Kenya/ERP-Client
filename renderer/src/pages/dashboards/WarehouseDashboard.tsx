@@ -1,5 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import { Warehouse, CheckSquare, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Warehouse } from 'lucide-react';
 import { Stores } from '../../api';
 
 function StatCard({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ size?: number }> }) {
@@ -11,30 +10,27 @@ function StatCard({ label, value, icon: Icon }: { label: string; value: string; 
           <Icon size={16} />
         </div>
       </div>
-      <div className={value === 'Not available' ? 'text-sm text-muted-foreground' : 'text-2xl font-bold'}>{value}</div>
+      <div className="text-2xl font-bold">{value}</div>
     </div>
   );
 }
 
 export default function WarehouseDashboard() {
-  const { data: storesData, isLoading, isError } = useQuery({
-    queryKey: ['dashboard', 'warehouse', 'stores'],
-    queryFn: () => Stores.search({ limit: 1 }),
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: storesData, isLoading, isError } = Stores.useSearch({ limit: 1 });
 
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold tracking-tight">Warehouse Dashboard</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Warehouses / Stores" value={isLoading ? '…' : isError ? 'Not available' : String(storesData?.total ?? 0)} icon={Warehouse} />
-        <StatCard label="GRNs Today" value="Not available" icon={CheckSquare} />
-        <StatCard label="GINs Today" value="Not available" icon={TrendingUp} />
-        <StatCard label="Pending Transfers" value="Not available" icon={AlertTriangle} />
+        <StatCard
+          label="Warehouses / Stores"
+          value={isLoading ? '…' : isError ? '—' : String(storesData?.total ?? 0)}
+          icon={Warehouse}
+        />
       </div>
-      <div className="p-6 bg-card border border-border rounded-xl shadow-sm text-center text-sm text-muted-foreground">
-        GRN/GIN and transfer stats need the Warehouse GRN/GIN backend modules, which don't exist yet
-        (sub-project 4 of the sidebar rollout). Store count above is real.
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400">
+        GRN, GIN, and pending-transfer metrics are not live data — those warehouse modules have no
+        backend yet. Only the store count above comes from the API.
       </div>
     </div>
   );

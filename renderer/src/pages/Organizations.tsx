@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Organizations as OrganizationsApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { Organizations } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { Organization } from '../types';
 
 const STATUS_OPTIONS = ['active', 'inactive'];
@@ -31,17 +31,17 @@ const EMPTY_FORM: FormState = {
   status: 'active',
 };
 
-export default function Organizations() {
+export default function OrganizationsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Organization | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Organization | null>(null);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(
-    OrganizationsApi,
-    'organizations',
-    'Organization',
-  );
+  const createMutation = Organizations.useCreate();
+  const updateMutation = Organizations.useUpdate();
+  const removeMutation = Organizations.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, error, refetch } = Organizations.useSearch({ page, search: debouncedSearch });
 
   const openCreate = () => {
     setEditing(null);
@@ -94,12 +94,18 @@ export default function Organizations() {
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
-      <ERPDataTable
+      <DataTable
         title="Organizations"
         description="Manage organizations."
-        queryKey="organizations"
         columns={columns}
-        fetchData={(params) => OrganizationsApi.search(params)}
+        rows={data?.items ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        loading={isLoading}
+        error={error ? String(error) : null}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search organizations…"
         isAdmin={true}
         onAdd={openCreate}

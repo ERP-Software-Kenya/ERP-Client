@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FormDrawer, Field } from '../components/FormDrawer';
+import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Customers as CustomersApi } from '../api';
+import { Customers } from '../api';
 import type { Customer } from '../types';
 
 interface FormState {
@@ -16,10 +15,12 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { name: '', email: '', phone: '', gstin: '' };
 
-export default function Customers() {
+export default function CustomersPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lastCreated, setLastCreated] = useState<Customer | null>(null);
+  const [lookupId, setLookupId] = useState('');
+  const [activeId, setActiveId] = useState<string | undefined>();
 
   const closeDrawer = () => setDrawerOpen(false);
 
@@ -29,25 +30,37 @@ export default function Customers() {
   // dependencies at all — the cleanest possible confirmation in this app, and
   // strong evidence for the missing-auth-guard root cause (see
   // docs/core-apis-fixes.md #8, #10). Remove the `disabled` prop once fixed.
-  const createMutation = useMutation({
-    mutationFn: (body: Partial<Customer>) => CustomersApi.create(body),
-    onSuccess: (created) => {
-      toast.success(`Customer "${created.name}" created`);
-      setLastCreated(created);
-      closeDrawer();
-      setForm(EMPTY_FORM);
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to create customer'),
-  });
+  const createMutation = Customers.useCreate();
+  const { data: lookedUp, isLoading, error } = Customers.useGet(activeId);
+
+  const loadCustomer = () => {
+    const trimmed = lookupId.trim();
+    if (!trimmed) {
+      toast.error('Enter a customer UUID');
+      return;
+    }
+    setActiveId(trimmed);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({
-      name: form.name || undefined,
-      email: form.email || undefined,
-      phone: form.phone || undefined,
-      gstin: form.gstin || undefined,
-    });
+    createMutation.mutate(
+      {
+        name: form.name || undefined,
+        email: form.email || undefined,
+        phone: form.phone || undefined,
+        gstin: form.gstin || undefined,
+      },
+      {
+        onSuccess: (created) => {
+          setLastCreated(created);
+          setActiveId(created.id);
+          setLookupId(created.id);
+          closeDrawer();
+          setForm(EMPTY_FORM);
+        },
+      },
+    );
   };
 
   return (
@@ -56,14 +69,62 @@ export default function Customers() {
         <div>
           <h1 className="text-2xl font-semibold">Customers</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            No list endpoint exists for customers — there's no directory here, only a create form. Once
-            created, a customer's ID must be referenced from an Order/Invoice you're creating.
-            <span className="text-amber-500 font-medium"> Currently blocked</span> — live-tested
-            2026-07-26, creation fails on the backend every time (see docs/core-apis-fixes.md #8).
+            Create + get by UUID only — no directory/list endpoint. Once created, paste the ID into
+            an Order or Invoice. <span className="text-amber-500 font-medium">Create is blocked</span>{' '}
+            — live-tested 2026-07-26, BE fails every create (org/tenancy; see docs/core-apis-fixes.md #8).
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)}>New Customer</Button>
       </div>
+
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-500">
+        Create submit stays disabled until the backend sets organizationId. Look up works when you
+        already have a customer UUID.
+      </div>
+
+      <FormSection title="Look up customer">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="max-w-md flex-1"
+            placeholder="Customer UUID"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+          />
+          <Button type="button" onClick={loadCustomer}>
+            Load
+          </Button>
+        </div>
+      </FormSection>
+
+      {activeId && (
+        <FormSection title="Customer">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : error || !lookedUp ? (
+            <p className="text-sm text-destructive">
+              {error instanceof Error ? error.message : 'Customer not found.'}
+            </p>
+          ) : (
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
+              <p>
+                <span className="text-muted-foreground">ID:</span> {lookedUp.id}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Name:</span> {lookedUp.name ?? '—'}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Email:</span> {lookedUp.email ?? '—'}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Phone:</span> {lookedUp.phone ?? '—'}
+              </p>
+              <p>
+                <span className="text-muted-foreground">GSTIN:</span> {lookedUp.gstin ?? '—'}
+              </p>
+            </div>
+          )}
+        </FormSection>
+      )}
 
       {lastCreated && (
         <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">
@@ -90,7 +151,7 @@ export default function Customers() {
       >
         <form id="customer-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            Submitting is disabled — this endpoint currently fails server-side for every request.
+            Submitting is disabled — BE org/tenancy issues; do not enable until backend is fixed.
           </div>
           <Field label="Name" required>
             <Input

@@ -1,6 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
 import { Package, Truck, ArrowRightLeft, DollarSign } from 'lucide-react';
-import { Products as ProductsApi } from '../api';
+import { Products } from '../api';
 
 // Only "Total Products" is backed by a real endpoint. Orders, StockMovements and
 // Invoices are create + get-by-id only (no list/search) — there is currently no
@@ -9,11 +8,8 @@ import { Products as ProductsApi } from '../api';
 // rather than fabricated numbers; wire these up once those resources get a list
 // endpoint.
 export default function Dashboard() {
-  const { data: productTotal, isLoading } = useQuery({
-    queryKey: ['dashboard', 'products-total'],
-    queryFn: async () => (await ProductsApi.search({ limit: 1 })).total,
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: productsResult, isLoading } = Products.useSearch({ limit: 1 });
+  const productTotal = productsResult?.total;
 
   const stats = [
     { label: 'Total Products', value: isLoading ? '…' : String(productTotal ?? 0), icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/10' },

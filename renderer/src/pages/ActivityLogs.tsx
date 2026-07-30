@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FormDrawer, Field } from '../components/FormDrawer';
+import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { ActivityLogs as ActivityLogsApi, Organizations as OrganizationsApi } from '../api';
+import { ActivityLogs, Organizations } from '../api';
 import { ACTIVITY_LOG_ACTIONS, type ActivityLog } from '../types';
 
 interface FormState {
@@ -25,33 +24,47 @@ const EMPTY_FORM: FormState = {
   entityId: '',
 };
 
-export default function ActivityLogs() {
+export default function ActivityLogsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lastCreated, setLastCreated] = useState<ActivityLog | null>(null);
+  const [lookupId, setLookupId] = useState('');
+  const [activeId, setActiveId] = useState<string | undefined>();
 
-  const createMutation = useMutation({
-    mutationFn: (body: Partial<ActivityLog>) => ActivityLogsApi.create(body),
-    onSuccess: (created) => {
-      toast.success('Activity log created');
-      setLastCreated(created);
-      setDrawerOpen(false);
-      setForm(EMPTY_FORM);
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to create activity log'),
-  });
+  const createMutation = ActivityLogs.useCreate();
+  const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = ActivityLogs.useGet(activeId);
 
   const closeDrawer = () => setDrawerOpen(false);
 
+  const loadLookup = () => {
+    const trimmed = lookupId.trim();
+    if (!trimmed) {
+      toast.error('Enter an activity log UUID');
+      return;
+    }
+    setActiveId(trimmed);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({
-      organizationId: form.organizationId || undefined,
-      userId: form.userId || undefined,
-      action: form.action,
-      entityName: form.entityName || undefined,
-      entityId: form.entityId || undefined,
-    });
+    createMutation.mutate(
+      {
+        organizationId: form.organizationId || undefined,
+        userId: form.userId || undefined,
+        action: form.action,
+        entityName: form.entityName || undefined,
+        entityId: form.entityId || undefined,
+      },
+      {
+        onSuccess: (created) => {
+          setLastCreated(created);
+          setLookupId(created.id);
+          setActiveId(created.id);
+          setDrawerOpen(false);
+          setForm(EMPTY_FORM);
+        },
+      },
+    );
   };
 
   return (
@@ -60,11 +73,40 @@ export default function ActivityLogs() {
         <div>
           <h1 className="text-2xl font-semibold">Activity Logs</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            No list endpoint exists for activity logs — there's no directory here, only a create form.
+            Create + get-by-id only — no list/search directory.
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)}>New Activity Log</Button>
       </div>
+
+      <FormSection title="Look up activity log">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="max-w-md flex-1"
+            placeholder="Activity log UUID"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+          />
+          <Button type="button" onClick={loadLookup}>
+            Load
+          </Button>
+        </div>
+        {activeId && (
+          <div className="mt-3 text-sm">
+            {lookupLoading ? (
+              <p className="text-muted-foreground">Loading…</p>
+            ) : lookupError || !lookedUp ? (
+              <p className="text-destructive">Activity log not found.</p>
+            ) : (
+              <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                <div>ID: {lookedUp.id}</div>
+                <div>Action: {lookedUp.action ?? '—'}</div>
+                <div>Entity: {lookedUp.entityName ?? '—'} / {lookedUp.entityId ?? '—'}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </FormSection>
 
       {lastCreated && (
         <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">
@@ -91,8 +133,7 @@ export default function ActivityLogs() {
         <form id="activity-log-form" onSubmit={handleSubmit} className="space-y-5">
           <Field label="Organization">
             <ResourceSelect
-              queryKey="organizations"
-              fetchList={() => OrganizationsApi.list()}
+              resource={Organizations}
               getLabel={(org) => org.name}
               value={form.organizationId}
               onValueChange={(v) => setForm({ ...form, organizationId: v })}

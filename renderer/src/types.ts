@@ -7,61 +7,6 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-// ── App Settings ──────────────────────────────────────────────────────────────
-export interface AppSettings {
-  apiBaseUrl: string;
-  apiToken: string | null;
-  lockTimeoutMinutes: number;
-  theme: 'dark' | 'light';
-}
-
-export type AppUserRole = 'admin' | 'operator';
-
-export interface User {
-  id: number;
-  username: string;
-  name: string;
-  role: AppUserRole;
-  status: 'active' | 'inactive';
-  last_activity?: string;
-}
-
-export interface Session {
-  id: string;
-  user_id: number;
-}
-
-// ── Navigation Tabs ───────────────────────────────────────────────────────────
-export type Tab =
-  | 'dashboard'
-  | 'notifications'
-  | 'activity-logs'
-  | 'products'
-  | 'categories'
-  | 'inventory'
-  | 'stock-movements'
-  | 'stock-transfers'
-  | 'item-returns'
-  | 'orders'
-  | 'invoices'
-  | 'customers'
-  | 'purchase-orders'
-  | 'purchase-items'
-  | 'suppliers'
-  | 'bills'
-  | 'stores'
-  | 'payment-transactions'
-  | 'expenses'
-  | 'report-generation-logs'
-  | 'users'
-  | 'roles'
-  | 'user-roles'
-  | 'organizations'
-  | 'platform-configurations'
-  | 'vehicles'
-  | 'settings'
-  | 'payments';
-
 // ── Entities ──────────────────────────────────────────────────────────────────
 
 // ── snake_case fields match actual API response field names ────────────────────
@@ -140,15 +85,18 @@ export interface UserAddress {
   createdAt?: string;
 }
 
+// Verified against core-apis source (categories.controller.ts, create/update-category.request.ts,
+// category.response.ts): fields are camelCase, there is no `code` field, and status is the boolean
+// `isActive` (settable only via update, not create).
 export interface Category {
   id: string;
-  name: string;
-  code?: string;
+  organizationId?: string;
+  parentId?: string;
+  name?: string;
   description?: string;
-  parent_id?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Verified 2026-07-26 against core-apis source (products.controller.ts,
@@ -177,6 +125,19 @@ export interface Product {
   createdAt?: string;
 }
 
+// GET/POST/PUT/DELETE /api/v1/products/:id/suppliers[...] — links a Supplier to a Product.
+export interface ProductSupplier {
+  id: string;
+  productId: string;
+  supplierId: string;
+  isDefault: boolean;
+  unitCost?: number;
+  leadTimeDays?: number;
+  minOrderQty?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 // GET/POST /api/v1/products/:id/images — separate from the Product record.
 export interface ProductImage {
   id: string;
@@ -189,29 +150,11 @@ export interface ProductImage {
   createdAt: string;
 }
 
-// Verified 2026-07-26 directly against the deployed API's live responses (not
-// just source): CreateInventoryRequest/InventoryResponse are `{name?: string}`
-// scaffold-only, same bug class as PurchaseOrder (docs/core-apis-fixes.md #11).
-// product_id/store_id/quantity/min_quantity/unit/status below do NOT round-trip
-// through the API today even though InventoryItemEntity likely has them in the
-// DB — kept only so any code expecting them still compiles; do not trust them.
+// Matches core-apis' InventoryResponse DTO (camelCase). Verified 2026-07-30
+// against src/application/modules/inventory source — the module was fully
+// overhauled 2026-07-28 (commit 49a1426), after which this became the real
+// wire shape for search/list/getById/create/update on `/api/v1/inventory`.
 export interface InventoryItem {
-  id: string;
-  name?: string;
-  product_id?: string;
-  store_id?: string;
-  quantity?: number;
-  min_quantity?: number;
-  unit?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-// Matches core-apis' real InventoryResponse DTO (camelCase). Used only by the
-// low-stock/valuation endpoints below — InventoryItem above is a separate,
-// pre-existing, verified-wrong type still used by the generic Inventory resource.
-export interface InventoryStockLevel {
   id: string;
   organizationId: string;
   locationId: string;
@@ -412,8 +355,10 @@ export interface StockTransfer {
 }
 
 // Verified 2026-07-26 against core-apis's OrderResponse/CreateOrderRequest source
-// directly — camelCase, matches the entity well. Create 500s regardless: entity's
-// NOT-NULL organizationId is never set by the command. See docs/core-apis-fixes.md #8.
+// directly — camelCase, matches the entity well. OrderEntity has no organizationId
+// column (tenancy flows through storeId -> store -> org). The real blocker for
+// create is that customerId (required) has no valid value to test with, because
+// Customers create is broken separately (see Customer below). See Orders.tsx.
 export interface Order {
   id: string;
   orderNumber?: string;

@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Stores as StoresApi, Organizations as OrganizationsApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { Stores, Organizations } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { Store } from '../types';
 
 const STATUS_OPTIONS = ['active', 'inactive'];
@@ -36,13 +36,17 @@ const EMPTY_FORM: FormState = {
   status: 'active',
 };
 
-export default function Stores() {
+export default function StoresPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Store | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Store | null>(null);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(StoresApi, 'stores', 'Store');
+  const createMutation = Stores.useCreate();
+  const updateMutation = Stores.useUpdate();
+  const removeMutation = Stores.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, error, refetch } = Stores.useSearch({ page, search: debouncedSearch });
 
   const openCreate = () => {
     setEditing(null);
@@ -99,12 +103,18 @@ export default function Stores() {
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
-      <ERPDataTable
+      <DataTable
         title="Stores / Warehouses"
         description="Manage store and warehouse locations."
-        queryKey="stores"
         columns={columns}
-        fetchData={(params) => StoresApi.search(params)}
+        rows={data?.items ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        loading={isLoading}
+        error={error ? String(error) : null}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search stores…"
         isAdmin={true}
         onAdd={openCreate}
@@ -167,8 +177,7 @@ export default function Stores() {
           </div>
           <Field label="Organization">
             <ResourceSelect
-              queryKey="organizations"
-              fetchList={() => OrganizationsApi.list()}
+              resource={Organizations}
               getLabel={(org) => org.name}
               value={form.organization_id}
               onValueChange={(v) => setForm({ ...form, organization_id: v })}

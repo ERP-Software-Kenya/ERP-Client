@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FormDrawer, Field } from '../components/FormDrawer';
+import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { PlatformConfigurations as PlatformConfigurationsApi } from '../api';
+import { PlatformConfigurations } from '../api';
 import type { PlatformConfiguration } from '../types';
 
 interface FormState {
@@ -15,24 +14,28 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { configKey: '', configValue: '{}', description: '' };
 
-export default function PlatformConfigurations() {
+export default function PlatformConfigurationsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [lastCreated, setLastCreated] = useState<PlatformConfiguration | null>(null);
+  const [lookupId, setLookupId] = useState('');
+  const [activeId, setActiveId] = useState<string | undefined>();
 
-  const createMutation = useMutation({
-    mutationFn: (body: Partial<PlatformConfiguration>) => PlatformConfigurationsApi.create(body),
-    onSuccess: (created) => {
-      toast.success('Platform configuration created');
-      setLastCreated(created);
-      setDrawerOpen(false);
-      setForm(EMPTY_FORM);
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to create platform configuration'),
-  });
+  const createMutation = PlatformConfigurations.useCreate();
+  const { data: lookedUp, isLoading: lookupLoading, error: lookupError } =
+    PlatformConfigurations.useGet(activeId);
 
   const closeDrawer = () => setDrawerOpen(false);
+
+  const loadLookup = () => {
+    const trimmed = lookupId.trim();
+    if (!trimmed) {
+      toast.error('Enter a configuration UUID');
+      return;
+    }
+    setActiveId(trimmed);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,11 +47,22 @@ export default function PlatformConfigurations() {
       return;
     }
     setJsonError(null);
-    createMutation.mutate({
-      configKey: form.configKey || undefined,
-      configValue,
-      description: form.description || undefined,
-    });
+    createMutation.mutate(
+      {
+        configKey: form.configKey || undefined,
+        configValue,
+        description: form.description || undefined,
+      },
+      {
+        onSuccess: (created) => {
+          setLastCreated(created);
+          setLookupId(created.id);
+          setActiveId(created.id);
+          setDrawerOpen(false);
+          setForm(EMPTY_FORM);
+        },
+      },
+    );
   };
 
   return (
@@ -57,11 +71,39 @@ export default function PlatformConfigurations() {
         <div>
           <h1 className="text-2xl font-semibold">Platform Configurations</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            No list endpoint exists for platform configurations — there's no directory here, only a create form.
+            Create + get-by-id only — no list/search directory.
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)}>New Configuration</Button>
       </div>
+
+      <FormSection title="Look up configuration">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="max-w-md flex-1"
+            placeholder="Configuration UUID"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+          />
+          <Button type="button" onClick={loadLookup}>
+            Load
+          </Button>
+        </div>
+        {activeId && (
+          <div className="mt-3 text-sm">
+            {lookupLoading ? (
+              <p className="text-muted-foreground">Loading…</p>
+            ) : lookupError || !lookedUp ? (
+              <p className="text-destructive">Configuration not found.</p>
+            ) : (
+              <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                <div>ID: {lookedUp.id}</div>
+                <div>Key: {lookedUp.configKey}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </FormSection>
 
       {lastCreated && (
         <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">

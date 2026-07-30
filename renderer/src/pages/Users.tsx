@@ -5,7 +5,7 @@ import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { Users as UsersApi, Organizations as OrganizationsApi, Stores as StoresApi } from '../api';
+import { Users, Organizations, Stores } from '../api';
 import { AuthService } from '../services/auth.service';
 import type { PlatformUser } from '../types';
 
@@ -44,27 +44,30 @@ const EMPTY_FORM: FormState = {
 
 const EMPTY_INVITE: InviteForm = { email: '', roleId: '' };
 
-export default function Users() {
+export default function UsersPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [inviteForm, setInviteForm] = useState<InviteForm>(EMPTY_INVITE);
   const [lastCreated, setLastCreated] = useState<PlatformUser | null>(null);
   const [lastInvite, setLastInvite] = useState<InviteResult | null>(null);
+  const [lookupId, setLookupId] = useState('');
+  const [activeId, setActiveId] = useState<string | undefined>();
 
   const closeDrawer = () => setDrawerOpen(false);
   const closeInvite = () => setInviteOpen(false);
 
-  const createMutation = useMutation({
-    mutationFn: (body: Partial<PlatformUser>) => UsersApi.create(body),
-    onSuccess: (created) => {
-      toast.success(`User "${created.email}" created`);
-      setLastCreated(created);
-      closeDrawer();
-      setForm(EMPTY_FORM);
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to create user'),
-  });
+  const createMutation = Users.useCreate();
+  const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = Users.useGet(activeId);
+
+  const loadLookup = () => {
+    const trimmed = lookupId.trim();
+    if (!trimmed) {
+      toast.error('Enter a user UUID');
+      return;
+    }
+    setActiveId(trimmed);
+  };
 
   const inviteMutation = useMutation({
     mutationFn: () =>
@@ -87,16 +90,28 @@ export default function Users() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({
-      organizationId: form.organizationId || undefined,
-      storeId: form.storeId || undefined,
-      email: form.email || undefined,
-      passwordHash: form.passwordHash || undefined,
-      firstName: form.firstName || undefined,
-      lastName: form.lastName || undefined,
-      phone: form.phone || undefined,
-      isActive: form.isActive,
-    });
+    createMutation.mutate(
+      {
+        organizationId: form.organizationId || undefined,
+        storeId: form.storeId || undefined,
+        email: form.email || undefined,
+        passwordHash: form.passwordHash || undefined,
+        firstName: form.firstName || undefined,
+        lastName: form.lastName || undefined,
+        phone: form.phone || undefined,
+        isActive: form.isActive,
+      },
+      {
+        onSuccess: (created) => {
+          toast.success(`User "${created.email}" created`);
+          setLastCreated(created);
+          setLookupId(created.id);
+          setActiveId(created.id);
+          closeDrawer();
+          setForm(EMPTY_FORM);
+        },
+      },
+    );
   };
 
   const handleInvite = (e: React.FormEvent) => {
@@ -114,8 +129,8 @@ export default function Users() {
         <div>
           <h1 className="text-2xl font-semibold">Users</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Create platform users, or invite an existing Clerk user into your organization via{' '}
-            <code className="text-xs">POST /auth/invite</code>. No users list endpoint exists.
+            Create + get-by-id only — no list/search directory. Invite an existing Clerk user via{' '}
+            <code className="text-xs">POST /auth/invite</code>.
           </p>
         </div>
         <div className="flex gap-2">
@@ -125,6 +140,37 @@ export default function Users() {
           <Button onClick={() => setDrawerOpen(true)}>New User</Button>
         </div>
       </div>
+
+      <FormSection title="Look up user">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="max-w-md flex-1"
+            placeholder="User UUID"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+          />
+          <Button type="button" onClick={loadLookup}>
+            Load
+          </Button>
+        </div>
+        {activeId && (
+          <div className="mt-3 text-sm">
+            {lookupLoading ? (
+              <p className="text-muted-foreground">Loading…</p>
+            ) : lookupError || !lookedUp ? (
+              <p className="text-destructive">User not found.</p>
+            ) : (
+              <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                <div>ID: {lookedUp.id}</div>
+                <div>Email: {lookedUp.email}</div>
+                <div>
+                  Name: {[lookedUp.firstName, lookedUp.lastName].filter(Boolean).join(' ') || '—'}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </FormSection>
 
       {lastCreated && (
         <FormSection title="Last created user">
@@ -205,8 +251,7 @@ export default function Users() {
         <form id="user-form" onSubmit={handleSubmit} className="space-y-4">
           <Field label="Organization">
             <ResourceSelect
-              queryKey="organizations"
-              fetchList={() => OrganizationsApi.list()}
+              resource={Organizations}
               getLabel={(org) => org.name}
               value={form.organizationId}
               onValueChange={(v) => setForm({ ...form, organizationId: v })}
@@ -215,8 +260,7 @@ export default function Users() {
           </Field>
           <Field label="Store (optional)">
             <ResourceSelect
-              queryKey="stores"
-              fetchList={() => StoresApi.list()}
+              resource={Stores}
               getLabel={(s) => s.name}
               value={form.storeId}
               onValueChange={(v) => setForm({ ...form, storeId: v })}

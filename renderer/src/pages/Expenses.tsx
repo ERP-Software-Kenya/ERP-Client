@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FormDrawer, Field } from '../components/FormDrawer';
+import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { Expenses as ExpensesApi, Organizations as OrganizationsApi, Stores as StoresApi } from '../api';
+import { Expenses, Organizations, Stores } from '../api';
 import type { Expense } from '../types';
 
 interface FormState {
@@ -26,34 +25,48 @@ const EMPTY_FORM: FormState = {
   description: '',
 };
 
-export default function Expenses() {
+export default function ExpensesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lastCreated, setLastCreated] = useState<Expense | null>(null);
+  const [lookupId, setLookupId] = useState('');
+  const [activeId, setActiveId] = useState<string | undefined>();
 
-  const createMutation = useMutation({
-    mutationFn: (body: Partial<Expense>) => ExpensesApi.create(body),
-    onSuccess: (created) => {
-      toast.success('Expense created');
-      setLastCreated(created);
-      setDrawerOpen(false);
-      setForm(EMPTY_FORM);
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to create expense'),
-  });
+  const createMutation = Expenses.useCreate();
+  const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = Expenses.useGet(activeId);
 
   const closeDrawer = () => setDrawerOpen(false);
 
+  const loadLookup = () => {
+    const trimmed = lookupId.trim();
+    if (!trimmed) {
+      toast.error('Enter an expense UUID');
+      return;
+    }
+    setActiveId(trimmed);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({
-      organizationId: form.organizationId || undefined,
-      storeId: form.storeId || undefined,
-      category: form.category || undefined,
-      amount: form.amount ? Number(form.amount) : undefined,
-      expenseDate: form.expenseDate ? new Date(form.expenseDate).toISOString() : undefined,
-      description: form.description || undefined,
-    });
+    createMutation.mutate(
+      {
+        organizationId: form.organizationId || undefined,
+        storeId: form.storeId || undefined,
+        category: form.category || undefined,
+        amount: form.amount ? Number(form.amount) : undefined,
+        expenseDate: form.expenseDate ? new Date(form.expenseDate).toISOString() : undefined,
+        description: form.description || undefined,
+      },
+      {
+        onSuccess: (created) => {
+          setLastCreated(created);
+          setLookupId(created.id);
+          setActiveId(created.id);
+          setDrawerOpen(false);
+          setForm(EMPTY_FORM);
+        },
+      },
+    );
   };
 
   return (
@@ -62,11 +75,40 @@ export default function Expenses() {
         <div>
           <h1 className="text-2xl font-semibold">Expenses</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            No list endpoint exists for expenses — there's no directory here, only a create form.
+            Create + get-by-id only — no list/search directory.
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)}>New Expense</Button>
       </div>
+
+      <FormSection title="Look up expense">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            className="max-w-md flex-1"
+            placeholder="Expense UUID"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+          />
+          <Button type="button" onClick={loadLookup}>
+            Load
+          </Button>
+        </div>
+        {activeId && (
+          <div className="mt-3 text-sm">
+            {lookupLoading ? (
+              <p className="text-muted-foreground">Loading…</p>
+            ) : lookupError || !lookedUp ? (
+              <p className="text-destructive">Expense not found.</p>
+            ) : (
+              <div className="rounded-lg border border-border bg-card p-3 space-y-1">
+                <div>ID: {lookedUp.id}</div>
+                <div>Category: {lookedUp.category ?? '—'}</div>
+                <div>Amount: {lookedUp.amount ?? '—'}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </FormSection>
 
       {lastCreated && (
         <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">
@@ -94,8 +136,7 @@ export default function Expenses() {
         <form id="expense-form" onSubmit={handleSubmit} className="space-y-5">
           <Field label="Organization">
             <ResourceSelect
-              queryKey="organizations"
-              fetchList={() => OrganizationsApi.list()}
+              resource={Organizations}
               getLabel={(org) => org.name}
               value={form.organizationId}
               onValueChange={(v) => setForm({ ...form, organizationId: v })}
@@ -104,8 +145,7 @@ export default function Expenses() {
           </Field>
           <Field label="Store (optional)">
             <ResourceSelect
-              queryKey="stores"
-              fetchList={() => StoresApi.list()}
+              resource={Stores}
               getLabel={(s) => s.name}
               value={form.storeId}
               onValueChange={(v) => setForm({ ...form, storeId: v })}

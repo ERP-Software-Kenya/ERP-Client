@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { PaymentTransactions as PaymentTransactionsApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { PaymentTransactions } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { PaymentTransaction } from '../types';
 
 interface FormState {
@@ -19,17 +19,25 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { referenceId: '', referenceType: '', type: '', method: '', amount: '', status: '' };
 
-export default function PaymentTransactions() {
+export default function PaymentTransactionsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<PaymentTransaction | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<PaymentTransaction | null>(null);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(
-    PaymentTransactionsApi,
-    'payment-transactions',
-    'Payment',
-  );
+  const createMutation = PaymentTransactions.useCreate();
+  const updateMutation = PaymentTransactions.useUpdate();
+  const removeMutation = PaymentTransactions.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, isError, error, refetch } = PaymentTransactions.useSearch({
+    page,
+    search: debouncedSearch,
+  });
+  const listError = isError
+    ? `Unable to load payments — the backend is returning errors and needs a fix (see notice above).${
+        error instanceof Error && error.message ? ` (${error.message})` : ''
+      }`
+    : null;
 
   const openCreate = () => {
     setEditing(null);
@@ -71,6 +79,7 @@ export default function PaymentTransactions() {
 
   const columns: Column<PaymentTransaction>[] = [
     { key: 'referenceType', label: 'Linked To' },
+    { key: 'type', label: 'Type' },
     { key: 'method', label: 'Method' },
     {
       key: 'amount',
@@ -89,12 +98,18 @@ export default function PaymentTransactions() {
         database column is `organizationId`, see docs/core-apis-fixes.md #0d). Payments normally get
         recorded from a Bill's detail view, linked via referenceType/referenceId.
       </div>
-      <ERPDataTable
+      <DataTable
         title="Payment Transactions"
         description="All recorded payments across bills/invoices."
-        queryKey="payment-transactions"
         columns={columns}
-        fetchData={(params) => PaymentTransactionsApi.search(params)}
+        rows={listError ? [] : (data?.items ?? [])}
+        total={listError ? 0 : (data?.total ?? 0)}
+        page={page}
+        loading={isLoading && !isError}
+        error={listError}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search payments…"
         isAdmin={true}
         onAdd={openCreate}
@@ -121,33 +136,45 @@ export default function PaymentTransactions() {
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
             Submitting is disabled — this endpoint currently fails server-side for every request.
           </div>
-          <Field label="Linked To (type)">
+          <Field label="Linked To (type)" required>
             <Input
               placeholder="e.g. bill"
               value={form.referenceType}
               onChange={(e) => setForm({ ...form, referenceType: e.target.value })}
+              required
             />
           </Field>
-          <Field label="Linked To (ID)">
+          <Field label="Linked To (ID)" required>
             <Input
               value={form.referenceId}
               onChange={(e) => setForm({ ...form, referenceId: e.target.value })}
+              required
             />
           </Field>
-          <Field label="Method">
+          <Field label="Type" required>
+            <Input
+              placeholder="e.g. payment, refund"
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Method" required>
             <Input
               placeholder="e.g. cash, card, bank_transfer"
               value={form.method}
               onChange={(e) => setForm({ ...form, method: e.target.value })}
+              required
             />
           </Field>
-          <Field label="Amount">
+          <Field label="Amount" required>
             <Input
               type="number"
               step="0.01"
               min="0"
               value={form.amount}
               onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              required
             />
           </Field>
           <Field label="Status">

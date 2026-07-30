@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { PurchaseOrders as PurchaseOrdersApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { PurchaseOrders } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { PurchaseOrder } from '../types';
 
 interface FormState {
@@ -15,18 +15,26 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { name: '' };
 
-export default function PurchaseOrders() {
+export default function PurchaseOrdersPage() {
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<PurchaseOrder | null>(null);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(
-    PurchaseOrdersApi,
-    'purchase-orders',
-    'Purchase Order',
-  );
+  const createMutation = PurchaseOrders.useCreate();
+  const updateMutation = PurchaseOrders.useUpdate();
+  const removeMutation = PurchaseOrders.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, isError, error, refetch } = PurchaseOrders.useSearch({
+    page,
+    search: debouncedSearch,
+  });
+  const listError = isError
+    ? `Unable to load purchase orders — the backend is returning errors and needs a fix (see notice above).${
+        error instanceof Error && error.message ? ` (${error.message})` : ''
+      }`
+    : null;
 
   const closeDrawer = () => setDrawerOpen(false);
 
@@ -68,12 +76,18 @@ export default function PurchaseOrders() {
         Supplier, store, status, total, and order date exist in the database but aren't exposed by the
         API at all. Line items and Bills are managed from a purchase order's detail view.
       </div>
-      <ERPDataTable
+      <DataTable
         title="Purchase Orders"
         description="Manage purchase orders. Open a row to view/add line items and linked bills."
-        queryKey="purchase-orders"
         columns={columns}
-        fetchData={(params) => PurchaseOrdersApi.search(params)}
+        rows={listError ? [] : (data?.items ?? [])}
+        total={listError ? 0 : (data?.total ?? 0)}
+        page={page}
+        loading={isLoading && !isError}
+        error={listError}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search purchase orders…"
         isAdmin={true}
         onAdd={openCreate}

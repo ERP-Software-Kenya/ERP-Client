@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Suppliers as SuppliersApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { Suppliers } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { Supplier } from '../types';
 
 const STATUS_OPTIONS = ['active', 'inactive'];
@@ -33,17 +33,17 @@ const EMPTY_FORM: FormState = {
   status: 'active',
 };
 
-export default function Suppliers() {
+export default function SuppliersPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Supplier | null>(null);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(
-    SuppliersApi,
-    'suppliers',
-    'Supplier',
-  );
+  const createMutation = Suppliers.useCreate();
+  const updateMutation = Suppliers.useUpdate();
+  const removeMutation = Suppliers.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, error, refetch } = Suppliers.useSearch({ page, search: debouncedSearch });
 
   const openCreate = () => {
     setEditing(null);
@@ -98,12 +98,18 @@ export default function Suppliers() {
 
   return (
     <div className="space-y-6" style={{ height: '100%' }}>
-      <ERPDataTable
+      <DataTable
         title="Suppliers"
         description="Manage your suppliers."
-        queryKey="suppliers"
         columns={columns}
-        fetchData={(params) => SuppliersApi.search(params)}
+        rows={data?.items ?? []}
+        total={data?.total ?? 0}
+        page={page}
+        loading={isLoading}
+        error={error ? String(error) : null}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search suppliers…"
         isAdmin={true}
         onAdd={openCreate}

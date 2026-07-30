@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { PurchaseOrders as PurchaseOrdersApi, PurchaseItems as PurchaseItemsApi, Products as ProductsApi } from '../api';
-import type { PurchaseItem } from '../types';
+import { PurchaseOrders, PurchaseItems, Products } from '../api';
 
 interface ItemFormState {
   productId: string;
@@ -27,36 +26,33 @@ export default function PurchaseOrderDetail() {
 
   const closeItemDrawer = () => setItemDrawerOpen(false);
 
-  const { data: po, isLoading, error } = useQuery({
-    queryKey: ['purchase-orders', id],
-    queryFn: () => PurchaseOrdersApi.getById(id!),
-    enabled: !!id,
-  });
+  const { data: po, isLoading, error } = PurchaseOrders.useGet(id);
 
   // Wired up and ready, but the submit button below stays disabled: POST
   // /purchase-items 500s on every call — the DTO sends quantity/unitPrice but the
   // entity's real NOT-NULL columns are quantityOrdered/unitCost. See
   // docs/core-apis-fixes.md #0b. Remove the `disabled` prop once that's fixed.
-  const createItemMutation = useMutation({
-    mutationFn: (body: Partial<PurchaseItem>) => PurchaseItemsApi.create(body),
-    onSuccess: () => {
-      toast.success('Line item added');
-      closeItemDrawer();
-      setItemForm(EMPTY_ITEM_FORM);
-      queryClient.invalidateQueries({ queryKey: ['purchase-orders', id] });
-    },
-    onError: (err: Error) => toast.error(err.message || 'Failed to add line item'),
-  });
+  const createItemMutation = PurchaseItems.useCreate();
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
-    createItemMutation.mutate({
-      purchaseOrderId: id,
-      productId: itemForm.productId || undefined,
-      quantity: itemForm.quantity ? Number(itemForm.quantity) : undefined,
-      unitPrice: itemForm.unitPrice ? Number(itemForm.unitPrice) : undefined,
-    });
+    createItemMutation.mutate(
+      {
+        purchaseOrderId: id,
+        productId: itemForm.productId || undefined,
+        quantity: itemForm.quantity ? Number(itemForm.quantity) : undefined,
+        unitPrice: itemForm.unitPrice ? Number(itemForm.unitPrice) : undefined,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Line item added');
+          closeItemDrawer();
+          setItemForm(EMPTY_ITEM_FORM);
+          queryClient.invalidateQueries({ queryKey: ['purchase-orders', id] });
+        },
+      },
+    );
   };
 
   if (isLoading) return <div className="p-6 text-muted-foreground">Loading…</div>;
@@ -129,8 +125,7 @@ export default function PurchaseOrderDetail() {
           </div>
           <Field label="Product">
             <ResourceSelect
-              queryKey="products"
-              fetchList={() => ProductsApi.list()}
+              resource={Products}
               getLabel={(p) => p.name || p.sku || p.id}
               value={itemForm.productId}
               onValueChange={(v) => setItemForm({ ...itemForm, productId: v })}

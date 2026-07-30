@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ERPDataTable, Column } from '../components/ERPDataTable';
+import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Bills as BillsApi } from '../api';
-import { useResourceMutations } from '../hooks/useResourceMutations';
+import { Bills } from '../api';
+import { usePagination } from '../hooks/usePagination';
 import type { Bill } from '../types';
 
 interface FormState {
@@ -17,14 +17,23 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { billNumber: '', amount: '', status: '' };
 
-export default function Bills() {
+export default function BillsPage() {
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Bill | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Bill | null>(null);
 
-  const { createMutation, updateMutation, removeMutation } = useResourceMutations(BillsApi, 'bills', 'Bill');
+  const createMutation = Bills.useCreate();
+  const updateMutation = Bills.useUpdate();
+  const removeMutation = Bills.useDelete();
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { data, isLoading, isError, error, refetch } = Bills.useSearch({ page, search: debouncedSearch });
+  const listError = isError
+    ? `Unable to load bills — the backend is returning errors and needs a fix (see notice above).${
+        error instanceof Error && error.message ? ` (${error.message})` : ''
+      }`
+    : null;
 
   const openCreate = () => {
     setEditing(null);
@@ -78,12 +87,18 @@ export default function Bills() {
         database, see #0c) both fail server-side. There's also no field linking a bill to a Purchase
         Order today.
       </div>
-      <ERPDataTable
+      <DataTable
         title="Bills"
         description="Track bills and payment obligations."
-        queryKey="bills"
         columns={columns}
-        fetchData={(params) => BillsApi.search(params)}
+        rows={listError ? [] : (data?.items ?? [])}
+        total={listError ? 0 : (data?.total ?? 0)}
+        page={page}
+        loading={isLoading && !isError}
+        error={listError}
+        onPageChange={setPage}
+        onSearchChange={setSearch}
+        onRefetch={() => void refetch()}
         searchPlaceholder="Search bills…"
         isAdmin={true}
         onAdd={openCreate}
