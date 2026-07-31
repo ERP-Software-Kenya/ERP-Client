@@ -5,6 +5,7 @@ import { Trash2 } from 'lucide-react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -40,6 +41,7 @@ export default function LocationsPage() {
   const [editing, setEditing] = useState<Location | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<Location | null>(null);
+  const [viewRow, setViewRow] = useState<Location | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
   const [hasServerImage, setHasServerImage] = useState(false);
@@ -206,7 +208,7 @@ export default function LocationsPage() {
   const entityLabel = warehouseOnly ? 'Warehouse' : 'Location';
 
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
         title={pageTitle}
         description={pageDescription}
@@ -222,9 +224,33 @@ export default function LocationsPage() {
         searchPlaceholder={warehouseOnly ? 'Search warehouses…' : 'Search locations…'}
         isAdmin={true}
         onAdd={openCreate}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
       />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title={`View ${entityLabel}`}
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
+      >
+        <FormSection title="Image">
+          {viewRow?.imageKey ? (
+            <div className="space-y-1 text-sm">
+              <span className="inline-block rounded-md border border-border px-2 py-1 text-xs">Image set</span>
+              <p className="text-xs text-muted-foreground break-all">
+                Key: <span className="font-mono">{viewRow.imageKey}</span>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Remote preview is unavailable — the API returns an object key only.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No image</p>
+          )}
+        </FormSection>
+      </ViewDrawer>
 
       <FormDrawer
         open={drawerOpen}

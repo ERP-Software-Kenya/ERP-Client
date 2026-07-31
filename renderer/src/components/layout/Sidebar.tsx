@@ -21,7 +21,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
 
   return (
     <aside className={cn("bg-card border-r border-border transition-all duration-300 flex flex-col h-full", collapsed ? 'w-16' : 'w-64')}>
-      <div className="h-16 flex items-center justify-between px-4 border-b border-border">
+      <div className="h-14 flex items-center justify-between px-4 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold flex-shrink-0">E</div>
           {!collapsed && <span className="font-bold text-lg text-primary whitespace-nowrap overflow-hidden truncate">ERP System</span>}
@@ -37,7 +37,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
           <ChevronRight size={20} />
         </button>
       )}
-      <div className="flex-1 overflow-y-auto py-4 space-y-1 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto py-3 space-y-1 custom-scrollbar">
         {MODULES.map((group) => {
           const isOpen = openGroups.has(group.label);
           const isGroupActive = group.items.some((i) => !i.disabled && i.path === location.pathname);

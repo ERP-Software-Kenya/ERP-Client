@@ -6,8 +6,8 @@ import { toast } from 'sonner';
 import type {
   Organization, Store, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
   Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, Expense, PurchaseItem,
-  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Vehicle, Location, OrgAddress,
-  UserAddress, ProductImage, ProductSupplier,
+  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
+  ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
 } from './types';
@@ -35,16 +35,19 @@ export const Roles = createCreateOnlyResource<Role>('/api/v1/roles', 'roles', 'R
 export const UserRoles = createCreateOnlyResource<UserRole>('/api/v1/user-roles', 'user-roles', 'User role');
 export const PlatformConfigurations = createCreateOnlyResource<PlatformConfiguration>('/api/v1/platform-configurations', 'platform-configurations', 'Configuration');
 export const Users = createCreateOnlyResource<PlatformUser>('/api/v1/users', 'users', 'User');
-/** No vehicles controller in core-apis — pages must not treat this as live CRUD. */
-export const Vehicles = createResource<Vehicle>('/api/v1/vehicles', 'vehicles', 'Vehicle');
 export const Locations = createResource<Location>('/api/v1/locations', 'locations', 'Location');
-/** No org-addresses controller in core-apis — pages must not treat this as live CRUD. */
-export const OrgAddresses = createResource<OrgAddress>('/api/v1/org-addresses', 'org-addresses', 'Address');
-/** No user-addresses controller in core-apis — pages must not treat this as live CRUD. */
-export const UserAddresses = createResource<UserAddress>('/api/v1/user-addresses', 'user-addresses', 'Address');
 // ── Inventory cluster (hook-based) ─────────────────────────────────────────────
 
 export const Inventory = createResource<InventoryItem>('/api/v1/inventory', 'inventory', 'Inventory item');
+
+export function useCategoryParents(enabled = true) {
+  return useQuery({
+    queryKey: ['categories', 'parents'],
+    queryFn: () => get<Category[]>('/api/v1/categories/parents'),
+    staleTime: 5 * 60 * 1000,
+    enabled,
+  });
+}
 
 /** Stock transfers have no list/search endpoint — only get-by-id + create (+ complete/cancel helpers below). */
 export const StockTransfers = {
@@ -129,7 +132,13 @@ export function useCompleteStockTransfer() {
         quantity: number;
       }>;
     }) => put<StockTransfer>(`/api/v1/stock-transfers/${id}/complete`, { items }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-transfers'] }),
+    onSuccess: () => {
+      toast.success('Stock transfer completed');
+      queryClient.invalidateQueries({ queryKey: ['stock-transfers'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-movements'] });
+    },
+    onError: (error: Error) => toast.error(error.message || 'Failed to complete transfer'),
   });
 }
 
@@ -137,7 +146,11 @@ export function useCancelStockTransfer() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => put<StockTransfer>(`/api/v1/stock-transfers/${id}/cancel`, {}),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stock-transfers'] }),
+    onSuccess: () => {
+      toast.success('Stock transfer cancelled');
+      queryClient.invalidateQueries({ queryKey: ['stock-transfers'] });
+    },
+    onError: (error: Error) => toast.error(error.message || 'Failed to cancel transfer'),
   });
 }
 
@@ -224,6 +237,43 @@ export function useUploadProductImage() {
     },
     onSuccess: (_result, { productId }) => {
       queryClient.invalidateQueries({ queryKey: ['products', productId, 'images'] });
+    },
+  });
+}
+
+const PRODUCT_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/bmp',
+  'image/tiff',
+  'image/svg+xml',
+]);
+
+/**
+ * Direct R2 upload via presigned URL. Does NOT create a product_images row —
+ * Core API has no confirm/imageKey endpoint yet. Do not invalidate gallery queries.
+ */
+export function useProductImagePresignedUpload() {
+  return useMutation({
+    mutationFn: async ({ productId, file }: { productId: string; file: File }) => {
+      const mimeType = file.type;
+      if (!PRODUCT_IMAGE_MIME_TYPES.has(mimeType)) {
+        throw new Error(`Unsupported image type: ${mimeType || 'unknown'}`);
+      }
+      const meta = await get<ProductImageUploadUrl>(`/api/v1/products/${productId}/image/presigned-url`, {
+        mimeType,
+      });
+      const resp = await fetch(meta.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': mimeType },
+        body: file,
+      });
+      if (!resp.ok) {
+        throw new Error(`R2 upload failed (HTTP ${resp.status})`);
+      }
+      return meta;
     },
   });
 }

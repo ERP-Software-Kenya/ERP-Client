@@ -3,6 +3,7 @@ import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -41,6 +42,7 @@ export default function StoresPage() {
   const [editing, setEditing] = useState<Store | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Store | null>(null);
+  const [viewRow, setViewRow] = useState<Store | null>(null);
 
   const createMutation = Stores.useCreate();
   const updateMutation = Stores.useUpdate();
@@ -95,6 +97,8 @@ export default function StoresPage() {
   const columns: Column<Store>[] = [
     { key: 'name', label: 'Name' },
     { key: 'code', label: 'Code' },
+    { key: 'city', label: 'City', render: (row) => row.city || '—' },
+    { key: 'phone', label: 'Phone', render: (row) => row.phone || '—' },
     { key: 'address', label: 'Address' },
     { key: 'status', label: 'Status' },
   ];
@@ -102,10 +106,10 @@ export default function StoresPage() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
-        title="Stores / Warehouses"
-        description="Manage store and warehouse locations."
+        title="Stores"
+        description="Manage sales stores (organization locations used by orders, users, and expenses)."
         columns={columns}
         rows={data?.items ?? []}
         total={data?.total ?? 0}
@@ -118,8 +122,16 @@ export default function StoresPage() {
         searchPlaceholder="Search stores…"
         isAdmin={true}
         onAdd={openCreate}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+      />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title="View Store"
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
       />
 
       <FormDrawer

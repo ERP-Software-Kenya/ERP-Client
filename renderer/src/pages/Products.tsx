@@ -1,26 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Trash2 } from 'lucide-react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { CategorySelect } from '../components/CategorySelect';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { ImageLightbox } from '../components/ImageLightbox';
+import { ProductImageUploader, type PendingImage } from '../components/ProductImageUploader';
+import { ProductSupplierLinksPanel } from '../components/ProductSupplierLinksPanel';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import {
-  Products,
-  Suppliers,
-  useUploadProductImage,
-  useProductImages,
-  useProductSuppliers,
-  useLinkProductSupplier,
-  useUpdateProductSupplier,
-  useUnlinkProductSupplier,
-} from '../api';
+import { Categories, Products, Suppliers, useCategoryParents, useUploadProductImage, useProductImagePresignedUpload, useProductImages, useProductSuppliers } from '../api';
 import { usePagination } from '../hooks/usePagination';
 import type { Product, ProductUnit } from '../types';
 
@@ -45,28 +37,6 @@ interface FormState {
   reorderPoint: string;
 }
 
-interface PendingImage {
-  id: string;
-  file: File;
-  previewUrl: string;
-}
-
-interface SupplierLinkForm {
-  supplierId: string;
-  unitCost: string;
-  leadTimeDays: string;
-  minOrderQty: string;
-  isDefault: boolean;
-}
-
-const EMPTY_SUPPLIER_FORM: SupplierLinkForm = {
-  supplierId: '',
-  unitCost: '',
-  leadTimeDays: '',
-  minOrderQty: '',
-  isDefault: false,
-};
-
 const EMPTY_FORM: FormState = {
   name: '',
   categoryId: '',
@@ -88,10 +58,12 @@ function revokePending(files: PendingImage[]) {
 
 export default function ProductsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const directInputRef = useRef<HTMLInputElement>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [viewRow, setViewRow] = useState<Product | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
@@ -104,26 +76,18 @@ export default function ProductsPage() {
     Products.useSearch({ page, search: debouncedSearch });
 
   const { data: images } = useProductImages(editing?.id);
-
-  const [supplierForm, setSupplierForm] = useState<SupplierLinkForm>(EMPTY_SUPPLIER_FORM);
-  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
-  const [linkEditForm, setLinkEditForm] = useState<SupplierLinkForm>(EMPTY_SUPPLIER_FORM);
-
+  const { data: viewImages, isLoading: viewImagesLoading } = useProductImages(viewRow?.id);
+  const { data: viewSuppliers, isLoading: viewSuppliersLoading } = useProductSuppliers(viewRow?.id);
   const { data: allSuppliers } = Suppliers.useList();
-  const { data: productSuppliers } = useProductSuppliers(editing?.id);
-
-  const linkSupplierMutation = useLinkProductSupplier(editing?.id);
-  const updateSupplierLinkMutation = useUpdateProductSupplier(editing?.id);
-  const unlinkSupplierMutation = useUnlinkProductSupplier(editing?.id);
-
-  useEffect(() => {
-    if (linkSupplierMutation.isSuccess) setSupplierForm(EMPTY_SUPPLIER_FORM);
-  }, [linkSupplierMutation.isSuccess]);
-  useEffect(() => {
-    if (updateSupplierLinkMutation.isSuccess) setEditingLinkId(null);
-  }, [updateSupplierLinkMutation.isSuccess]);
+  const { data: categories } = Categories.useList();
+  const categoryName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of categories ?? []) m.set(c.id, c.name || c.id.slice(0, 8));
+    return m;
+  }, [categories]);
 
   const uploadProductImageMutation = useUploadProductImage();
+  const presignedUploadMutation = useProductImagePresignedUpload();
 
   const pendingImagesRef = useRef<PendingImage[]>([]);
   pendingImagesRef.current = pendingImages;
@@ -143,15 +107,11 @@ export default function ProductsPage() {
     setEditing(null);
     setForm(EMPTY_FORM);
     clearPending();
-    setSupplierForm(EMPTY_SUPPLIER_FORM);
-    setEditingLinkId(null);
     setDrawerOpen(true);
   };
 
   const openEdit = (row: Product) => {
     setEditing(row);
-    setSupplierForm(EMPTY_SUPPLIER_FORM);
-    setEditingLinkId(null);
     setForm({
       name: row.name ?? '',
       categoryId: row.categoryId ?? '',
@@ -250,10 +210,32 @@ export default function ProductsPage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handleDirectR2Pick = async (fileList: FileList | null) => {
+    if (!fileList?.length || !editing) return;
+    const file = fileList[0];
+    setUploading(true);
+    try {
+      const meta = await presignedUploadMutation.mutateAsync({ productId: editing.id, file });
+      toast.success(
+        meta.publicUrl
+          ? `Stored in R2 (not in gallery). ${meta.publicUrl}`
+          : `Stored in R2 key ${meta.key} — not linked in product gallery`,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Direct R2 upload failed');
+    } finally {
+      setUploading(false);
+      if (directInputRef.current) directInputRef.current.value = '';
+    }
+  };
+
   const removePending = (id: string) => {
     setPendingImages((prev) => {
       const target = prev.find((p) => p.id === id);
-      if (target) URL.revokeObjectURL(target.previewUrl);
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+        if (previewSrc === target.previewUrl) setPreviewSrc(null);
+      }
       return prev.filter((p) => p.id !== id);
     });
   };
@@ -261,6 +243,12 @@ export default function ProductsPage() {
   const columns: Column<Product>[] = [
     { key: 'name', label: 'Name' },
     { key: 'sku', label: 'SKU' },
+    {
+      key: 'categoryId',
+      label: 'Category',
+      render: (row) =>
+        row.categoryId ? categoryName.get(row.categoryId) ?? row.categoryId.slice(0, 8) : '—',
+    },
     {
       key: 'retailPrice',
       label: 'Retail Price',
@@ -277,7 +265,7 @@ export default function ProductsPage() {
   const isSaving = createMutation.isPending || updateMutation.isPending || uploading;
 
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
         title="Products"
         description="Manage your product catalog."
@@ -293,9 +281,82 @@ export default function ProductsPage() {
         searchPlaceholder="Search products…"
         isAdmin={true}
         onAdd={openCreate}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
       />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title="View Product"
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
+      >
+        <FormSection title="Images" className="space-y-3">
+          {viewImagesLoading ? (
+            <p className="text-sm text-muted-foreground">Loading images…</p>
+          ) : !(viewImages ?? []).length ? (
+            <p className="text-sm text-muted-foreground">No images</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {(viewImages ?? []).map((img) =>
+                img.url ? (
+                  <button
+                    key={img.id}
+                    type="button"
+                    onClick={() => setPreviewSrc(img.url!)}
+                    className="group relative h-16 w-16 overflow-hidden rounded border border-border focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={img.isPrimary ? 'View primary image' : 'View image'}
+                  >
+                    <img src={img.url} alt="" className="h-full w-full object-cover" />
+                    {img.isPrimary && (
+                      <span className="absolute bottom-0 inset-x-0 bg-black/60 px-0.5 py-0.5 text-[9px] text-white">
+                        Primary
+                      </span>
+                    )}
+                  </button>
+                ) : (
+                  <div
+                    key={img.id}
+                    className="flex h-16 w-16 items-center justify-center rounded border border-border bg-muted text-[10px] text-muted-foreground"
+                    title={img.storageKey}
+                  >
+                    No URL
+                  </div>
+                ),
+              )}
+            </div>
+          )}
+        </FormSection>
+
+        <FormSection title="Suppliers" className="space-y-2">
+          {viewSuppliersLoading ? (
+            <p className="text-sm text-muted-foreground">Loading suppliers…</p>
+          ) : !(viewSuppliers ?? []).length ? (
+            <p className="text-sm text-muted-foreground">No suppliers linked</p>
+          ) : (
+            (viewSuppliers ?? []).map((link) => {
+              const supplier = allSuppliers?.find((s) => s.id === link.supplierId);
+              return (
+                <div key={link.id} className="rounded-md border border-border p-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{supplier?.name ?? link.supplierId}</span>
+                    {link.isDefault && (
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">Default</span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {link.unitCost != null && `Cost $${link.unitCost}`}
+                    {link.leadTimeDays != null && ` · Lead ${link.leadTimeDays}d`}
+                    {link.minOrderQty != null && ` · MOQ ${link.minOrderQty}`}
+                    {link.unitCost == null && link.leadTimeDays == null && link.minOrderQty == null && '—'}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </FormSection>
+      </ViewDrawer>
 
       <FormDrawer
         open={drawerOpen}
@@ -357,7 +418,15 @@ export default function ProductsPage() {
           </div>
 
           <Field label="Category">
-            <CategorySelect value={form.categoryId} onValueChange={(v) => setForm({ ...form, categoryId: v })} />
+            <ResourceSelect
+              resource={{ useList: useCategoryParents }}
+              getLabel={(c) => c.name ?? ''}
+              value={form.categoryId}
+              onValueChange={(v) => setForm({ ...form, categoryId: v })}
+              placeholder="No parent (top level)"
+              allowNone
+              noneLabel="None (top level)"
+            />
           </Field>
 
           <FormSection title="Pricing">
@@ -427,246 +496,23 @@ export default function ProductsPage() {
           </Field>
 
           <FormSection title="Images" className="space-y-3">
-            {!editing && (
-              <p className="text-xs text-muted-foreground">
-                Images are uploaded automatically after the product is created. Click an image to
-                enlarge; use Delete to remove pending files.
-              </p>
-            )}
-            {editing && (
-              <p className="text-xs text-muted-foreground">
-                Click an image to enlarge. Removing saved images from the server is not available yet.
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {editing &&
-                (images ?? []).map((img) => (
-                  <button
-                    key={img.id}
-                    type="button"
-                    onClick={() => img.url && setPreviewSrc(img.url)}
-                    className="group relative h-16 w-16 overflow-hidden rounded border border-border focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label="View image"
-                  >
-                    <img src={img.url} alt="" className="h-full w-full object-cover" />
-                    <span className="pointer-events-none absolute inset-0 bg-black/0 transition group-hover:bg-black/20" />
-                  </button>
-                ))}
-              {pendingImages.map((item) => (
-                <div key={item.id} className="relative h-16 w-16">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewSrc(item.previewUrl)}
-                    className="h-16 w-16 overflow-hidden rounded border border-border focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label="View image"
-                  >
-                    <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removePending(item.id);
-                      if (previewSrc === item.previewUrl) setPreviewSrc(null);
-                    }}
-                    className="absolute -right-1.5 -top-1.5 z-10 rounded-full bg-destructive p-1 text-destructive-foreground shadow hover:bg-destructive/90"
-                    aria-label="Delete image"
-                    title="Delete"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <Input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => handleFilePick(e.target.files)}
-              disabled={uploading}
+            <ProductImageUploader
+              editing={!!editing}
+              images={images}
+              pendingImages={pendingImages}
+              uploading={uploading}
+              fileInputRef={fileInputRef}
+              directInputRef={directInputRef}
+              onFilePick={handleFilePick}
+              onDirectR2Pick={handleDirectR2Pick}
+              onRemovePending={removePending}
+              onPreview={setPreviewSrc}
             />
           </FormSection>
 
           {editing && (
             <FormSection title="Suppliers" className="space-y-3">
-              <div className="space-y-2">
-                {(productSuppliers ?? []).map((link) => {
-                  const supplier = allSuppliers?.find((s) => s.id === link.supplierId);
-                  const isEditingRow = editingLinkId === link.id;
-                  return (
-                    <div key={link.id} className="rounded-md border border-border p-2 text-sm">
-                      {!isEditingRow ? (
-                        <div className="flex items-center justify-between gap-2">
-                          <div>
-                            <span className="font-medium">{supplier?.name ?? link.supplierId}</span>
-                            {link.isDefault && (
-                              <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
-                                Default
-                              </span>
-                            )}
-                            <div className="text-xs text-muted-foreground">
-                              {link.unitCost != null && `Cost $${link.unitCost}`}
-                              {link.leadTimeDays != null && ` · Lead ${link.leadTimeDays}d`}
-                              {link.minOrderQty != null && ` · MOQ ${link.minOrderQty}`}
-                            </div>
-                          </div>
-                          <div className="flex gap-1">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingLinkId(link.id);
-                                setLinkEditForm({
-                                  supplierId: link.supplierId,
-                                  unitCost: link.unitCost != null ? String(link.unitCost) : '',
-                                  leadTimeDays: link.leadTimeDays != null ? String(link.leadTimeDays) : '',
-                                  minOrderQty: link.minOrderQty != null ? String(link.minOrderQty) : '',
-                                  isDefault: link.isDefault,
-                                });
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => unlinkSupplierMutation.mutate(link.supplierId)}
-                              disabled={unlinkSupplierMutation.isPending}
-                              aria-label="Unlink supplier"
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-3 gap-2">
-                            <Input
-                              placeholder="Unit cost"
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={linkEditForm.unitCost}
-                              onChange={(e) => setLinkEditForm({ ...linkEditForm, unitCost: e.target.value })}
-                            />
-                            <Input
-                              placeholder="Lead days"
-                              type="number"
-                              min="0"
-                              value={linkEditForm.leadTimeDays}
-                              onChange={(e) => setLinkEditForm({ ...linkEditForm, leadTimeDays: e.target.value })}
-                            />
-                            <Input
-                              placeholder="Min qty"
-                              type="number"
-                              min="0"
-                              value={linkEditForm.minOrderQty}
-                              onChange={(e) => setLinkEditForm({ ...linkEditForm, minOrderQty: e.target.value })}
-                            />
-                          </div>
-                          <label className="flex items-center gap-2 text-xs">
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-input"
-                              checked={linkEditForm.isDefault}
-                              onChange={(e) => setLinkEditForm({ ...linkEditForm, isDefault: e.target.checked })}
-                            />
-                            Default supplier
-                          </label>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={updateSupplierLinkMutation.isPending}
-                              onClick={() =>
-                                updateSupplierLinkMutation.mutate({
-                                  supplierId: link.supplierId,
-                                  body: {
-                                    unitCost: linkEditForm.unitCost ? Number(linkEditForm.unitCost) : undefined,
-                                    leadTimeDays: linkEditForm.leadTimeDays ? Number(linkEditForm.leadTimeDays) : undefined,
-                                    minOrderQty: linkEditForm.minOrderQty ? Number(linkEditForm.minOrderQty) : undefined,
-                                    isDefault: linkEditForm.isDefault,
-                                  },
-                                })
-                              }
-                            >
-                              Save
-                            </Button>
-                            <Button type="button" size="sm" variant="outline" onClick={() => setEditingLinkId(null)}>
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {!productSuppliers?.length && (
-                  <p className="text-xs text-muted-foreground">No suppliers linked yet.</p>
-                )}
-              </div>
-
-              <div className="space-y-2 border-t border-border pt-3">
-                <ResourceSelect
-                  resource={Suppliers}
-                  getLabel={(s) => s.name}
-                  value={supplierForm.supplierId}
-                  onValueChange={(v) => setSupplierForm({ ...supplierForm, supplierId: v })}
-                  placeholder="Select supplier to link…"
-                />
-                <div className="grid grid-cols-3 gap-2">
-                  <Input
-                    placeholder="Unit cost"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={supplierForm.unitCost}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, unitCost: e.target.value })}
-                  />
-                  <Input
-                    placeholder="Lead days"
-                    type="number"
-                    min="0"
-                    value={supplierForm.leadTimeDays}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, leadTimeDays: e.target.value })}
-                  />
-                  <Input
-                    placeholder="Min qty"
-                    type="number"
-                    min="0"
-                    value={supplierForm.minOrderQty}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, minOrderQty: e.target.value })}
-                  />
-                </div>
-                <label className="flex items-center gap-2 text-xs">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-input"
-                    checked={supplierForm.isDefault}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, isDefault: e.target.checked })}
-                  />
-                  Default supplier
-                </label>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={!supplierForm.supplierId || linkSupplierMutation.isPending}
-                  onClick={() =>
-                    linkSupplierMutation.mutate({
-                      supplierId: supplierForm.supplierId,
-                      unitCost: supplierForm.unitCost ? Number(supplierForm.unitCost) : undefined,
-                      leadTimeDays: supplierForm.leadTimeDays ? Number(supplierForm.leadTimeDays) : undefined,
-                      minOrderQty: supplierForm.minOrderQty ? Number(supplierForm.minOrderQty) : undefined,
-                      isDefault: supplierForm.isDefault,
-                    })
-                  }
-                >
-                  Link Supplier
-                </Button>
-              </div>
+              <ProductSupplierLinksPanel productId={editing.id} />
             </FormSection>
           )}
         </form>

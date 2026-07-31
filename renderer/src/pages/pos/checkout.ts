@@ -1,5 +1,5 @@
 import { post } from '../../lib/http';
-import type { Bill, Invoice, Order, PaymentTransaction } from '../../types';
+import type { Bill, InventoryItem, Invoice, Order, PaymentTransaction } from '../../types';
 
 export type CheckoutStepStatus = 'ok' | 'failed' | 'skipped';
 
@@ -51,6 +51,10 @@ export interface CheckoutResult {
 export interface SalesCheckoutInput {
   storeId: string;
   storeName?: string;
+  /** Locations UUID for stock-movements (Stores ≠ Locations in Core API). */
+  locationId?: string;
+  locationName?: string;
+  inventory?: InventoryItem[];
   orgId?: string;
   customerId?: string;
   paymentMethod: 'cash' | 'card';
@@ -66,6 +70,9 @@ export interface SalesCheckoutInput {
 export interface PurchaseCheckoutInput {
   storeId: string;
   storeName?: string;
+  locationId?: string;
+  locationName?: string;
+  inventory?: InventoryItem[];
   orgId?: string;
   supplierId?: string;
   supplierName?: string;
@@ -131,13 +138,72 @@ function buildReceiptLines(lines: PosLineInput[]) {
   });
 }
 
+function findInventory(
+  inventory: InventoryItem[] | undefined,
+  productId: string,
+  locationId: string,
+): InventoryItem | undefined {
+  return inventory?.find((i) => i.productId === productId && i.locationId === locationId);
+}
+
+/** Apply add/remove for each line; one CheckoutStep per line (honest failures). */
+async function runStockLines(
+  op: 'add' | 'remove',
+  lines: PosLineInput[],
+  locationId: string | undefined,
+  inventory: InventoryItem[] | undefined,
+  referenceId?: string,
+): Promise<CheckoutStep[]> {
+  const label = op === 'remove' ? 'Stock remove' : 'Stock add';
+  if (!locationId) {
+    return [
+      skipped(
+        label,
+        'Skipped — pick a stock location (Locations). Orders use Stores; inventory uses Locations.',
+      ),
+    ];
+  }
+  if (!inventory?.length) {
+    return [skipped(label, 'Skipped — no inventory list loaded')];
+  }
+
+  const steps: CheckoutStep[] = [];
+  for (const line of lines) {
+    const inv = findInventory(inventory, line.productId, locationId);
+    const name = `${label}: ${line.name || line.sku || line.productId.slice(0, 8)}`;
+    if (!inv) {
+      steps.push({
+        name,
+        status: 'failed',
+        message: 'No inventory row for this product at selected location. Create one under Inventory first.',
+      });
+      continue;
+    }
+    const attempt = await tryStep(name, () =>
+      post(`/api/v1/stock-movements/${op}`, {
+        inventoryId: inv.id,
+        locationId,
+        productId: line.productId,
+        quantity: line.qty,
+        referenceId,
+        referenceType: referenceId ? 'pos' : undefined,
+        notes: `POS ${op}`,
+      }),
+    );
+    steps.push(attempt.step);
+  }
+  return steps;
+}
+
 export async function runSalesCheckout(input: SalesCheckoutInput): Promise<CheckoutResult> {
   const steps: CheckoutStep[] = [];
   const receipt: PosReceipt = {
     ref: localRef('POS'),
     mode: 'sales',
-    storeName: input.storeName,
-    partyLabel: input.customerInfo?.trim() || (input.customerId ? `Customer ${input.customerId.slice(0, 8)}…` : 'Walk-in'),
+    storeName: input.storeName ?? input.locationName,
+    partyLabel:
+      input.customerInfo?.trim() ||
+      (input.customerId ? `Customer ${input.customerId.slice(0, 8)}…` : 'Walk-in'),
     paymentMethod: input.paymentMethod,
     lines: buildReceiptLines(input.lines),
     extraCharges: input.extraCharges,
@@ -163,81 +229,80 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
     message: `Issued ${receipt.ref} — ready to print`,
   });
 
+  let invoiceId: string | undefined;
+
   if (!input.customerId?.trim()) {
     steps.push(
       skipped(
         'Create order / invoice',
-        'Walk-in sale — Order API needs a customer UUID. No customer list/create works in API yet, so cloud sync was skipped. Receipt is local only.',
+        'Walk-in sale — Order API needs a customer UUID. Receipt is local only.',
       ),
     );
     steps.push(skipped('Create payment', 'Skipped — no server invoice to attach payment to'));
-    steps.push(
-      skipped(
-        'Stock remove',
-        'Skipped — stock-movements/remove needs inventoryId + locationId',
-      ),
-    );
-    return { receipt, steps, primaryOk: true };
-  }
-
-  const orderAttempt = await tryStep(
-    'Create order',
-    () =>
-      post<Order>('/api/v1/orders', {
-        storeId: input.storeId,
-        customerId: input.customerId,
-        status: 'CONFIRMED',
-        subtotal: input.subtotal,
-        taxAmount: input.taxAmount,
-        totalAmount: input.totalAmount,
-        paymentStatus: input.paymentMethod ? 'PENDING' : undefined,
-      }),
-    (o) => o.id,
-  );
-  steps.push(orderAttempt.step);
-
-  if (orderAttempt.result?.id) {
-    const invoiceAttempt = await tryStep(
-      'Create invoice',
+  } else {
+    const orderAttempt = await tryStep(
+      'Create order',
       () =>
-        post<Invoice>('/api/v1/invoices', {
-          orderId: orderAttempt.result!.id,
+        post<Order>('/api/v1/orders', {
+          storeId: input.storeId,
+          customerId: input.customerId,
+          status: 'CONFIRMED',
+          subtotal: input.subtotal,
+          taxAmount: input.taxAmount,
           totalAmount: input.totalAmount,
-          status: 'ISSUED',
+          paymentStatus: input.paymentMethod ? 'PENDING' : undefined,
         }),
-      (inv) => inv.id,
+      (o) => o.id,
     );
-    steps.push(invoiceAttempt.step);
-    if (invoiceAttempt.result) {
-      receipt.synced = true;
-      receipt.ref = invoiceAttempt.result.invoiceNumber ?? invoiceAttempt.result.id;
-      if (input.orgId) {
-        const payAttempt = await tryStep(
-          'Create payment',
-          () =>
-            post<PaymentTransaction>('/api/v1/payment-transactions', {
-              orgId: input.orgId,
-              referenceId: invoiceAttempt.result!.id,
-              referenceType: 'invoice',
-              type: 'INBOUND',
-              method: input.paymentMethod.toUpperCase(),
-              amount: input.totalAmount,
-              status: 'PENDING',
-            }),
-          (p) => p.id,
-        );
-        steps.push(payAttempt.step);
-      } else {
-        steps.push(skipped('Create payment', 'Skipped — store has no organization id'));
+    steps.push(orderAttempt.step);
+
+    if (orderAttempt.result?.id) {
+      const invoiceAttempt = await tryStep(
+        'Create invoice',
+        () =>
+          post<Invoice>('/api/v1/invoices', {
+            orderId: orderAttempt.result!.id,
+            totalAmount: input.totalAmount,
+            status: 'ISSUED',
+          }),
+        (inv) => inv.id,
+      );
+      steps.push(invoiceAttempt.step);
+      if (invoiceAttempt.result) {
+        receipt.synced = true;
+        receipt.ref = invoiceAttempt.result.invoiceNumber ?? invoiceAttempt.result.id;
+        invoiceId = invoiceAttempt.result.id;
+        if (input.orgId) {
+          const payAttempt = await tryStep(
+            'Create payment',
+            () =>
+              post<PaymentTransaction>('/api/v1/payment-transactions', {
+                orgId: input.orgId,
+                referenceId: invoiceAttempt.result!.id,
+                referenceType: 'invoice',
+                type: 'INBOUND',
+                method: input.paymentMethod.toUpperCase(),
+                amount: input.totalAmount,
+                status: 'PENDING',
+              }),
+            (p) => p.id,
+          );
+          steps.push(payAttempt.step);
+        } else {
+          steps.push(skipped('Create payment', 'Skipped — store has no organization id'));
+        }
       }
     }
   }
 
   steps.push(
-    skipped(
-      'Stock remove',
-      'Skipped — stock-movements/remove needs inventoryId + locationId',
-    ),
+    ...(await runStockLines(
+      'remove',
+      input.lines,
+      input.locationId,
+      input.inventory,
+      invoiceId ?? receipt.ref,
+    )),
   );
 
   return { receipt, steps, primaryOk: true };
@@ -249,7 +314,7 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
   const receipt: PosReceipt = {
     ref: localRef('GRN'),
     mode: 'purchase',
-    storeName: input.storeName,
+    storeName: input.storeName ?? input.locationName,
     partyLabel: input.supplierName || input.supplierRef || 'Supplier',
     lines: buildReceiptLines(input.lines),
     extraCharges: extras,
@@ -281,6 +346,7 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
 
   steps.push(skipped('Create GRN', 'No goods-receipt API yet'));
 
+  let billId: string | undefined;
   if (input.orgId) {
     const billNumber = receipt.ref.replace('GRN', 'BILL');
     const billAttempt = await tryStep(
@@ -298,13 +364,14 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
     if (billAttempt.result) {
       receipt.synced = true;
       receipt.ref = billAttempt.result.billNumber ?? billNumber;
+      billId = billAttempt.result.id;
     }
   } else {
     steps.push(skipped('Create bill', 'Skipped — store has no organization id'));
   }
 
   steps.push(
-    skipped('Stock add', 'Skipped — stock-movements/add needs inventoryId + locationId'),
+    ...(await runStockLines('add', input.lines, input.locationId, input.inventory, billId ?? receipt.ref)),
   );
   steps.push(
     skipped(

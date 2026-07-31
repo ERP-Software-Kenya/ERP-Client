@@ -19,7 +19,7 @@ function buildUrl(path: string, params?: QueryParams): string {
   return url.toString();
 }
 
-export async function authHeader(): Promise<Record<string, string>> {
+async function authHeader(): Promise<Record<string, string>> {
   const token = await _getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

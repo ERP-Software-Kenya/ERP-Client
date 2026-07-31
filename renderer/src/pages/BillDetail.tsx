@@ -1,29 +1,20 @@
-import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
-import { FormDrawer, Field } from '../components/FormDrawer';
+import { ErrorState } from '../components/errors/ErrorState';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Bills, PaymentTransactions } from '../api';
 
-interface PaymentFormState {
-  method: string;
-  amount: string;
+function billAmountLabel(bill: { amount?: number; totalAmount?: number }): string {
+  const amt = bill.amount ?? bill.totalAmount;
+  return amt != null ? `$${Number(amt).toFixed(2)}` : '— (not on API response)';
 }
-
-const EMPTY_PAYMENT_FORM: PaymentFormState = { method: '', amount: '' };
 
 export default function BillDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [paymentDrawerOpen, setPaymentDrawerOpen] = useState(false);
-  const [paymentForm, setPaymentForm] = useState<PaymentFormState>(EMPTY_PAYMENT_FORM);
 
-  const { data: bill, isLoading, error } = Bills.useGet(id);
+  const { data: bill, isLoading, error, refetch } = Bills.useGet(id);
 
-  // Search may 500 (same class of backend issues as the list page). Treat errors as
-  // empty + notice — don't leave a blank crash when filtering linked payments.
   const {
     data: paymentsResult,
     isError: paymentsError,
@@ -35,40 +26,13 @@ export default function BillDetail() {
         (p) => p.referenceType === 'bill' && p.referenceId === id,
       );
 
-  // Wired up and ready, but the submit button below stays disabled: POST
-  // /payment-transactions 500s on every call — domain model uses `orgId`, the
-  // entity's real NOT-NULL column is `organizationId`. See
-  // docs/core-apis-fixes.md #0d. Remove the `disabled` prop once that's fixed.
-  const createPaymentMutation = PaymentTransactions.useCreate();
-
-  const closePaymentDrawer = () => setPaymentDrawerOpen(false);
-
-  const handleRecordPayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!id) return;
-    createPaymentMutation.mutate(
-      {
-        referenceId: id,
-        referenceType: 'bill',
-        type: 'payment',
-        method: paymentForm.method || undefined,
-        amount: paymentForm.amount ? Number(paymentForm.amount) : undefined,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Payment recorded');
-          setPaymentDrawerOpen(false);
-          setPaymentForm(EMPTY_PAYMENT_FORM);
-        },
-      },
-    );
-  };
-
-  if (isLoading) return <div className="p-6 text-muted-foreground">Loading…</div>;
-  if (error || !bill) return <div className="p-6 text-red-500">Failed to load bill: {String(error)}</div>;
+  if (isLoading) return <div className="text-muted-foreground">Loading…</div>;
+  if (error || !bill) {
+    return <ErrorState type="load" onRetry={() => void refetch()} />;
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <button
         onClick={() => navigate('/bills')}
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -77,33 +41,36 @@ export default function BillDetail() {
       </button>
 
       <div>
-        <h1 className="text-2xl font-semibold">Bill {bill.billNumber || bill.id.slice(0, 8)}</h1>
+        <h1 className="text-2xl font-semibold">
+          Bill {bill.billNumber || bill.id.slice(0, 8)}
+        </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Status: {bill.status ?? '—'} · Amount: ${Number(bill.amount || 0).toFixed(2)}
+          Status: {bill.status ?? '—'} · Amount: {billAmountLabel(bill)}
         </p>
+        <p className="text-muted-foreground text-xs mt-1">ID: {bill.id}</p>
       </div>
 
       <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-        Supplier and store aren't exposed by the API today, and there's no field linking this bill back
-        to a Purchase Order (see docs/core-apis-fixes.md #0c).
+        Payment create blocked — verified in core-apis: request lacks <code className="text-[10px]">@AutoMap</code>,
+        and domain <code className="text-[10px]">orgId</code> does not map to entity{' '}
+        <code className="text-[10px]">organizationId</code> (#0d). Listing linked payments still works when rows
+        exist.
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-medium">Payments</h2>
-          <Button size="sm" onClick={() => setPaymentDrawerOpen(true)}>
-            Record Payment
+          <Button size="sm" variant="outline" disabled title="Blocked by Core API #0d">
+            Record Payment (blocked)
           </Button>
         </div>
         {paymentsError ? (
           <p className="text-xs text-destructive">
-            Unable to load payments — the backend is returning errors and needs a fix
+            Unable to load payments
             {paymentsErr instanceof Error && paymentsErr.message ? ` (${paymentsErr.message})` : ''}.
           </p>
         ) : linkedPayments.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No payments recorded. (Recording is currently blocked — see docs/core-apis-fixes.md #0d.)
-          </p>
+          <p className="text-xs text-muted-foreground">No payments recorded for this bill.</p>
         ) : (
           <ul className="text-sm space-y-1">
             {linkedPayments.map((p) => (
@@ -114,44 +81,6 @@ export default function BillDetail() {
           </ul>
         )}
       </div>
-
-      <FormDrawer
-        open={paymentDrawerOpen}
-        onClose={closePaymentDrawer}
-        title="Record Payment"
-        footer={
-          <>
-            <Button type="submit" form="payment-form" disabled>
-              Record (blocked — see notice above)
-            </Button>
-            <Button type="button" variant="outline" onClick={closePaymentDrawer}>
-              Cancel
-            </Button>
-          </>
-        }
-      >
-        <form id="payment-form" onSubmit={handleRecordPayment} className="space-y-5">
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            Submitting is disabled — this endpoint currently fails server-side for every request.
-          </div>
-          <Field label="Method">
-            <Input
-              placeholder="e.g. cash, card, bank_transfer"
-              value={paymentForm.method}
-              onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
-            />
-          </Field>
-          <Field label="Amount">
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={paymentForm.amount}
-              onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-            />
-          </Field>
-        </form>
-      </FormDrawer>
     </div>
   );
 }

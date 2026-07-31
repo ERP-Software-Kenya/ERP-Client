@@ -4,6 +4,7 @@ import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -54,10 +55,10 @@ export default function ItemReturnsPage() {
   const [editing, setEditing] = useState<ItemReturn | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<ItemReturn | null>(null);
+  const [viewRow, setViewRow] = useState<ItemReturn | null>(null);
   const [restockTarget, setRestockTarget] = useState<ItemReturn | null>(null);
   const [restockForm, setRestockForm] = useState<RestockForm>(EMPTY_RESTOCK);
 
-  const createMutation = ItemReturns.useCreate();
   const updateMutation = ItemReturns.useUpdate();
   const removeMutation = ItemReturns.useDelete();
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
@@ -78,7 +79,7 @@ export default function ItemReturnsPage() {
   const handleRestockSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!restockForm.inventoryId || !restockForm.locationId || !restockForm.productId || !restockForm.quantity) {
-      toast.error('Inventory, store, product, and quantity are required');
+      toast.error('Inventory, location, product, and quantity are required');
       return;
     }
     if (!restockTarget) return;
@@ -131,9 +132,10 @@ export default function ItemReturnsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // storeId and returnType are NOT NULL columns on the backend (item-return.entity.ts) —
-    // the request DTO has no validator decorators to catch a missing value, so this guard
-    // is the only thing preventing a DB constraint violation.
+    if (!editing) {
+      toast.error('Create blocked — CreateItemReturnRequest has no @AutoMap in Core API (#0e)');
+      return;
+    }
     if (!form.storeId) {
       toast.error('Store is required');
       return;
@@ -142,17 +144,11 @@ export default function ItemReturnsPage() {
       returnType: form.returnType as ItemReturn['returnType'],
       storeId: form.storeId || undefined,
       supplierId: form.supplierId || undefined,
-      // orderId is a real FK to Orders (sales) — never send it for a purchase return, it can't
-      // reference a PurchaseOrder. See docs/core-apis-fixes.md #0e.
       orderId: form.returnType === 'sales' ? form.orderId || undefined : undefined,
       totalAmount: form.totalAmount ? Number(form.totalAmount) : undefined,
       status: form.status || undefined,
     };
-    if (editing) {
-      updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
-    } else {
-      createMutation.mutate(body, { onSuccess: closeDrawer });
-    }
+    updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
   };
 
   const columns: Column<ItemReturn>[] = [
@@ -175,13 +171,18 @@ export default function ItemReturnsPage() {
     },
   ];
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isSaving = updateMutation.isPending;
 
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+        Create blocked — verified: <code className="text-[10px]">CreateItemReturnRequest</code> has no{' '}
+        <code className="text-[10px]">@AutoMap</code>, so the command arrives empty (#0e). List/update/restock
+        still available for existing rows.
+      </div>
       <DataTable
-        title="Item Returns"
-        description="Sales and purchase returns share this resource — select the type to distinguish them. Purchase returns link to a supplier; there's no way to reference the originating Purchase Order today."
+        title="Returns"
+        description="Browse returns. Create needs a Core API @AutoMap fix."
         columns={columns}
         rows={data?.items ?? []}
         total={data?.total ?? 0}
@@ -194,8 +195,16 @@ export default function ItemReturnsPage() {
         searchPlaceholder="Search returns…"
         isAdmin={true}
         onAdd={openCreate}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+      />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title="View Item Return"
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
       />
 
       <FormDrawer
@@ -204,8 +213,8 @@ export default function ItemReturnsPage() {
         title={editing ? 'Edit Item Return' : 'Add Item Return'}
         footer={
           <>
-            <Button type="submit" form="item-return-form" disabled={isSaving}>
-              {isSaving ? 'Saving…' : 'Save'}
+            <Button type="submit" form="item-return-form" disabled={!editing || isSaving}>
+              {editing ? (isSaving ? 'Saving…' : 'Save') : 'Create (blocked — Core API #0e)'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>
               Cancel
@@ -295,9 +304,9 @@ export default function ItemReturnsPage() {
             {restockTarget?.returnType === 'purchase'
               ? 'Purchase return: removes stock (sent back to supplier).'
               : 'Sales return: adds stock (back on the shelf).'}{' '}
-            Returns have no line items in the API today, so pick the product/store manually.
+            Returns have no line items in the API today, so pick the product/location manually.
           </p>
-          <Field label="Store" required>
+          <Field label="Location" required>
             <ResourceSelect
               resource={Locations}
               getLabel={(l) => (l.type ? `${l.name} (${l.type})` : l.name)}
@@ -316,7 +325,7 @@ export default function ItemReturnsPage() {
           <Field label="Inventory record" required>
             <ResourceSelect
               resource={Inventory}
-              getLabel={(i) => `Product ${i.productId.slice(0, 8)} @ Store ${i.locationId.slice(0, 8)}`}
+              getLabel={(i) => `Product ${i.productId.slice(0, 8)} @ Location ${i.locationId.slice(0, 8)}`}
               value={restockForm.inventoryId}
               onValueChange={(inventoryId) => setRestockForm({ ...restockForm, inventoryId })}
             />

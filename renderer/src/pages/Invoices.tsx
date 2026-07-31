@@ -14,6 +14,13 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { orderId: '', totalAmount: '', status: '' };
 
+function copyId(id: string) {
+  void navigator.clipboard.writeText(id).then(
+    () => toast.success('ID copied'),
+    () => toast.error('Could not copy ID'),
+  );
+}
+
 export default function InvoicesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -21,13 +28,6 @@ export default function InvoicesPage() {
   const [lookupId, setLookupId] = useState('');
   const [activeId, setActiveId] = useState<string | undefined>();
 
-  // Wired up and ready, but the submit button below stays disabled. Unlike most
-  // resources in this app, this DTO looks genuinely clean (no organizationId
-  // needed, invoiceNumber auto-generated server-side) — live-tested 2026-07-26
-  // and it still 500s, though the test used a fabricated orderId since Orders
-  // create is itself broken (see docs/core-apis-fixes.md #8), so this can't yet
-  // be pinned to an Invoice-specific bug vs. a simple FK violation. Re-test once
-  // Orders can create a real order. Remove `disabled` once confirmed working.
   const createMutation = Invoices.useCreate();
   const { data: lookedUp, isLoading, error } = Invoices.useGet(activeId);
 
@@ -63,22 +63,20 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Invoices</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Create + get by UUID only — no directory. Orders have no list either, so paste an Order
-            ID. <span className="text-amber-500 font-medium">Create is blocked</span> — live-tested
-            2026-07-26 and 500s (confounded by fabricated Order ID; see docs/core-apis-fixes.md #8).
+            Create + get by UUID only — no directory. Paste an Order ID.
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)}>New Invoice</Button>
       </div>
 
       <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-500">
-        Create submit stays disabled until Orders create works and invoices can be live-proven. Look
-        up works when you already have an invoice UUID.
+        Create is enabled against the live API. Needs a real <code className="text-xs">orderId</code> —
+        failures surface in the error toast.
       </div>
 
       <FormSection title="Look up invoice">
@@ -105,8 +103,11 @@ export default function InvoicesPage() {
             </p>
           ) : (
             <div className="grid gap-2 text-sm sm:grid-cols-2">
-              <p>
+              <p className="flex flex-wrap items-center gap-2">
                 <span className="text-muted-foreground">ID:</span> {lookedUp.id}
+                <Button type="button" variant="outline" size="sm" onClick={() => copyId(lookedUp.id)}>
+                  Copy
+                </Button>
               </p>
               <p>
                 <span className="text-muted-foreground">Invoice #:</span>{' '}
@@ -128,10 +129,15 @@ export default function InvoicesPage() {
       )}
 
       {lastCreated && (
-        <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">
+        <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-2">
           <div className="font-medium">Last created invoice</div>
           <div>Invoice #: {lastCreated.invoiceNumber}</div>
-          <div>ID: {lastCreated.id}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            ID: {lastCreated.id}
+            <Button type="button" variant="outline" size="sm" onClick={() => copyId(lastCreated.id)}>
+              Copy
+            </Button>
+          </div>
         </div>
       )}
 
@@ -141,8 +147,8 @@ export default function InvoicesPage() {
         title="New Invoice"
         footer={
           <>
-            <Button type="submit" form="invoice-form" disabled>
-              Create (blocked — see notice above)
+            <Button type="submit" form="invoice-form" disabled={createMutation.isPending}>
+              {createMutation.isPending ? 'Creating…' : 'Create'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>
               Cancel
@@ -152,11 +158,11 @@ export default function InvoicesPage() {
       >
         <form id="invoice-form" onSubmit={handleSubmit} className="space-y-5">
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            Submitting is disabled — depends on working Orders create; do not enable until fixed.
+            Live Swagger requires <code className="text-[10px]">orderId</code>.
           </div>
           <Field label="Order ID" required>
             <Input
-              placeholder="Paste an Order ID you already have"
+              placeholder="Paste an Order UUID"
               value={form.orderId}
               onChange={(e) => setForm({ ...form, orderId: e.target.value })}
               required

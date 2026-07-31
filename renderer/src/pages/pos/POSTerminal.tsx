@@ -20,8 +20,8 @@ import {
   X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Products, Stores, Suppliers } from '../../api';
-import type { Product, Store, Supplier } from '../../types';
+import { Inventory, Locations, Products, Stores, Suppliers } from '../../api';
+import type { Location, Product, Store, Supplier } from '../../types';
 import {
   runPurchaseCheckout,
   runSalesCheckout,
@@ -90,22 +90,22 @@ function productRate(p: Product, mode: Mode): number {
 
 function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
   return (
-    <div className="flex items-center bg-slate-100 rounded-lg p-1 gap-1">
+    <div className="flex items-center bg-muted rounded-lg p-1 gap-1">
       <button
         type="button"
         onClick={() => onChange('sales')}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
-          mode === 'sales' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          mode === 'sales' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
         }`}
       >
         <ShoppingCart size={14} />
-        Sales Billing
+        Sales
       </button>
       <button
         type="button"
         onClick={() => onChange('purchase')}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
-          mode === 'purchase' ? 'bg-orange-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
+          mode === 'purchase' ? 'bg-orange-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
         }`}
       >
         <PackagePlus size={14} />
@@ -119,7 +119,7 @@ function StepList({ steps }: { steps: CheckoutStep[] }) {
   return (
     <ul className="text-left space-y-1.5 max-h-40 overflow-y-auto">
       {steps.map((s) => (
-        <li key={s.name} className="text-xs border border-slate-100 rounded-lg px-2.5 py-1.5">
+        <li key={s.name} className="text-xs border border-border rounded-lg px-2.5 py-1.5">
           <span
             className={`font-semibold uppercase tracking-wide mr-2 ${
               s.status === 'ok' ? 'text-green-600' : s.status === 'failed' ? 'text-red-600' : 'text-amber-600'
@@ -127,8 +127,8 @@ function StepList({ steps }: { steps: CheckoutStep[] }) {
           >
             {s.status}
           </span>
-          <span className="font-medium text-slate-800">{s.name}</span>
-          {s.message && <p className="text-slate-500 mt-0.5 break-words">{s.message}</p>}
+          <span className="font-medium text-foreground">{s.name}</span>
+          {s.message && <p className="text-muted-foreground mt-0.5 break-words">{s.message}</p>}
         </li>
       ))}
     </ul>
@@ -152,22 +152,22 @@ function BillSuccessModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pos-no-print">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="relative bg-card rounded-2xl shadow-2xl border border-border p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="text-center mb-4">
           <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
             <Check size={26} className="text-green-600" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900">
-            {receipt.mode === 'sales' ? 'Bill ready' : 'Receipt ready'}
+          <h2 className="text-xl font-bold text-foreground">
+            {receipt.mode === 'sales' ? 'Invoice ready' : 'Bill ready'}
           </h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {receipt.synced
               ? 'Synced to server where possible'
               : 'Local receipt — print now; server sync pending API gaps'}
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 mb-4">
+        <div className="rounded-xl border border-border bg-muted p-4 mb-4">
           <ReceiptDocument receipt={receipt} />
         </div>
 
@@ -182,16 +182,16 @@ function BillSuccessModal({
           <button
             type="button"
             onClick={printReceipt}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-border rounded-xl text-sm font-medium text-foreground hover:bg-muted transition"
           >
             <Printer size={15} /> Print receipt
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition"
+            className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition"
           >
-            New Bill
+            {receipt.mode === 'sales' ? 'New Invoice' : 'New Bill'}
           </button>
         </div>
       </div>
@@ -202,6 +202,8 @@ function BillSuccessModal({
 export default function POSTerminal() {
   const [mode, setMode] = useState<Mode>('sales');
   const [storeId, setStoreId] = useState('');
+  /** Stock ops use Locations (not Stores). */
+  const [locationId, setLocationId] = useState('');
   const [lines, setLines] = useState<BillLine[]>([]);
   const [searchVal, setSearchVal] = useState('');
   const [qty, setQty] = useState(1);
@@ -223,6 +225,8 @@ export default function POSTerminal() {
   const searchRef = useRef<HTMLInputElement>(null);
 
   const { data: stores = [], isLoading: storesLoading } = Stores.useList();
+  const { data: locations = [], isLoading: locationsLoading } = Locations.useList();
+  const { data: inventory = [] } = Inventory.useList();
   const { data: suppliers = [] } = Suppliers.useList(mode === 'purchase');
   const { data: productSearch } = Products.useSearch({
     page: 1,
@@ -240,6 +244,24 @@ export default function POSTerminal() {
 
   const store = useMemo(() => stores.find((s) => s.id === storeId), [stores, storeId]);
   const orgId = storeOrgId(store);
+
+  // Prefer a Location whose name matches the selected Store; else first location.
+  useEffect(() => {
+    if (locations.length === 0) return;
+    const match = store
+      ? locations.find((l) => l.name.trim().toLowerCase() === store.name.trim().toLowerCase())
+      : undefined;
+    const next = match?.id ?? locations[0].id;
+    setLocationId((prev) => {
+      if (prev && locations.some((l) => l.id === prev) && !match) return prev;
+      return next;
+    });
+  }, [locations, store]);
+
+  const stockLocation = useMemo(
+    () => locations.find((l: Location) => l.id === locationId),
+    [locations, locationId],
+  );
 
   const suggestions: Product[] = useMemo(() => {
     if (!searchVal.trim()) return [];
@@ -295,8 +317,10 @@ export default function POSTerminal() {
     setLines((ls) =>
       ls.map((l) => {
         if (l.id !== id) return l;
-        const rate = parseFloat(overridePrice) || l.rate;
-        const taxPct = overrideTax !== '' ? parseFloat(overrideTax) : l.taxPct;
+        const parsedRate = parseFloat(overridePrice);
+        const rate = overridePrice !== '' && !isNaN(parsedRate) ? parsedRate : l.rate;
+        const parsedTax = parseFloat(overrideTax);
+        const taxPct = overrideTax !== '' && !isNaN(parsedTax) ? parsedTax : l.taxPct;
         return { ...l, rate, taxPct };
       }),
     );
@@ -333,8 +357,14 @@ export default function POSTerminal() {
     searchRef.current?.focus();
   };
 
+  const cashShort =
+    mode === 'sales' &&
+    payMethod === 'cash' &&
+    grandTotal > 0 &&
+    (cashTendered === '' || isNaN(Number(cashTendered)) || Number(cashTendered) < grandTotal);
+
   const generateBill = async () => {
-    if (lines.length === 0 || checkingOut) return;
+    if (lines.length === 0 || checkingOut || cashShort) return;
     setCheckingOut(true);
     setCheckoutResult(null);
     try {
@@ -354,6 +384,9 @@ export default function POSTerminal() {
           ? await runSalesCheckout({
               storeId,
               storeName: store?.name,
+              locationId: locationId || undefined,
+              locationName: stockLocation?.name,
+              inventory,
               orgId,
               customerId: customerId.trim() || undefined,
               paymentMethod: payMethod,
@@ -368,6 +401,9 @@ export default function POSTerminal() {
           : await runPurchaseCheckout({
               storeId,
               storeName: store?.name,
+              locationId: locationId || undefined,
+              locationName: stockLocation?.name,
+              inventory,
               orgId,
               supplierId: supplierId || undefined,
               supplierName: supplier?.name,
@@ -391,9 +427,9 @@ export default function POSTerminal() {
   const accentCls =
     mode === 'sales'
       ? {
-          btn: 'bg-blue-600 hover:bg-blue-700',
-          light: 'bg-blue-50 text-blue-700 border-blue-200',
-          badge: 'bg-blue-100 text-blue-700',
+          btn: 'bg-primary hover:bg-primary/90',
+          light: 'bg-primary/10 text-primary border-primary/30',
+          badge: 'bg-primary/15 text-primary',
         }
       : {
           btn: 'bg-orange-500 hover:bg-orange-600',
@@ -402,8 +438,8 @@ export default function POSTerminal() {
         };
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-slate-100">
-      <div className="flex items-center gap-4 px-5 py-3 bg-white border-b border-slate-200 flex-shrink-0">
+    <div className="flex flex-col h-[calc(100vh-5.5rem)] min-h-[520px] rounded-lg border border-border bg-muted overflow-hidden">
+      <div className="flex items-center gap-4 px-5 py-3 bg-card border-b border-border flex-shrink-0">
         <ModeToggle
           mode={mode}
           onChange={(m) => {
@@ -413,14 +449,15 @@ export default function POSTerminal() {
           }}
         />
 
-        <div className="w-px h-6 bg-slate-200 mx-1" />
+        <div className="w-px h-6 bg-border mx-1" />
 
         <div className="flex items-center gap-2">
-          <StoreIcon size={15} className="text-slate-400" />
+          <StoreIcon size={15} className="text-muted-foreground" />
           <select
             value={storeId}
             onChange={(e) => setStoreId(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-700 font-medium focus:outline-none focus:border-blue-400 max-w-[220px]"
+            title="Store (orders / org)"
+            className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-card text-foreground font-medium focus:outline-none focus:border-primary max-w-[180px]"
           >
             {storesLoading && <option value="">Loading stores…</option>}
             {!storesLoading && stores.length === 0 && <option value="">No stores</option>}
@@ -432,34 +469,57 @@ export default function POSTerminal() {
           </select>
         </div>
 
-        <div className="ml-auto flex items-center gap-3 text-xs text-slate-400">
+        <div className="flex items-center gap-2">
+          <Package size={15} className="text-muted-foreground" />
+          <select
+            value={locationId}
+            onChange={(e) => setLocationId(e.target.value)}
+            title="Stock location (inventory)"
+            className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-card text-foreground font-medium focus:outline-none focus:border-primary max-w-[200px]"
+          >
+            {locationsLoading && <option value="">Loading locations…</option>}
+            {!locationsLoading && locations.length === 0 && <option value="">No locations</option>}
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.type ? `${l.name} (${l.type})` : l.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
           <span className={`px-2 py-1 rounded-md font-medium ${accentCls.badge}`}>
             {mode === 'sales' ? 'SALES MODE' : 'PURCHASE MODE'}
           </span>
         </div>
       </div>
 
+      <div className="px-5 py-2 bg-amber-500/10 border-b border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 flex-shrink-0">
+        Stock uses Locations (header right of Store). Create inventory rows per product+location first.
+        Walk-in sales skip Order API but still attempt stock remove.
+      </div>
+
       <div className="flex flex-1 gap-0 overflow-hidden">
-        <div className="w-64 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
-          <div className="p-4 border-b border-slate-100">
-            <p className="text-xs font-semibold text-slate-400 uppercase mb-2">
+        <div className="w-64 flex-shrink-0 bg-card border-r border-border flex flex-col">
+          <div className="p-4 border-b border-border">
+            <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
               {mode === 'sales' ? 'Add Product' : 'Receive Product'}
             </p>
             <div className="relative">
-              <Scan size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Scan size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 ref={searchRef}
                 value={searchVal}
                 onChange={(e) => setSearchVal(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddBtn()}
                 placeholder="SKU or product name..."
-                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50"
+                className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-ring/20"
               />
               {searchVal && (
                 <button
                   type="button"
                   onClick={() => setSearchVal('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-500"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground"
                 >
                   <X size={13} />
                 </button>
@@ -467,21 +527,21 @@ export default function POSTerminal() {
             </div>
 
             {suggestions.length > 0 && (
-              <div className="mt-1 border border-slate-200 rounded-lg overflow-hidden shadow-lg bg-white z-10 relative">
+              <div className="mt-1 border border-border rounded-lg overflow-hidden shadow-lg bg-card z-10 relative">
                 {suggestions.map((p) => (
                   <button
                     key={p.id}
                     type="button"
                     onClick={() => addProduct(p)}
-                    className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-blue-50 border-b border-slate-50 last:border-0 transition"
+                    className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-primary/10 border-b border-border last:border-0 transition"
                   >
-                    <div className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Package size={13} className="text-slate-400" />
+                    <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Package size={13} className="text-muted-foreground" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-slate-800 truncate">{p.name}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">{p.sku || p.id.slice(0, 8)}</p>
-                      <span className="text-[10px] font-semibold text-blue-600">{fmt(productRate(p, mode))}</span>
+                      <p className="text-xs font-semibold text-foreground truncate">{p.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">{p.sku || p.id.slice(0, 8)}</p>
+                      <span className="text-[10px] font-semibold text-primary">{fmt(productRate(p, mode))}</span>
                     </div>
                   </button>
                 ))}
@@ -489,11 +549,11 @@ export default function POSTerminal() {
             )}
 
             <div className="flex items-center gap-2 mt-3">
-              <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden flex-shrink-0">
+              <div className="flex items-center border border-border rounded-lg overflow-hidden flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
-                  className="px-2.5 py-2 hover:bg-slate-100 text-slate-500 transition"
+                  className="px-2.5 py-2 hover:bg-muted text-muted-foreground transition"
                 >
                   <Minus size={13} />
                 </button>
@@ -502,12 +562,12 @@ export default function POSTerminal() {
                   value={qty}
                   min={1}
                   onChange={(e) => setQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="w-12 text-center text-sm font-semibold border-x border-slate-200 py-2 outline-none"
+                  className="w-12 text-center text-sm font-semibold border-x border-border py-2 outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setQty((q) => q + 1)}
-                  className="px-2.5 py-2 hover:bg-slate-100 text-slate-500 transition"
+                  className="px-2.5 py-2 hover:bg-muted text-muted-foreground transition"
                 >
                   <Plus size={13} />
                 </button>
@@ -523,8 +583,8 @@ export default function POSTerminal() {
           </div>
 
           {mode === 'sales' && (
-            <div className="p-4 border-b border-slate-100">
-              <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Quick Charges</p>
+            <div className="p-4 border-b border-border">
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Quick Charges</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {QUICK_CHARGES.map((c) => (
                   <button
@@ -534,11 +594,11 @@ export default function POSTerminal() {
                     className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition text-left ${
                       c.amount < 0
                         ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
-                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                        : 'border-border bg-muted text-foreground hover:bg-muted'
                     }`}
                   >
                     {c.label}
-                    <span className={`block text-[10px] font-mono ${c.amount < 0 ? 'text-red-500' : 'text-slate-400'}`}>
+                    <span className={`block text-[10px] font-mono ${c.amount < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
                       {c.amount < 0 ? '-' : '+'}${Math.abs(c.amount)}
                     </span>
                   </button>
@@ -548,12 +608,12 @@ export default function POSTerminal() {
           )}
 
           {mode === 'purchase' && (
-            <div className="p-4 border-b border-slate-100">
-              <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Supplier</p>
+            <div className="p-4 border-b border-border">
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Supplier</p>
               <select
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
-                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-orange-400 bg-white"
+                className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:border-orange-400 bg-card"
               >
                 <option value="">— Select Supplier —</option>
                 {suppliers.map((s: Supplier) => (
@@ -568,24 +628,24 @@ export default function POSTerminal() {
           <div className="mt-auto p-4 space-y-2">
             <Link
               to={mode === 'sales' ? '/invoices' : '/bills'}
-              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition"
+              className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition"
             >
               <Receipt size={14} />
-              {mode === 'sales' ? 'Bill History' : 'Bills'}
+              {mode === 'sales' ? 'Invoice History' : 'Bills'}
             </Link>
           </div>
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-slate-200 flex-shrink-0">
+          <div className="flex items-center justify-between px-5 py-3 bg-card border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2">
               {mode === 'sales' ? (
-                <ShoppingCart size={16} className="text-blue-600" />
+                <ShoppingCart size={16} className="text-primary" />
               ) : (
                 <PackagePlus size={16} className="text-orange-500" />
               )}
-              <span className="font-semibold text-slate-800">
-                {mode === 'sales' ? 'Running Bill' : 'Receiving List'}
+              <span className="font-semibold text-foreground">
+                {mode === 'sales' ? 'Current Sale' : 'Receiving List'}
               </span>
               {lines.length > 0 && (
                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${accentCls.badge}`}>
@@ -603,7 +663,7 @@ export default function POSTerminal() {
               </button>
               <button
                 type="button"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-400 border border-slate-200 rounded-lg cursor-not-allowed"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg cursor-not-allowed"
                 title="Hold not wired yet"
                 disabled
               >
@@ -614,36 +674,36 @@ export default function POSTerminal() {
 
           <div className="flex-1 overflow-y-auto">
             {lines.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-slate-300 gap-3">
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-3">
                 {mode === 'sales' ? (
                   <ShoppingCart size={40} strokeWidth={1.2} />
                 ) : (
                   <PackagePlus size={40} strokeWidth={1.2} />
                 )}
-                <p className="text-sm font-medium text-slate-400">
+                <p className="text-sm font-medium text-muted-foreground">
                   {mode === 'sales'
-                    ? 'Search or scan a product to start billing'
+                    ? 'Search or scan a product to start a sale'
                     : 'Search a product to add to the receiving list'}
                 </p>
               </div>
             ) : (
               <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+                <thead className="sticky top-0 bg-muted border-b border-border z-10">
                   <tr>
                     {['#', 'SKU', 'Description', 'Qty', 'Rate', 'Tax', 'Total', ''].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 whitespace-nowrap">
+                      <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-border">
                   {lines.map((line, idx) => (
-                    <tr key={line.id} className="hover:bg-slate-50/60 group">
-                      <td className="px-3 py-3 text-slate-400 text-xs">{idx + 1}</td>
-                      <td className="px-3 py-3 font-mono text-xs text-slate-500">{line.sku}</td>
+                    <tr key={line.id} className="hover:bg-muted/60 group">
+                      <td className="px-3 py-3 text-muted-foreground text-xs">{idx + 1}</td>
+                      <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{line.sku}</td>
                       <td className="px-3 py-3">
-                        <p className="text-slate-800 font-medium text-sm">{line.name}</p>
+                        <p className="text-foreground font-medium text-sm">{line.name}</p>
                         {overrideLine === line.id ? (
                           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             <input
@@ -672,7 +732,7 @@ export default function POSTerminal() {
                             >
                               Apply
                             </button>
-                            <button type="button" onClick={() => setOverrideLine(null)} className="text-slate-400 hover:text-slate-600">
+                            <button type="button" onClick={() => setOverrideLine(null)} className="text-muted-foreground hover:text-muted-foreground">
                               <X size={12} />
                             </button>
                           </div>
@@ -695,37 +755,37 @@ export default function POSTerminal() {
                           <button
                             type="button"
                             onClick={() => updateQty(line.id, -1)}
-                            className="w-6 h-6 rounded border border-slate-200 flex items-center justify-center hover:bg-slate-100 text-slate-500"
+                            className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted text-muted-foreground"
                           >
                             <Minus size={11} />
                           </button>
-                          <span className="w-8 text-center font-semibold text-slate-800">{line.qty}</span>
+                          <span className="w-8 text-center font-semibold text-foreground">{line.qty}</span>
                           <button
                             type="button"
                             onClick={() => updateQty(line.id, 1)}
-                            className="w-6 h-6 rounded border border-slate-200 flex items-center justify-center hover:bg-slate-100 text-slate-500"
+                            className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted text-muted-foreground"
                           >
                             <Plus size={11} />
                           </button>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-0.5 pl-0.5">{line.unitLabel}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 pl-0.5">{line.unitLabel}</p>
                       </td>
-                      <td className="px-3 py-3 text-slate-700">{fmt(line.rate)}</td>
-                      <td className="px-3 py-3 text-slate-500 text-xs">
+                      <td className="px-3 py-3 text-foreground">{fmt(line.rate)}</td>
+                      <td className="px-3 py-3 text-muted-foreground text-xs">
                         {line.taxPct > 0 ? (
                           <span>
-                            {line.taxPct}% <span className="text-slate-400">({fmt(lineTax(line))})</span>
+                            {line.taxPct}% <span className="text-muted-foreground">({fmt(lineTax(line))})</span>
                           </span>
                         ) : (
-                          <span className="text-slate-300">—</span>
+                          <span className="text-muted-foreground/50">—</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 font-semibold text-slate-900">{fmt(lineTotal(line))}</td>
+                      <td className="px-3 py-3 font-semibold text-foreground">{fmt(lineTotal(line))}</td>
                       <td className="px-3 py-3">
                         <button
                           type="button"
                           onClick={() => removeLine(line.id)}
-                          className="p-1.5 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 transition"
+                          className="p-1.5 rounded hover:bg-red-50 text-muted-foreground/50 hover:text-red-500 transition"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -733,14 +793,14 @@ export default function POSTerminal() {
                     </tr>
                   ))}
                   {extraCharges.map((ec) => (
-                    <tr key={ec.id} className="bg-slate-50/40">
+                    <tr key={ec.id} className="bg-muted/40">
                       <td />
                       <td />
-                      <td className="px-3 py-2 text-xs text-slate-500 italic">{ec.label}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground italic">{ec.label}</td>
                       <td />
                       <td />
                       <td />
-                      <td className={`px-3 py-2 text-sm font-semibold ${ec.amount < 0 ? 'text-red-600' : 'text-slate-700'}`}>
+                      <td className={`px-3 py-2 text-sm font-semibold ${ec.amount < 0 ? 'text-red-600' : 'text-foreground'}`}>
                         {ec.amount < 0 ? '-' : '+'}
                         {fmt(Math.abs(ec.amount))}
                       </td>
@@ -748,7 +808,7 @@ export default function POSTerminal() {
                         <button
                           type="button"
                           onClick={() => removeCharge(ec.id)}
-                          className="p-1.5 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 transition"
+                          className="p-1.5 rounded hover:bg-red-50 text-muted-foreground/50 hover:text-red-500 transition"
                         >
                           <X size={13} />
                         </button>
@@ -771,46 +831,46 @@ export default function POSTerminal() {
           )}
         </div>
 
-        <div className="w-72 flex-shrink-0 bg-white border-l border-slate-200 flex flex-col">
-          <div className="px-5 py-4 border-b border-slate-100">
-            <p className="text-xs font-semibold text-slate-400 uppercase">
+        <div className="w-72 flex-shrink-0 bg-card border-l border-border flex flex-col">
+          <div className="px-5 py-4 border-b border-border">
+            <p className="text-xs font-semibold text-muted-foreground uppercase">
               {mode === 'sales' ? 'Checkout' : 'Receiving Summary'}
             </p>
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-slate-500">
+              <div className="flex justify-between text-muted-foreground">
                 <span>Items</span>
-                <span className="font-medium text-slate-700">{lines.length}</span>
+                <span className="font-medium text-foreground">{lines.length}</span>
               </div>
-              <div className="flex justify-between text-slate-500">
+              <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
-                <span className="font-medium text-slate-700">{fmt(subtotal)}</span>
+                <span className="font-medium text-foreground">{fmt(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-slate-500">
+              <div className="flex justify-between text-muted-foreground">
                 <span>Tax</span>
-                <span className="font-medium text-slate-700">{fmt(totalTax)}</span>
+                <span className="font-medium text-foreground">{fmt(totalTax)}</span>
               </div>
               {extraCharges.length > 0 && (
-                <div className="flex justify-between text-slate-500">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Extra Charges</span>
-                  <span className={`font-medium ${extraTotal < 0 ? 'text-red-600' : 'text-slate-700'}`}>
+                  <span className={`font-medium ${extraTotal < 0 ? 'text-red-600' : 'text-foreground'}`}>
                     {extraTotal < 0 ? '-' : '+'}
                     {fmt(Math.abs(extraTotal))}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-slate-900 text-lg pt-2 border-t border-slate-200">
+              <div className="flex justify-between font-bold text-foreground text-lg pt-2 border-t border-border">
                 <span>Grand Total</span>
-                <span className="text-blue-700">{fmt(grandTotal)}</span>
+                <span className="text-primary">{fmt(grandTotal)}</span>
               </div>
             </div>
 
             {mode === 'sales' && (
               <>
                 <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Payment Method</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Payment Method</p>
                   <div className="grid grid-cols-2 gap-2">
                     {(['cash', 'card'] as PayMethod[]).map((m) => (
                       <button
@@ -819,8 +879,8 @@ export default function POSTerminal() {
                         onClick={() => setPayMethod(m)}
                         className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-semibold transition ${
                           payMethod === m
-                            ? 'border-blue-600 bg-blue-50 text-blue-700'
-                            : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border text-muted-foreground hover:border-border'
                         }`}
                       >
                         {m === 'cash' ? <Banknote size={16} /> : <CreditCard size={16} />}
@@ -830,16 +890,23 @@ export default function POSTerminal() {
                   </div>
                   {payMethod === 'cash' && grandTotal > 0 && (
                     <div className="mt-3 space-y-2">
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-muted-foreground">
                         <label className="block mb-1 font-medium">Cash Tendered</label>
                         <input
                           type="number"
                           value={cashTendered}
                           onChange={(e) => setCashTendered(e.target.value)}
                           placeholder="Enter amount received"
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400"
+                          className="w-full px-3 py-2 border border-border rounded-lg text-sm outline-none focus:border-primary"
                         />
                       </div>
+                      {cashTendered !== '' && !isNaN(Number(cashTendered)) && (
+                        <div className={`text-xs font-medium ${Number(cashTendered) < grandTotal ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          {Number(cashTendered) < grandTotal
+                            ? `Short by ${fmt(grandTotal - Number(cashTendered))}`
+                            : `Change due: ${fmt(Number(cashTendered) - grandTotal)}`}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -847,18 +914,18 @@ export default function POSTerminal() {
             )}
 
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase mb-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
                 {mode === 'sales' ? 'Customer (optional)' : 'Supplier Ref. / Notes'}
               </p>
               <div className="relative">
-                <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+                <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
                 <input
                   value={mode === 'sales' ? customerInfo : supplierRef}
                   onChange={(e) =>
                     mode === 'sales' ? setCustomerInfo(e.target.value) : setSupplierRef(e.target.value)
                   }
                   placeholder={mode === 'sales' ? 'Walk-in / phone / email' : 'Supplier invoice / LPO no.'}
-                  className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-400"
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-primary"
                 />
               </div>
               {mode === 'sales' && (
@@ -866,7 +933,7 @@ export default function POSTerminal() {
                   <button
                     type="button"
                     onClick={() => setShowAdvancedCustomer((v) => !v)}
-                    className="text-[10px] text-slate-500 underline"
+                    className="text-[10px] text-muted-foreground underline"
                   >
                     {showAdvancedCustomer ? 'Hide' : 'Advanced'}: sync with server customer UUID
                   </button>
@@ -875,7 +942,7 @@ export default function POSTerminal() {
                       value={customerId}
                       onChange={(e) => setCustomerId(e.target.value)}
                       placeholder="Customer UUID (optional — for Order API)"
-                      className="mt-1.5 w-full px-3 py-2 text-xs border border-slate-200 rounded-lg outline-none focus:border-blue-400 font-mono"
+                      className="mt-1.5 w-full px-3 py-2 text-xs border border-border rounded-lg outline-none focus:border-primary font-mono"
                     />
                   )}
                 </div>
@@ -887,27 +954,36 @@ export default function POSTerminal() {
                 <StoreIcon size={12} />
                 {mode === 'sales' ? 'Stock deducted from' : 'Stock added to'}
               </div>
-              <p className="text-slate-600 ml-4">{store?.name ?? 'Select a store'}</p>
+              <p className="text-muted-foreground ml-4">
+                {stockLocation?.name ?? 'Select a stock location'}
+                {store?.name ? ` · order store: ${store.name}` : ''}
+              </p>
             </div>
           </div>
 
-          <div className="px-5 py-4 border-t border-slate-200 space-y-2 flex-shrink-0">
+          <div className="px-5 py-4 border-t border-border space-y-2 flex-shrink-0">
             <button
               type="button"
               onClick={() => void generateBill()}
-              disabled={lines.length === 0 || checkingOut}
+              disabled={lines.length === 0 || checkingOut || cashShort}
               className={`w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed ${accentCls.btn}`}
             >
               {mode === 'sales' ? <Receipt size={16} /> : <PackagePlus size={16} />}
-              {checkingOut ? 'Processing…' : mode === 'sales' ? 'Generate Bill' : 'Confirm Receipt'}
+              {checkingOut ? 'Processing…' : mode === 'sales' ? 'Generate Invoice' : 'Confirm Bill'}
             </button>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={printReceipt}
                 disabled={!lastReceipt && !success}
-                title={lastReceipt || success ? 'Print last receipt' : 'Generate a bill first'}
-                className="flex items-center justify-center gap-1.5 py-2 border border-slate-200 rounded-xl text-xs text-slate-600 hover:bg-slate-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                title={
+                  lastReceipt || success
+                    ? 'Print last receipt'
+                    : mode === 'sales'
+                      ? 'Generate an invoice first'
+                      : 'Confirm a bill first'
+                }
+                className="flex items-center justify-center gap-1.5 py-2 border border-border rounded-xl text-xs text-muted-foreground hover:bg-muted transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Printer size={13} /> Print
               </button>
@@ -915,7 +991,7 @@ export default function POSTerminal() {
                 type="button"
                 disabled
                 title="E-receipt not wired"
-                className="flex items-center justify-center gap-1.5 py-2 border border-slate-200 rounded-xl text-xs text-slate-400 cursor-not-allowed"
+                className="flex items-center justify-center gap-1.5 py-2 border border-border rounded-xl text-xs text-muted-foreground cursor-not-allowed"
               >
                 <Mail size={13} /> E-Receipt
               </button>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { PaymentTransactions } from '../api';
@@ -17,15 +18,22 @@ interface FormState {
   status: string;
 }
 
-const EMPTY_FORM: FormState = { referenceId: '', referenceType: '', type: '', method: '', amount: '', status: '' };
+const EMPTY_FORM: FormState = {
+  referenceId: '',
+  referenceType: 'bill',
+  type: 'payment',
+  method: '',
+  amount: '',
+  status: 'PENDING',
+};
 
 export default function PaymentTransactionsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<PaymentTransaction | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<PaymentTransaction | null>(null);
+  const [viewRow, setViewRow] = useState<PaymentTransaction | null>(null);
 
-  const createMutation = PaymentTransactions.useCreate();
   const updateMutation = PaymentTransactions.useUpdate();
   const removeMutation = PaymentTransactions.useDelete();
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
@@ -34,9 +42,7 @@ export default function PaymentTransactionsPage() {
     search: debouncedSearch,
   });
   const listError = isError
-    ? `Unable to load payments — the backend is returning errors and needs a fix (see notice above).${
-        error instanceof Error && error.message ? ` (${error.message})` : ''
-      }`
+    ? `Unable to load payments.${error instanceof Error && error.message ? ` (${error.message})` : ''}`
     : null;
 
   const openCreate = () => {
@@ -62,19 +68,16 @@ export default function PaymentTransactionsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const body: Partial<PaymentTransaction> = {
-      referenceId: form.referenceId || undefined,
-      referenceType: form.referenceType || undefined,
-      type: form.type || undefined,
-      method: form.method || undefined,
-      amount: form.amount ? Number(form.amount) : undefined,
-      status: form.status || undefined,
-    };
-    if (editing) {
-      updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
-    } else {
-      createMutation.mutate(body, { onSuccess: closeDrawer });
-    }
+    if (!editing) return;
+    updateMutation.mutate(
+      {
+        id: editing.id,
+        body: {
+          status: form.status || undefined,
+        },
+      },
+      { onSuccess: closeDrawer },
+    );
   };
 
   const columns: Column<PaymentTransaction>[] = [
@@ -84,23 +87,21 @@ export default function PaymentTransactionsPage() {
     {
       key: 'amount',
       label: 'Amount',
-      render: (row) => `$${Number(row.amount || 0).toFixed(2)}`,
+      render: (row) => (row.amount != null ? `$${Number(row.amount).toFixed(2)}` : '—'),
     },
     { key: 'status', label: 'Status' },
   ];
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
-
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-        Currently blocked — recording a payment fails on the backend (domain model uses `orgId`, the
-        database column is `organizationId`, see docs/core-apis-fixes.md #0d). Payments normally get
-        recorded from a Bill's detail view, linked via referenceType/referenceId.
+        Create blocked — verified: <code className="text-[10px]">CreatePaymentTransactionRequest</code> has no{' '}
+        <code className="text-[10px]">@AutoMap</code>; domain orgId ≠ entity organizationId (#0d). List/search
+        still work for existing rows.
       </div>
       <DataTable
-        title="Payment Transactions"
-        description="All recorded payments across bills/invoices."
+        title="Payments"
+        description="Browse payments. Create needs a Core API fix."
         columns={columns}
         rows={listError ? [] : (data?.items ?? [])}
         total={listError ? 0 : (data?.total ?? 0)}
@@ -113,8 +114,16 @@ export default function PaymentTransactionsPage() {
         searchPlaceholder="Search payments…"
         isAdmin={true}
         onAdd={openCreate}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+      />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title="View Payment"
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
       />
 
       <FormDrawer
@@ -123,8 +132,8 @@ export default function PaymentTransactionsPage() {
         title={editing ? 'Edit Payment' : 'Add Payment'}
         footer={
           <>
-            <Button type="submit" form="payment-transaction-form" disabled>
-              {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
+            <Button type="submit" form="payment-transaction-form" disabled={!editing || updateMutation.isPending}>
+              {editing ? (updateMutation.isPending ? 'Saving…' : 'Save') : 'Create (blocked — Core API #0d)'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>
               Cancel
@@ -133,56 +142,28 @@ export default function PaymentTransactionsPage() {
         }
       >
         <form id="payment-transaction-form" onSubmit={handleSubmit} className="space-y-5">
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            Submitting is disabled — this endpoint currently fails server-side for every request.
-          </div>
-          <Field label="Linked To (type)" required>
-            <Input
-              placeholder="e.g. bill"
-              value={form.referenceType}
-              onChange={(e) => setForm({ ...form, referenceType: e.target.value })}
-              required
-            />
+          {!editing && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+              Create cannot succeed until Core API maps orgId → organizationId and adds @AutoMap on the request.
+            </div>
+          )}
+          <Field label="Linked To (type)">
+            <Input value={form.referenceType} disabled={!editing} onChange={(e) => setForm({ ...form, referenceType: e.target.value })} />
           </Field>
-          <Field label="Linked To (ID)" required>
-            <Input
-              value={form.referenceId}
-              onChange={(e) => setForm({ ...form, referenceId: e.target.value })}
-              required
-            />
+          <Field label="Linked To (ID)">
+            <Input value={form.referenceId} disabled={!editing} onChange={(e) => setForm({ ...form, referenceId: e.target.value })} />
           </Field>
-          <Field label="Type" required>
-            <Input
-              placeholder="e.g. payment, refund"
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
-              required
-            />
+          <Field label="Type">
+            <Input value={form.type} disabled={!editing} onChange={(e) => setForm({ ...form, type: e.target.value })} />
           </Field>
-          <Field label="Method" required>
-            <Input
-              placeholder="e.g. cash, card, bank_transfer"
-              value={form.method}
-              onChange={(e) => setForm({ ...form, method: e.target.value })}
-              required
-            />
+          <Field label="Method">
+            <Input value={form.method} disabled={!editing} onChange={(e) => setForm({ ...form, method: e.target.value })} />
           </Field>
-          <Field label="Amount" required>
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              required
-            />
+          <Field label="Amount">
+            <Input type="number" value={form.amount} disabled={!editing} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           </Field>
           <Field label="Status">
-            <Input
-              placeholder="e.g. completed"
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
-            />
+            <Input value={form.status} disabled={!editing} onChange={(e) => setForm({ ...form, status: e.target.value })} />
           </Field>
         </form>
       </FormDrawer>

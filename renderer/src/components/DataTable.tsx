@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { RefreshCw, Search, Plus, Trash2, Pencil, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, Search, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { cn } from '../lib/utils';
+import { RowActionsMenu } from './RowActionsMenu';
 
 export interface Column<T> {
   key: keyof T | string;
@@ -58,15 +58,17 @@ export function DataTable<T extends { id: string }>({
 }: DataTableProps<T>) {
   const [searchInput, setSearchInput] = useState('');
   const totalPages = Math.max(1, Math.ceil(total / limit));
+  const showAdminActions = Boolean(isAdmin && (onEdit || onDelete));
+  const showActions = Boolean(onView || showAdminActions);
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">{title}</h2>
-          {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+          {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div className="relative">
             <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -95,7 +97,7 @@ export function DataTable<T extends { id: string }>({
 
       <div className="flex-1 overflow-auto rounded-lg border border-border bg-card">
         {error && (
-          <div className="p-8 text-center text-destructive">
+          <div className="p-6 text-center text-destructive">
             <p>Failed to load: {error}</p>
             {onRefetch && (
               <Button variant="ghost" size="sm" className="mt-3" onClick={onRefetch}>
@@ -110,11 +112,11 @@ export function DataTable<T extends { id: string }>({
             <thead className="border-b bg-muted/50">
               <tr>
                 {columns.map((col) => (
-                  <th key={String(col.key)} className="px-4 py-2 text-left font-medium text-muted-foreground" style={{ width: col.width }}>
+                  <th key={String(col.key)} className="px-3 py-1.5 text-left font-medium text-muted-foreground" style={{ width: col.width }}>
                     {col.label}
                   </th>
                 ))}
-                {(onView || onEdit || onDelete) && isAdmin && <th className="w-[130px] px-4 py-2 text-left font-medium text-muted-foreground">Actions</th>}
+                {showActions && <th className="w-[60px] px-3 py-1.5 text-right font-medium text-muted-foreground">Actions</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -122,12 +124,12 @@ export function DataTable<T extends { id: string }>({
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
                     {columns.map((col) => (
-                      <td key={String(col.key)} className="px-4 py-2">
+                      <td key={String(col.key)} className="px-3 py-1.5">
                         <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
                       </td>
                     ))}
-                    {(onView || onEdit || onDelete) && isAdmin && (
-                      <td className="px-4 py-2"><div className="h-4 w-[60px] animate-pulse rounded bg-muted" /></td>
+                    {showActions && (
+                      <td className="px-3 py-1.5"><div className="ml-auto h-4 w-7 animate-pulse rounded bg-muted" /></td>
                     )}
                   </tr>
                 ))
@@ -135,7 +137,7 @@ export function DataTable<T extends { id: string }>({
 
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={columns.length + 1} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={columns.length + (showActions ? 1 : 0)} className="px-3 py-8 text-center text-muted-foreground">
                     No records found
                   </td>
                 </tr>
@@ -144,35 +146,17 @@ export function DataTable<T extends { id: string }>({
               {rows.map((row) => (
                 <tr key={row.id} className="hover:bg-muted/50">
                   {columns.map((col) => (
-                    <td key={String(col.key)} className="px-4 py-2">
+                    <td key={String(col.key)} className="px-3 py-1.5">
                       {col.render ? col.render(row) : String(getCellValue(row, String(col.key)) ?? '—')}
                     </td>
                   ))}
-                  {(onView || onEdit || onDelete) && isAdmin && (
-                    <td className="px-4 py-2">
-                      <div className="flex gap-1">
-                        {onView && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onView(row)} title="View">
-                            <Eye size={14} />
-                          </Button>
-                        )}
-                        {onEdit && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(row)} title="Edit">
-                            <Pencil size={14} />
-                          </Button>
-                        )}
-                        {onDelete && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn('h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive')}
-                            onClick={() => onDelete(row)}
-                            title="Delete"
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                        )}
-                      </div>
+                  {showActions && (
+                    <td className="px-3 py-1.5 text-right">
+                      <RowActionsMenu
+                        onView={onView ? () => onView(row) : undefined}
+                        onEdit={showAdminActions && onEdit ? () => onEdit(row) : undefined}
+                        onDelete={showAdminActions && onDelete ? () => onDelete(row) : undefined}
+                      />
                     </td>
                   )}
                 </tr>

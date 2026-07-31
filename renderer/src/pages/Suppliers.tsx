@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -38,6 +39,7 @@ export default function SuppliersPage() {
   const [editing, setEditing] = useState<Supplier | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Supplier | null>(null);
+  const [viewRow, setViewRow] = useState<Supplier | null>(null);
 
   const createMutation = Suppliers.useCreate();
   const updateMutation = Suppliers.useUpdate();
@@ -90,6 +92,8 @@ export default function SuppliersPage() {
   const columns: Column<Supplier>[] = [
     { key: 'name', label: 'Name' },
     { key: 'code', label: 'Code' },
+    { key: 'phone', label: 'Phone', render: (row) => row.phone || '—' },
+    { key: 'contactPerson', label: 'Contact', render: (row) => row.contactPerson || '—' },
     { key: 'email', label: 'Email' },
     { key: 'status', label: 'Status' },
   ];
@@ -97,7 +101,7 @@ export default function SuppliersPage() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
         title="Suppliers"
         description="Manage your suppliers."
@@ -113,8 +117,16 @@ export default function SuppliersPage() {
         searchPlaceholder="Search suppliers…"
         isAdmin={true}
         onAdd={openCreate}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+      />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title="View Supplier"
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
       />
 
       <FormDrawer

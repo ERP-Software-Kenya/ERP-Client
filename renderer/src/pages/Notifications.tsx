@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Notifications } from '../api';
 import { usePagination } from '../hooks/usePagination';
@@ -10,6 +11,7 @@ import type { Notification } from '../types';
 export default function NotificationsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Notification | null>(null);
+  const [viewRow, setViewRow] = useState<Notification | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Notification | null>(null);
 
   const updateMutation = Notifications.useUpdate();
@@ -41,7 +43,7 @@ export default function NotificationsPage() {
   ];
 
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
         title="Notifications"
         description="System-generated notifications. Mark as read or delete."
@@ -56,8 +58,16 @@ export default function NotificationsPage() {
         onRefetch={() => void refetch()}
         searchPlaceholder="Search notifications…"
         isAdmin={true}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+      />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title="View Notification"
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
       />
 
       <FormDrawer

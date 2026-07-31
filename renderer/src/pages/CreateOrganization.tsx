@@ -47,7 +47,7 @@ export default function CreateOrganization() {
           <p className="text-muted-foreground">One more step before you get started</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Organization Name</Label>
             <Input

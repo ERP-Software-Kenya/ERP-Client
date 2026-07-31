@@ -19,7 +19,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
       </div>
@@ -28,7 +28,7 @@ export default function Dashboard() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className="p-6 bg-card border border-border rounded-xl shadow-sm">
+            <div key={stat.label} className="p-4 bg-card border border-border rounded-xl shadow-sm">
               <div className="flex items-center justify-between space-y-0 pb-2">
                 <h3 className="tracking-tight text-sm font-medium text-muted-foreground">{stat.label}</h3>
                 <div className={`p-2 rounded-full ${stat.bg} ${stat.color}`}>
@@ -43,7 +43,7 @@ export default function Dashboard() {
         })}
       </div>
 
-      <div className="p-6 bg-card border border-border rounded-xl shadow-sm text-center text-sm text-muted-foreground">
+      <div className="p-4 bg-card border border-border rounded-xl shadow-sm text-center text-sm text-muted-foreground">
         Sales trends and recent activity require list/reporting endpoints that don't exist on the backend
         yet (Orders, Invoices, StockMovements and ActivityLogs are all create + get-by-id only). Nothing
         to show here until those endpoints exist.

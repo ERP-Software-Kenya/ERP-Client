@@ -20,12 +20,12 @@ export default function SSOCallback() {
         }
 
         await clerk.handleRedirectCallback({
-          signInUrl: '/login',
-          signUpUrl: '/login',
-          signInForceRedirectUrl: '/',
-          signUpForceRedirectUrl: '/',
+          signInUrl: '/#/login',
+          signUpUrl: '/#/login',
+          signInForceRedirectUrl: '/#/',
+          signUpForceRedirectUrl: '/#/',
           // First-time Google users often lack username (required by this Clerk instance)
-          continueSignUpUrl: '/sso-continue',
+          continueSignUpUrl: '/#/sso-continue',
         });
 
         // If Clerk didn't navigate (e.g. incomplete state left in place), finish locally.

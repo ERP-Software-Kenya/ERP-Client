@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
+import { SimpleTable } from '../components/SimpleTable';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -14,7 +15,7 @@ import {
   useStockOperation,
   useProductLogsByInventory,
 } from '../api';
-import type { StockMovementOp } from '../types';
+import type { ProductLog, StockMovement, StockMovementOp } from '../types';
 
 const STOCK_OPS: StockMovementOp[] = [
   'add',
@@ -148,7 +149,7 @@ export default function InventoryDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link to="/inventory" className="mb-2 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
@@ -156,7 +157,7 @@ export default function InventoryDetailPage() {
           </Link>
           <h2 className="text-2xl font-bold tracking-tight">{product?.name ?? 'Product'}</h2>
           <p className="text-sm text-muted-foreground">
-            Store:{' '}
+            Location:{' '}
             {location
               ? location.type
                 ? `${location.name} (${location.type})`
@@ -198,32 +199,25 @@ export default function InventoryDetailPage() {
         ) : (movements?.length ?? 0) === 0 ? (
           <p className="text-sm text-muted-foreground">No movements yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="py-2 pr-4">Type</th>
-                  <th className="py-2 pr-4">Qty</th>
-                  <th className="py-2 pr-4">Before → After</th>
-                  <th className="py-2 pr-4">Notes</th>
-                  <th className="py-2">When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movements!.map((m) => (
-                  <tr key={m.id} className="border-b border-border/60">
-                    <td className="py-2 pr-4">{m.movementType}</td>
-                    <td className="py-2 pr-4">{m.quantity}</td>
-                    <td className="py-2 pr-4">
-                      {m.quantityBefore} → {m.quantityAfter}
-                    </td>
-                    <td className="py-2 pr-4">{m.notes ?? '—'}</td>
-                    <td className="py-2">{m.createdAt ? new Date(m.createdAt).toLocaleString() : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <SimpleTable
+            columns={[
+              { key: 'type', header: 'Type', render: (m: StockMovement) => m.movementType },
+              { key: 'qty', header: 'Qty', render: (m: StockMovement) => m.quantity },
+              {
+                key: 'change',
+                header: 'Before → After',
+                render: (m: StockMovement) => `${m.quantityBefore} → ${m.quantityAfter}`,
+              },
+              { key: 'notes', header: 'Notes', render: (m: StockMovement) => m.notes ?? '—' },
+              {
+                key: 'when',
+                header: 'When',
+                render: (m: StockMovement) => (m.createdAt ? new Date(m.createdAt).toLocaleString() : '—'),
+              },
+            ]}
+            rows={movements!}
+            rowKey={(m) => m.id}
+          />
         )}
       </FormSection>
 
@@ -233,30 +227,24 @@ export default function InventoryDetailPage() {
         ) : (logs?.length ?? 0) === 0 ? (
           <p className="text-sm text-muted-foreground">No audit logs for this record.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="py-2 pr-4">Action</th>
-                  <th className="py-2 pr-4">Fields</th>
-                  <th className="py-2">When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs!.map((log) => (
-                  <tr key={log.id} className="border-b border-border/60">
-                    <td className="py-2 pr-4">{log.action}</td>
-                    <td className="py-2 pr-4">
-                      {log.changedFields?.length
-                        ? log.changedFields.map((c) => c.field).join(', ')
-                        : '—'}
-                    </td>
-                    <td className="py-2">{log.createdAt ? new Date(log.createdAt).toLocaleString() : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <SimpleTable
+            columns={[
+              { key: 'action', header: 'Action', render: (log: ProductLog) => log.action },
+              {
+                key: 'fields',
+                header: 'Fields',
+                render: (log: ProductLog) =>
+                  log.changedFields?.length ? log.changedFields.map((c) => c.field).join(', ') : '—',
+              },
+              {
+                key: 'when',
+                header: 'When',
+                render: (log: ProductLog) => (log.createdAt ? new Date(log.createdAt).toLocaleString() : '—'),
+              },
+            ]}
+            rows={logs!}
+            rowKey={(log) => log.id}
+          />
         )}
       </FormSection>
 

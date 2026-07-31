@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { CategorySelect } from '../components/CategorySelect';
+import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Categories } from '../api';
+import { Categories, useCategoryParents } from '../api';
 import { usePagination } from '../hooks/usePagination';
 import type { Category } from '../types';
 
@@ -26,12 +27,19 @@ export default function CategoriesPage() {
   const [editing, setEditing] = useState<Category | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
+  const [viewRow, setViewRow] = useState<Category | null>(null);
 
   const createMutation = Categories.useCreate();
   const updateMutation = Categories.useUpdate();
   const removeMutation = Categories.useDelete();
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
   const { data, isLoading, error, refetch } = Categories.useSearch({ page, search: debouncedSearch });
+  const { data: allCategories } = Categories.useList();
+  const categoryName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of allCategories ?? []) m.set(c.id, c.name || c.id.slice(0, 8));
+    return m;
+  }, [allCategories]);
 
   const openCreate = () => {
     setEditing(null);
@@ -69,6 +77,12 @@ export default function CategoriesPage() {
 
   const columns: Column<Category>[] = [
     { key: 'name', label: 'Name' },
+    {
+      key: 'parentId',
+      label: 'Parent',
+      render: (row) =>
+        row.parentId ? categoryName.get(row.parentId) ?? row.parentId.slice(0, 8) : '—',
+    },
     { key: 'description', label: 'Description' },
     {
       key: 'isActive',
@@ -80,7 +94,7 @@ export default function CategoriesPage() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
         title="Categories"
         description="Manage the product category hierarchy."
@@ -96,8 +110,16 @@ export default function CategoriesPage() {
         searchPlaceholder="Search categories…"
         isAdmin={true}
         onAdd={openCreate}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+      />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title="View Category"
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
       />
 
       <FormDrawer
@@ -131,9 +153,14 @@ export default function CategoriesPage() {
             />
           </Field>
           <Field label="Parent Category">
-            <CategorySelect
+            <ResourceSelect
+              resource={{ useList: useCategoryParents }}
+              getLabel={(c) => c.name ?? ''}
               value={form.parentId}
               onValueChange={(v) => setForm({ ...form, parentId: v })}
+              placeholder="No parent (top level)"
+              allowNone
+              noneLabel="None (top level)"
               excludeId={editing?.id}
             />
           </Field>

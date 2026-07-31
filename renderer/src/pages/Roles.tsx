@@ -67,7 +67,7 @@ export default function RolesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Roles</h1>

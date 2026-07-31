@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -36,6 +37,7 @@ export default function OrganizationsPage() {
   const [editing, setEditing] = useState<Organization | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Organization | null>(null);
+  const [viewRow, setViewRow] = useState<Organization | null>(null);
 
   const createMutation = Organizations.useCreate();
   const updateMutation = Organizations.useUpdate();
@@ -93,7 +95,7 @@ export default function OrganizationsPage() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
         title="Organizations"
         description="Manage organizations."
@@ -109,8 +111,16 @@ export default function OrganizationsPage() {
         searchPlaceholder="Search organizations…"
         isAdmin={true}
         onAdd={openCreate}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+      />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title="View Organization"
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
       />
 
       <FormDrawer

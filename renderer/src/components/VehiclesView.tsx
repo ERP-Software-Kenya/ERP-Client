@@ -2,11 +2,12 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Car, Search, Filter, Plus, Gauge, Wrench,
-  ChevronRight, Activity, AlertCircle, Pencil, Trash2,
+  ChevronRight, Activity, AlertCircle,
   X, Loader2, Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Vehicle } from '../types';
+import { RowActionsMenu } from './RowActionsMenu';
 
 // ── Local mock only — core-apis has no vehicles endpoints. ────────────────────
 // Edits stay in memory for this session; nothing is persisted to the server.
@@ -277,11 +278,11 @@ export function VehicleModal({ vehicle, onClose, onSaved }: VehicleModalProps) {
       onClick={onClose}
     >
       <div
-        className="bg-card border border-border rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl animate-in zoom-in-95 duration-200 custom-scrollbar"
+        className="bg-card border border-border rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-4 shadow-2xl animate-in zoom-in-95 duration-200 custom-scrollbar"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal header */}
-        <div className="flex justify-between items-center mb-6 pb-4 border-b border-border">
+        <div className="flex justify-between items-center mb-4 pb-3 border-b border-border">
           <div>
             <h3 className="text-xl font-bold text-foreground">
               {isEdit ? `Edit Vehicle — ${vehicle.registration_number}` : 'Add New Vehicle'}
@@ -302,7 +303,7 @@ export function VehicleModal({ vehicle, onClose, onSaved }: VehicleModalProps) {
 
         {/* Error banner */}
         {formError && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-500 text-sm mb-6 flex items-center gap-2">
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-500 text-sm mb-4 flex items-center gap-2">
             <AlertCircle size={16} />
             {formError}
           </div>
@@ -384,7 +385,7 @@ export function VehicleModal({ vehicle, onClose, onSaved }: VehicleModalProps) {
           <div className={sectionHeaderClass}>
             <Wrench size={14} /> Assigned Driver
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className={`${fieldClass} md:col-span-3`}>
               <label className={labelClass}>Driver Name</label>
               <input id="vf-driver" className={inputClass} value={form.driver_name}
@@ -441,8 +442,7 @@ export function VehiclesView() {
   }, [mockEpoch]);
 
   const openCreate = () => { setModalVehicle(null); setShowModal(true); };
-  const openEdit = (v: Vehicle, e: React.MouseEvent) => {
-    e.stopPropagation(); // prevent row-click navigation
+  const openEdit = (v: Vehicle) => {
     setModalVehicle(v);
     setShowModal(true);
   };
@@ -458,8 +458,7 @@ export function VehiclesView() {
     );
   };
 
-  const handleDelete = (v: Vehicle, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = (v: Vehicle) => {
     if (!confirm(`Remove vehicle ${v.registration_number} from the local mock list?`)) return;
     const idx = MOCK_STORE.findIndex((m) => m.id === v.id);
     if (idx >= 0) MOCK_STORE.splice(idx, 1);
@@ -489,10 +488,10 @@ export function VehiclesView() {
 
   return (
     <>
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
               Fleet Vehicles
@@ -523,7 +522,7 @@ export function VehiclesView() {
             { label: 'Available',      value: loading ? '…' : counts.available,   icon: <Activity size={20} className="text-blue-400" />, bg: 'bg-blue-400/10' },
             { label: 'In Maintenance', value: loading ? '…' : counts.maintenance, icon: <Wrench size={20} className="text-amber-500" />,  bg: 'bg-amber-500/10' },
           ].map((card) => (
-            <div key={card.label} className="bg-card border border-border/50 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div key={card.label} className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
                 <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
                   {card.label}
@@ -570,13 +569,13 @@ export function VehiclesView() {
         {/* Vehicles Table */}
         <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex-1 flex flex-col">
           {loading ? (
-            <div className="p-12 flex items-center justify-center gap-3 text-muted-foreground animate-pulse">
+            <div className="p-8 flex items-center justify-center gap-3 text-muted-foreground animate-pulse">
               <Loader2 size={20} className="animate-spin" />
               <span className="font-medium">Loading vehicles…</span>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="p-16 flex flex-col items-center justify-center gap-4 text-muted-foreground">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-2">
+            <div className="p-8 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-1">
                 <AlertCircle size={32} className="text-muted-foreground/50" />
               </div>
               <p className="font-medium">No vehicles match your filters.</p>
@@ -593,7 +592,7 @@ export function VehiclesView() {
                 <thead>
                   <tr className="bg-muted/50 border-b border-border">
                     {['Vehicle ID', 'Type / Make', 'VIN', 'Status', 'Fuel', 'Driver', 'Location', 'Last Service', ''].map((h) => (
-                      <th key={h} className="px-5 py-3 text-[0.7rem] font-bold tracking-widest uppercase text-muted-foreground whitespace-nowrap">
+                      <th key={h} className="px-3 py-2 text-[0.7rem] font-bold tracking-widest uppercase text-muted-foreground whitespace-nowrap">
                         {h}
                       </th>
                     ))}
@@ -606,52 +605,41 @@ export function VehiclesView() {
                       onClick={() => navigate(`/vehicles/${v.id}`)}
                       className="group hover:bg-muted/30 transition-colors cursor-pointer"
                     >
-                      <td className="px-5 py-4 font-mono font-bold text-primary">
+                      <td className="px-3 py-2 font-mono font-bold text-primary">
                         {v.registration_number}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-3 py-2">
                         <div className="font-semibold text-foreground">{v.type}</div>
                         <div className="text-xs text-muted-foreground mt-0.5">{v.make} {v.model} {v.year}</div>
                       </td>
-                      <td className="px-5 py-4 font-mono text-xs text-muted-foreground">
+                      <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                         {v.vin ?? '—'}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-3 py-2">
                         <StatusBadge status={v.status} />
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-3 py-2">
                         <FuelBar level={v.fuel_level} />
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-3 py-2">
                         <div className="font-medium text-foreground">{v.driver_name ?? '—'}</div>
                         {v.driver_cdl && (
                           <div className="text-xs text-muted-foreground mt-0.5">{v.driver_cdl} &bull; {v.driver_experience}</div>
                         )}
                       </td>
-                      <td className="px-5 py-4 text-sm text-muted-foreground max-w-[180px] truncate" title={v.current_location}>
+                      <td className="px-3 py-2 text-sm text-muted-foreground max-w-[180px] truncate" title={v.current_location}>
                         {v.current_location ?? '—'}
                       </td>
-                      <td className="px-5 py-4 text-sm text-muted-foreground whitespace-nowrap">
+                      <td className="px-3 py-2 text-sm text-muted-foreground whitespace-nowrap">
                         {v.last_service_date ?? '—'}
                       </td>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            id={`edit-vehicle-${v.id}`}
-                            title="Edit vehicle"
-                            onClick={(e) => openEdit(v, e)}
-                            className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            id={`delete-vehicle-${v.id}`}
-                            title="Remove vehicle"
-                            onClick={(e) => handleDelete(v, e)}
-                            className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                      <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="inline-flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <RowActionsMenu
+                            onView={() => navigate(`/vehicles/${v.id}`)}
+                            onEdit={() => openEdit(v)}
+                            onDelete={() => handleDelete(v)}
+                          />
                           <ChevronRight size={16} className="text-muted-foreground ml-1" />
                         </div>
                       </td>

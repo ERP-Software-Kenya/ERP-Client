@@ -27,6 +27,13 @@ const EMPTY_FORM: FormState = {
   paymentStatus: '',
 };
 
+function copyId(id: string) {
+  void navigator.clipboard.writeText(id).then(
+    () => toast.success('ID copied'),
+    () => toast.error('Could not copy ID'),
+  );
+}
+
 export default function OrdersPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -36,15 +43,6 @@ export default function OrdersPage() {
 
   const closeDrawer = () => setDrawerOpen(false);
 
-  // Wired up and ready, but the submit button below stays disabled. OrderEntity
-  // has no organizationId column (tenancy flows through storeId -> store ->
-  // org), so that's not the blocker here. The real blocker: CreateOrderRequest
-  // requires a real customerId (@IsNotEmpty @IsUUID), and Customers create is
-  // itself broken (CustomerEntity.organizationId is NOT NULL and never gets
-  // set), so there is no way to obtain one to test against. Live-tested
-  // 2026-07-26 with a fabricated customerId, which failed as expected on the
-  // FK, not proof of an Order-specific bug. Re-test once Customers create
-  // works, then remove the `disabled` prop.
   const createMutation = Orders.useCreate();
   const { data: lookedUp, isLoading, error } = Orders.useGet(activeId);
 
@@ -82,23 +80,22 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Orders</h1>
+          <h1 className="text-2xl font-semibold">Sales Orders</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Create + get by UUID only — no directory. Line items have no API yet. Customers have no
-            list either, so paste a Customer ID. <span className="text-amber-500 font-medium">Create
-            is blocked</span> — depends on working Customers create / BE tenancy (see
-            docs/core-apis-fixes.md #8).
+            Create + get by UUID only — no directory. Paste a Customer ID (customers have no list
+            either).
           </p>
         </div>
-        <Button onClick={() => setDrawerOpen(true)}>New Order</Button>
+        <Button onClick={() => setDrawerOpen(true)}>New Sales Order</Button>
       </div>
 
       <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-500">
-        Create submit stays disabled until Customers create works and orders can be live-proven. Look
-        up works when you already have an order UUID.
+        Create is enabled and can succeed if you paste an existing customer UUID (Core API order create
+        itself is fine). Customer <em>create</em> is broken (#8) and there is no customers list — use a
+        known DB id. Live errors show in toast.
       </div>
 
       <FormSection title="Look up order">
@@ -125,8 +122,11 @@ export default function OrdersPage() {
             </p>
           ) : (
             <div className="grid gap-2 text-sm sm:grid-cols-2">
-              <p>
+              <p className="flex flex-wrap items-center gap-2">
                 <span className="text-muted-foreground">ID:</span> {lookedUp.id}
+                <Button type="button" variant="outline" size="sm" onClick={() => copyId(lookedUp.id)}>
+                  Copy
+                </Button>
               </p>
               <p>
                 <span className="text-muted-foreground">Order #:</span> {lookedUp.orderNumber ?? '—'}
@@ -153,21 +153,26 @@ export default function OrdersPage() {
       )}
 
       {lastCreated && (
-        <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">
+        <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-2">
           <div className="font-medium">Last created order</div>
           <div>Order #: {lastCreated.orderNumber}</div>
-          <div>ID: {lastCreated.id}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            ID: {lastCreated.id}
+            <Button type="button" variant="outline" size="sm" onClick={() => copyId(lastCreated.id)}>
+              Copy
+            </Button>
+          </div>
         </div>
       )}
 
       <FormDrawer
         open={drawerOpen}
         onClose={closeDrawer}
-        title="New Order"
+        title="New Sales Order"
         footer={
           <>
-            <Button type="submit" form="order-form" disabled>
-              Create (blocked — see notice above)
+            <Button type="submit" form="order-form" disabled={createMutation.isPending}>
+              {createMutation.isPending ? 'Creating…' : 'Create'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>
               Cancel
@@ -177,7 +182,8 @@ export default function OrdersPage() {
       >
         <form id="order-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            Submitting is disabled — BE org/tenancy / customer dependency; do not enable until fixed.
+            Live Swagger requires <code className="text-[10px]">storeId</code> +{' '}
+            <code className="text-[10px]">customerId</code>.
           </div>
           <Field label="Store" required>
             <ResourceSelect
@@ -190,7 +196,7 @@ export default function OrdersPage() {
           </Field>
           <Field label="Customer ID" required>
             <Input
-              placeholder="Paste a Customer ID you already have"
+              placeholder="Paste a Customer UUID"
               value={form.customerId}
               onChange={(e) => setForm({ ...form, customerId: e.target.value })}
               required

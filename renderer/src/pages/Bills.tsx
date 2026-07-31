@@ -3,11 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Bills } from '../api';
 import { usePagination } from '../hooks/usePagination';
 import type { Bill } from '../types';
+
+/** Wire amount: Response DTO uses `amount` but domain maps `totalAmount` — often both missing. */
+function billAmount(row: Bill): number | undefined {
+  if (row.amount != null) return Number(row.amount);
+  if (row.totalAmount != null) return Number(row.totalAmount);
+  return undefined;
+}
 
 interface FormState {
   billNumber: string;
@@ -15,12 +23,13 @@ interface FormState {
   status: string;
 }
 
-const EMPTY_FORM: FormState = { billNumber: '', amount: '', status: '' };
+const EMPTY_FORM: FormState = { billNumber: '', amount: '', status: 'UNPAID' };
 
 export default function BillsPage() {
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Bill | null>(null);
+  const [viewRow, setViewRow] = useState<Bill | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Bill | null>(null);
 
@@ -30,9 +39,7 @@ export default function BillsPage() {
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
   const { data, isLoading, isError, error, refetch } = Bills.useSearch({ page, search: debouncedSearch });
   const listError = isError
-    ? `Unable to load bills — the backend is returning errors and needs a fix (see notice above).${
-        error instanceof Error && error.message ? ` (${error.message})` : ''
-      }`
+    ? `Unable to load bills.${error instanceof Error && error.message ? ` (${error.message})` : ''}`
     : null;
 
   const openCreate = () => {
@@ -43,9 +50,10 @@ export default function BillsPage() {
 
   const openEdit = (row: Bill) => {
     setEditing(row);
+    const amt = billAmount(row);
     setForm({
       billNumber: row.billNumber ?? '',
-      amount: row.amount != null ? String(row.amount) : '',
+      amount: amt != null ? String(amt) : '',
       status: row.status ?? '',
     });
     setDrawerOpen(true);
@@ -55,41 +63,61 @@ export default function BillsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const body: Partial<Bill> = {
-      billNumber: form.billNumber || undefined,
-      amount: form.amount ? Number(form.amount) : undefined,
-      status: form.status || undefined,
-    };
     if (editing) {
-      updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
-    } else {
-      createMutation.mutate(body, { onSuccess: closeDrawer });
+      // UpdateBillRequest is status/amount — may still fail mapping; attempt update only.
+      updateMutation.mutate(
+        {
+          id: editing.id,
+          body: {
+            amount: form.amount ? Number(form.amount) : undefined,
+            status: form.status || undefined,
+          },
+        },
+        { onSuccess: closeDrawer },
+      );
+      return;
     }
   };
 
   const columns: Column<Bill>[] = [
-    { key: 'billNumber', label: 'Bill #' },
+    {
+      key: 'id',
+      label: 'ID',
+      render: (row) => row.id.slice(0, 8),
+    },
+    {
+      key: 'billNumber',
+      label: 'Bill #',
+      render: (row) => row.billNumber || '—',
+    },
     {
       key: 'amount',
       label: 'Amount',
-      render: (row) => `$${Number(row.amount || 0).toFixed(2)}`,
+      render: (row) => {
+        const amt = billAmount(row);
+        return amt != null ? `$${amt.toFixed(2)}` : '—';
+      },
     },
-    { key: 'status', label: 'Status' },
+    { key: 'status', label: 'Status', render: (row) => row.status || '—' },
+    {
+      key: 'createdAt',
+      label: 'Created',
+      render: (row) => row.createdAt || row.created_at || '—',
+    },
   ];
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const isSaving = updateMutation.isPending;
 
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-        Currently blocked end-to-end — live-tested 2026-07-26: browsing (list/search 500s, see
-        docs/core-apis-fixes.md #1) and creating/updating (field mismatch between the API and the
-        database, see #0c) both fail server-side. There's also no field linking a bill to a Purchase
-        Order today.
+        Create blocked — verified in core-apis: <code className="text-[10px]">CreateBillRequest</code> has no{' '}
+        <code className="text-[10px]">@AutoMap</code> and fields (orgId/billNumber/amount) do not match command
+        (supplierId/storeId/totalAmount). List/get usually only populate id/status/createdAt.
       </div>
       <DataTable
         title="Bills"
-        description="Track bills and payment obligations."
+        description="Browse bills (create requires a Core API DTO fix)."
         columns={columns}
         rows={listError ? [] : (data?.items ?? [])}
         total={listError ? 0 : (data?.total ?? 0)}
@@ -102,10 +130,32 @@ export default function BillsPage() {
         searchPlaceholder="Search bills…"
         isAdmin={true}
         onAdd={openCreate}
-        onView={(row) => navigate(`/bills/${row.id}`)}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
       />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title="View Bill"
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
+      >
+        {viewRow && (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              const id = viewRow.id;
+              setViewRow(null);
+              navigate(`/bills/${id}`);
+            }}
+          >
+            Open full page
+          </Button>
+        )}
+      </ViewDrawer>
 
       <FormDrawer
         open={drawerOpen}
@@ -113,8 +163,12 @@ export default function BillsPage() {
         title={editing ? 'Edit Bill' : 'Add Bill'}
         footer={
           <>
-            <Button type="submit" form="bill-form" disabled>
-              {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
+            <Button
+              type="submit"
+              form="bill-form"
+              disabled={!editing || isSaving || createMutation.isPending}
+            >
+              {editing ? (isSaving ? 'Saving…' : 'Save') : 'Create (blocked — Core API #0c)'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>
               Cancel
@@ -123,15 +177,13 @@ export default function BillsPage() {
         }
       >
         <form id="bill-form" onSubmit={handleSubmit} className="space-y-5">
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            Submitting is disabled — this endpoint currently fails server-side for every request.
-          </div>
+          {!editing && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+              Create cannot succeed until Core API aligns bill request ↔ command ↔ entity.
+            </div>
+          )}
           <Field label="Bill Number">
-            <Input
-              value={form.billNumber}
-              onChange={(e) => setForm({ ...form, billNumber: e.target.value })}
-              autoFocus
-            />
+            <Input value={form.billNumber} disabled={!editing} onChange={(e) => setForm({ ...form, billNumber: e.target.value })} />
           </Field>
           <Field label="Amount">
             <Input
@@ -139,13 +191,14 @@ export default function BillsPage() {
               step="0.01"
               min="0"
               value={form.amount}
+              disabled={!editing}
               onChange={(e) => setForm({ ...form, amount: e.target.value })}
             />
           </Field>
           <Field label="Status">
             <Input
-              placeholder="e.g. UNPAID"
               value={form.status}
+              disabled={!editing}
               onChange={(e) => setForm({ ...form, status: e.target.value })}
             />
           </Field>

@@ -13,7 +13,7 @@ export default function Topbar() {
   const initial = (user?.firstName?.[0] || user?.email?.[0] || '?').toUpperCase();
 
   return (
-    <header className="h-16 px-6 bg-card border-b border-border flex items-center justify-end gap-3 sticky top-0 z-10">
+    <header className="h-14 px-3 bg-card border-b border-border flex items-center justify-end gap-3 sticky top-0 z-10">
       <button
         type="button"
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

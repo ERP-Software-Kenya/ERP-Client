@@ -22,7 +22,6 @@ export default function PurchaseOrdersPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<PurchaseOrder | null>(null);
 
-  const createMutation = PurchaseOrders.useCreate();
   const updateMutation = PurchaseOrders.useUpdate();
   const removeMutation = PurchaseOrders.useDelete();
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
@@ -31,9 +30,7 @@ export default function PurchaseOrdersPage() {
     search: debouncedSearch,
   });
   const listError = isError
-    ? `Unable to load purchase orders — the backend is returning errors and needs a fix (see notice above).${
-        error instanceof Error && error.message ? ` (${error.message})` : ''
-      }`
+    ? `Unable to load purchase orders.${error instanceof Error && error.message ? ` (${error.message})` : ''}`
     : null;
 
   const closeDrawer = () => setDrawerOpen(false);
@@ -52,33 +49,34 @@ export default function PurchaseOrdersPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const body: Partial<PurchaseOrder> = { name: form.name || undefined };
-    if (editing) {
-      updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
-    } else {
-      createMutation.mutate(body, { onSuccess: closeDrawer });
-    }
+    if (!editing) return;
+    // Update only sets name in Core API too — still hollow, but allowed for attempt on existing rows.
+    updateMutation.mutate(
+      { id: editing.id, body: { name: form.name || undefined } },
+      { onSuccess: closeDrawer },
+    );
   };
 
   const columns: Column<PurchaseOrder>[] = [
-    { key: 'name', label: 'Name', render: (row) => row.name || '(unnamed)' },
+    { key: 'name', label: 'Name', render: (row) => row.name || '(unnamed — API has no poNumber on response)' },
     { key: 'id', label: 'ID', render: (row) => row.id.slice(0, 8) },
-    { key: 'created_at', label: 'Created' },
+    {
+      key: 'createdAt',
+      label: 'Created',
+      render: (row) => row.createdAt || row.created_at || '—',
+    },
   ];
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
-
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-        Currently blocked end-to-end — live-tested 2026-07-26: both browsing (list/search 500s, see
-        docs/core-apis-fixes.md #1) and creating (500s even for just "Name", see #0) fail server-side.
-        Supplier, store, status, total, and order date exist in the database but aren't exposed by the
-        API at all. Line items and Bills are managed from a purchase order's detail view.
+        Create blocked — verified: handler persists only <code className="text-[10px]">{'{ name }'}</code> but
+        entity requires storeId/supplierId/poNumber and has no name column (#0). List/search still work for
+        seeded rows (id / createdAt).
       </div>
       <DataTable
         title="Purchase Orders"
-        description="Manage purchase orders. Open a row to view/add line items and linked bills."
+        description="Browse POs. Open a row for detail. Create needs a Core API fix."
         columns={columns}
         rows={listError ? [] : (data?.items ?? [])}
         total={listError ? 0 : (data?.total ?? 0)}
@@ -102,8 +100,8 @@ export default function PurchaseOrdersPage() {
         title={editing ? 'Edit Purchase Order' : 'Add Purchase Order'}
         footer={
           <>
-            <Button type="submit" form="purchase-order-form" disabled>
-              {isSaving ? 'Saving…' : 'Save (blocked — see notice above)'}
+            <Button type="submit" form="purchase-order-form" disabled={!editing || updateMutation.isPending}>
+              {editing ? (updateMutation.isPending ? 'Saving…' : 'Save') : 'Create (blocked — Core API #0)'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>
               Cancel
@@ -112,14 +110,17 @@ export default function PurchaseOrdersPage() {
         }
       >
         <form id="purchase-order-form" onSubmit={handleSubmit} className="space-y-4">
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            Submitting is disabled — this endpoint currently fails server-side for every request (live-tested 2026-07-26, see docs/core-apis-fixes.md #0).
-          </div>
+          {!editing && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+              Create cannot succeed until Core API maps real PO fields onto the entity.
+            </div>
+          )}
           <Field label="Name">
             <Input
               value={form.name}
               onChange={(e) => setForm({ name: e.target.value })}
               autoFocus
+              disabled={!editing}
             />
           </Field>
         </form>

@@ -58,33 +58,6 @@ export interface Location {
   updatedAt?: string;
 }
 
-export interface OrgAddress {
-  id: string;
-  organizationId: string;
-  type?: string;
-  line1: string;
-  line2?: string;
-  city: string;
-  state?: string;
-  country: string;
-  postalCode: string;
-  isPrimary?: boolean;
-  createdAt?: string;
-}
-
-export interface UserAddress {
-  id: string;
-  userId: string;
-  type?: string;
-  line1: string;
-  line2?: string;
-  city: string;
-  state?: string;
-  country: string;
-  postalCode: string;
-  createdAt?: string;
-}
-
 // Verified against core-apis source (categories.controller.ts, create/update-category.request.ts,
 // category.response.ts): fields are camelCase, there is no `code` field, and status is the boolean
 // `isActive` (settable only via update, not create).
@@ -150,6 +123,13 @@ export interface ProductImage {
   createdAt: string;
 }
 
+/** Response from GET /api/v1/products/:id/image/presigned-url */
+export interface ProductImageUploadUrl {
+  uploadUrl: string;
+  key: string;
+  publicUrl: string;
+}
+
 // Matches core-apis' InventoryResponse DTO (camelCase). Verified 2026-07-30
 // against src/application/modules/inventory source — the module was fully
 // overhauled 2026-07-28 (commit 49a1426), after which this became the real
@@ -183,53 +163,46 @@ export interface Supplier {
   updated_at?: string;
 }
 
-// Verified 2026-07-26 against core-apis source: CreatePurchaseOrderRequest/
-// UpdatePurchaseOrderRequest/PurchaseOrderResponse only carry `name` — the fields
-// below (supplier_id/store_id/total_amount/status/ordered_at) exist on the real
-// DB entity but are NOT reachable through the API at all today. Kept here only so
-// existing Phase 1 code compiles; do not trust them to round-trip. See
-// docs/core-apis-fixes.md #0.
+// Verified 2026-07-31 (local core-apis): response/domain only id+name(+dates).
+// Entity has storeId/supplierId/poNumber/totalAmount but create persists `{ name }`
+// only and entity has no `name` column — create always fails. See #0.
 export interface PurchaseOrder {
   id: string;
   name?: string;
-  supplier_id?: string;
-  store_id?: string;
-  total_amount?: number;
-  status?: string;
-  ordered_at?: string;
+  createdAt?: string;
+  updatedAt?: string;
   created_at?: string;
-  updated_at?: string;
 }
 
-// Verified 2026-07-26 against core-apis's BillResponse/CreateBillRequest source
-// directly — the real wire contract is orgId/billNumber/amount/status, not
-// purchase_order_id/amount/due_date. Create 500s regardless: the entity's real
-// NOT-NULL columns are supplierId/storeId/totalAmount, which nothing in this DTO
-// sets. There is no field anywhere linking a Bill to a PurchaseOrder. See
-// docs/core-apis-fixes.md #0c.
+// Verified 2026-07-31: Swagger CreateBillRequest is orgId/billNumber/amount, but
+// command/entity need supplierId/storeId/totalAmount; request has no @AutoMap —
+// create always fails. Bill→BillResponse only maps id/status/createdAt. See #0c.
 export interface Bill {
   id: string;
   orgId?: string;
   billNumber?: string;
   amount?: number;
+  totalAmount?: number;
+  supplierId?: string;
+  storeId?: string;
   status?: string;
+  createdAt?: string;
   created_at?: string;
 }
 
-// Verified 2026-07-26 against core-apis's PaymentTransactionResponse/
-// CreatePaymentTransactionRequest source directly. referenceId+referenceType is
-// the confirmed linkage pattern (e.g. referenceType: 'bill', referenceId: <bill.id>).
-// Create 500s regardless — domain model uses orgId, entity column is
-// organizationId. See docs/core-apis-fixes.md #0d.
+// Verified 2026-07-31: CreatePaymentTransactionRequest has no @AutoMap; domain
+// orgId vs entity organizationId — create fails. See #0d.
 export interface PaymentTransaction {
   id: string;
   orgId?: string;
+  organizationId?: string;
   referenceId?: string;
   referenceType?: string;
   type?: string;
   method?: string;
   amount?: number;
   status?: string;
+  createdAt?: string;
   created_at?: string;
 }
 
@@ -242,12 +215,9 @@ export interface Notification {
   created_at?: string;
 }
 
-// Verified 2026-07-26 against core-apis's ItemReturnResponse/CreateItemReturnRequest
-// source directly — fully camelCase, matches the entity exactly (this is the one
-// clean full-CRUD resource found in the Phase 2 investigation, see
-// docs/core-apis-fixes.md #0e). There is no `return_number`/`returnNumber` field —
-// that was a guess, not real. `orderId` is a real FK to Orders (sales), it cannot
-// reference a PurchaseOrder.
+// Verified 2026-07-31: entity field names match, but CreateItemReturnRequest has
+// no @AutoMap so Automapper leaves the command empty — create fails until Core
+// API adds @AutoMap (or maps manually). No returnNumber / purchaseOrderId. #0e
 export interface ItemReturn {
   id: string;
   status?: string;
@@ -384,9 +354,9 @@ export interface Invoice {
   status?: string;
 }
 
-// Verified 2026-07-26 against core-apis's CustomerResponse/CreateCustomerRequest
-// source directly. Create 500s regardless: entity's NOT-NULL organizationId is
-// never set by the command. See docs/core-apis-fixes.md #8.
+// Verified 2026-07-31 (local core-apis): CreateCustomerCommand has no
+// organizationId; controller has no ClerkAuthGuard / @CurrentUser injection —
+// NOT NULL organizationId always fails. Body cannot work around it. See #8.
 export interface Customer {
   id: string;
   name?: string;

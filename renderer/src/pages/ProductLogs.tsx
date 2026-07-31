@@ -40,7 +40,7 @@ export default function ProductLogsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h2 className="text-xl font-semibold">Product logs</h2>
         <p className="mt-1 text-sm text-muted-foreground">Audit trail by product, inventory record, or log ID.</p>

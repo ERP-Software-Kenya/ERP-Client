@@ -13,6 +13,8 @@ interface ResourceSelectProps<T extends { id: string }> {
   onValueChange: (value: string) => void;
   placeholder?: string;
   allowNone?: boolean;
+  noneLabel?: string;
+  excludeId?: string;
 }
 
 export function ResourceSelect<T extends { id: string }>({
@@ -22,9 +24,11 @@ export function ResourceSelect<T extends { id: string }>({
   onValueChange,
   placeholder,
   allowNone,
+  noneLabel = 'None',
+  excludeId,
 }: ResourceSelectProps<T>) {
   const { data } = resource.useList();
-  const items = data ?? [];
+  const items = (data ?? []).filter((item) => item.id !== excludeId);
 
   return (
     <Select value={value || NONE_VALUE} onValueChange={(v) => onValueChange(v === NONE_VALUE ? '' : v)}>
@@ -32,7 +36,7 @@ export function ResourceSelect<T extends { id: string }>({
         <SelectValue placeholder={placeholder ?? 'Select…'} />
       </SelectTrigger>
       <SelectContent>
-        {allowNone && <SelectItem value={NONE_VALUE}>None</SelectItem>}
+        {allowNone && <SelectItem value={NONE_VALUE}>{noneLabel}</SelectItem>}
         {items.map((item) => (
           <SelectItem key={item.id} value={item.id}>
             {getLabel(item)}

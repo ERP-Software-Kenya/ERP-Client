@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
+import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ReportGenerationLogs } from '../api';
@@ -13,6 +14,7 @@ export default function ReportGenerationLogsPage() {
   const [editing, setEditing] = useState<ReportGenerationLog | null>(null);
   const [status, setStatus] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ReportGenerationLog | null>(null);
+  const [viewRow, setViewRow] = useState<ReportGenerationLog | null>(null);
 
   const updateMutation = ReportGenerationLogs.useUpdate();
   const removeMutation = ReportGenerationLogs.useDelete();
@@ -40,7 +42,7 @@ export default function ReportGenerationLogsPage() {
   ];
 
   return (
-    <div className="space-y-6" style={{ height: '100%' }}>
+    <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
         title="Report Generation Logs"
         description="System-generated report job logs. Update status or delete."
@@ -55,8 +57,16 @@ export default function ReportGenerationLogsPage() {
         onRefetch={() => void refetch()}
         searchPlaceholder="Search report logs…"
         isAdmin={true}
+        onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+      />
+
+      <ViewDrawer
+        open={viewRow != null}
+        title="View Report Log"
+        data={viewRow as Record<string, unknown> | null}
+        onClose={() => setViewRow(null)}
       />
 
       <FormDrawer

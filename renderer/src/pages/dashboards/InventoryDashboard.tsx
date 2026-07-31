@@ -5,7 +5,7 @@ import type { InventoryItem } from '../../types';
 
 function StatCard({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ size?: number }> }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="flex items-center justify-between pb-2">
         <h3 className="text-sm font-medium tracking-tight text-muted-foreground">{label}</h3>
         <div className="rounded-full bg-blue-500/10 p-2 text-blue-500">
@@ -31,7 +31,7 @@ export default function InventoryDashboard() {
   const lowItems = lowStock ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <h2 className="text-3xl font-bold tracking-tight">Inventory Dashboard</h2>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -53,7 +53,7 @@ export default function InventoryDashboard() {
         <StatCard label="Published products" value="Not available" icon={Package} />
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-semibold">Low stock</h3>
           <Link to="/inventory" className="text-sm text-primary hover:underline">
@@ -72,7 +72,7 @@ export default function InventoryDashboard() {
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="py-2 pr-4">Product</th>
-                  <th className="py-2 pr-4">Store</th>
+                  <th className="py-2 pr-4">Location</th>
                   <th className="py-2 pr-4">On hand</th>
                   <th className="py-2">Reorder</th>
                 </tr>

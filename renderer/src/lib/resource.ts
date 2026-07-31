@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { get, post, put, del, type QueryParams } from './http';
 import type { PaginatedResponse } from '../types';
 
-export interface SearchParams {
+interface SearchParams {
   page?: number;
   limit?: number;
   search?: string;
@@ -20,7 +20,7 @@ function toQuery(p?: SearchParams): QueryParams {
   };
 }
 
-export interface SearchResult<T> {
+interface SearchResult<T> {
   items: T[];
   total: number;
 }
@@ -132,5 +132,3 @@ export function createResource<T extends { id: string }>(basePath: string, query
     },
   };
 }
-
-export type Resource<T extends { id: string }> = ReturnType<typeof createResource<T>>;

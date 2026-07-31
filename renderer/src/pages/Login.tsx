@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { clerk } from '../lib/clerk';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import AuthBootScreen from '../components/auth/AuthBootScreen';
 import LoginVisualPanel from '../components/auth/LoginVisualPanel';
 import { toast } from 'sonner';
 
@@ -16,7 +18,7 @@ function clerkErrorMessage(error: any, fallback: string): string {
 }
 
 export default function Login() {
-  const { user, refresh, syncing } = useAuth();
+  const { user, refresh, syncing, bootPhase } = useAuth();
   const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -49,11 +51,7 @@ export default function Login() {
   // Backend /me still catching up after setActive — avoid flashing the login form.
   // Require an active Clerk session so a stale syncing flag after logout cannot flash this UI.
   if (syncing && clerk.session) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Signing you in…
-      </div>
-    );
+    return <AuthBootScreen phase={bootPhase ?? 'session'} />;
   }
 
   const requireClerkClient = () => {
@@ -140,8 +138,8 @@ export default function Login() {
       const origin = window.location.origin;
       await clerk.client!.signIn.authenticateWithRedirect({
         strategy: 'oauth_google',
-        redirectUrl: `${origin}/sso-callback`,
-        redirectUrlComplete: `${origin}/`,
+        redirectUrl: `${origin}/#/sso-callback`,
+        redirectUrlComplete: `${origin}/#/`,
       });
     } catch (error: any) {
       toast.error(clerkErrorMessage(error, 'Google sign-in failed'));
@@ -327,6 +325,7 @@ export default function Login() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="animate-spin" />}
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
             <div className="relative">
@@ -410,6 +409,7 @@ export default function Login() {
             </div>
             <div id="clerk-captcha" />
             <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="animate-spin" />}
               {loading ? 'Creating account...' : 'Sign Up'}
             </Button>
             <div className="relative">
@@ -453,6 +453,7 @@ export default function Login() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="animate-spin" />}
               {loading ? 'Verifying...' : 'Verify'}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
