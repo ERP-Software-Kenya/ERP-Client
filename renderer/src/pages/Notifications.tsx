@@ -39,7 +39,7 @@ export default function NotificationsPage() {
     { key: 'message', label: 'Message' },
     { key: 'type', label: 'Type' },
     { key: 'read', label: 'Read', render: (row) => (row.read ? 'Yes' : 'No') },
-    { key: 'created_at', label: 'Created' },
+    { key: 'created_at', label: 'Created', render: (row) => row.created_at ? new Date(row.created_at).toLocaleString() : '—' },
   ];
 
   return (

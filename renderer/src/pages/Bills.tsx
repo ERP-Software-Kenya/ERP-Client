@@ -183,7 +183,7 @@ export default function BillsPage() {
     {
       key: 'createdAt',
       label: 'Created',
-      render: (row) => row.createdAt || '—',
+      render: (row) => row.createdAt ? new Date(row.createdAt).toLocaleString() : '—',
     },
   ];
 

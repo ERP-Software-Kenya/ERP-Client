@@ -6,7 +6,7 @@ import { FormDrawer, Field } from '../components/FormDrawer';
 import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Categories, useCategoryParents } from '../api';
+import { Categories, Organizations, useCategoryParents } from '../api';
 import { usePagination } from '../hooks/usePagination';
 import { formatEntityLabel } from '../lib/entityLabel';
 import type { Category } from '../types';
@@ -43,6 +43,12 @@ export default function CategoriesPage() {
     }
     return m;
   }, [allCategories]);
+  const { data: orgs } = Organizations.useList();
+  const orgName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of orgs ?? []) m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
+    return m;
+  }, [orgs]);
 
   const openCreate = () => {
     setEditing(null);
@@ -98,6 +104,14 @@ export default function CategoriesPage() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
+  const viewData = viewRow
+    ? ({
+        ...viewRow,
+        organizationId: viewRow.organizationId ? (orgName.get(viewRow.organizationId) ?? viewRow.organizationId) : undefined,
+        parentId: viewRow.parentId ? (categoryName.get(viewRow.parentId) ?? viewRow.parentId) : undefined,
+      } as Record<string, unknown>)
+    : null;
+
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
@@ -123,7 +137,7 @@ export default function CategoriesPage() {
       <ViewDrawer
         open={viewRow != null}
         title="View Category"
-        data={viewRow as Record<string, unknown> | null}
+        data={viewData}
         onClose={() => setViewRow(null)}
       />
 

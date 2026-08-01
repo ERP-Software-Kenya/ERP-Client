@@ -48,7 +48,7 @@ export default function ReportGenerationLogsPage() {
   const columns: Column<ReportGenerationLog>[] = [
     { key: 'report_type', label: 'Report Type' },
     { key: 'status', label: 'Status' },
-    { key: 'created_at', label: 'Created' },
+    { key: 'created_at', label: 'Created', render: (row) => row.created_at ? new Date(row.created_at).toLocaleString() : '—' },
   ];
 
   return (

@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Customers } from '../api';
+import { Customers, Organizations } from '../api';
 import { usePagination } from '../hooks/usePagination';
+import { formatEntityLabel } from '../lib/entityLabel';
 import type { Customer } from '../types';
 
 interface FormState {
@@ -28,6 +29,12 @@ export default function CustomersPage() {
   const createMutation = Customers.useCreate();
   const updateMutation = Customers.useUpdate();
   const removeMutation = Customers.useDelete();
+  const { data: orgs } = Organizations.useList();
+  const orgName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of orgs ?? []) m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
+    return m;
+  }, [orgs]);
   // Customers SearchCustomersRequest omits $page/$perPage — single API default page only.
   const { setSearch, debouncedSearch } = usePagination();
   const { data, isLoading, isError, error, refetch } = Customers.useSearch({
@@ -101,6 +108,13 @@ export default function CustomersPage() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
+  const viewData = viewRow
+    ? ({
+        ...viewRow,
+        organizationId: viewRow.organizationId ? (orgName.get(viewRow.organizationId) ?? viewRow.organizationId) : undefined,
+      } as Record<string, unknown>)
+    : null;
+
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
@@ -128,7 +142,7 @@ export default function CustomersPage() {
       <ViewDrawer
         open={viewRow != null}
         title="View Customer"
-        data={viewRow as Record<string, unknown> | null}
+        data={viewData}
         onClose={() => setViewRow(null)}
       />
 

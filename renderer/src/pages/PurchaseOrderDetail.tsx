@@ -26,7 +26,7 @@ export default function PurchaseOrderDetail() {
         <h1 className="text-2xl font-semibold">{po.name || '(unnamed purchase order)'}</h1>
         <p className="text-muted-foreground text-sm mt-1">ID: {po.id}</p>
         <p className="text-muted-foreground text-xs mt-1">
-          Created: {po.createdAt || po.created_at || '—'}
+          Created: {(po.createdAt || po.created_at) ? new Date(po.createdAt || po.created_at!).toLocaleString() : '—'}
         </p>
       </div>
 
