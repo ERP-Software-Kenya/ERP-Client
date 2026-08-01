@@ -25,13 +25,23 @@ if (!token) {
   process.exit(1);
 }
 
+if (token.includes('github_pat_key') || token === 'ghp_or_github_pat_here') {
+  console.error('ERROR: Replace the placeholder GITHUB_DEPLOY_KEY in .env with a real token.');
+  process.exit(1);
+}
+
 // electron-builder reads GH_TOKEN for GitHub publishing
 process.env.GH_TOKEN = token;
+// Skip code-signing discovery noise on unsigned builds
+process.env.CSC_IDENTITY_AUTO_DISCOVERY ??= 'false';
 
-console.log('[publish] Using GITHUB_DEPLOY_KEY for release publishing.');
+console.log('[publish] Using GITHUB_DEPLOY_KEY for GitHub Releases on HitarthSM/ERP-Client.');
+console.log('[publish] Building Windows NSIS only (no Snap Store).');
 console.log('[publish] Starting full build + publish pipeline…\n');
 
-execSync(
-  'npm run build && electron-builder --publish always',
-  { stdio: 'inherit', cwd: root },
-);
+// --win: Windows installer only. Without this, Linux hosts build .snap and try Snap Store.
+execSync('npm run build && electron-builder --win --x64 --publish always', {
+  stdio: 'inherit',
+  cwd: root,
+  env: process.env,
+});

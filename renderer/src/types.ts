@@ -7,62 +7,6 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-// ── App Settings ──────────────────────────────────────────────────────────────
-export interface AppSettings {
-  apiBaseUrl: string;
-  apiToken: string | null;
-  lockTimeoutMinutes: number;
-  theme: 'dark' | 'light';
-}
-
-export type AppUserRole = 'admin' | 'operator';
-
-export interface User {
-  id: number;
-  username: string;
-  name: string;
-  role: AppUserRole;
-  status: 'active' | 'inactive';
-  last_activity?: string;
-}
-
-export interface Session {
-  id: string;
-  user_id: number;
-}
-
-// ── Navigation Tabs ───────────────────────────────────────────────────────────
-export type Tab =
-  | 'dashboard'
-  | 'notifications'
-  | 'activity-logs'
-  | 'products'
-  | 'categories'
-  | 'inventory'
-  | 'stock-movements'
-  | 'stock-transfers'
-  | 'item-returns'
-  | 'orders'
-  | 'invoices'
-  | 'customers'
-  | 'purchase-orders'
-  | 'purchase-items'
-  | 'suppliers'
-  | 'bills'
-  | 'stores'
-  | 'payment-transactions'
-  | 'expenses'
-  | 'reports'
-  | 'report-generation-logs'
-  | 'users'
-  | 'roles'
-  | 'user-roles'
-  | 'organizations'
-  | 'platform-configurations'
-  | 'vehicles'
-  | 'settings'
-  | 'payments';
-
 // ── Entities ──────────────────────────────────────────────────────────────────
 
 // ── snake_case fields match actual API response field names ────────────────────
@@ -73,6 +17,8 @@ export interface Organization {
   code?: string;
   email?: string;
   phone?: string;
+  address?: string;
+  country?: string;
   status?: string;
   created_at?: string;
   updated_at?: string;
@@ -83,47 +29,124 @@ export interface Store {
   name: string;
   code?: string;
   address?: string;
+  city?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
   organization_id?: string;
   status?: string;
   created_at?: string;
   updated_at?: string;
 }
 
+// ── Addresses ─────────────────────────────────────────────────────────────────
+
+export type LocationType = 'store' | 'warehouse';
+
+export interface Location {
+  id: string;
+  organizationId?: string;
+  name: string;
+  type: LocationType;
+  imageKey?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  phone?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Verified against core-apis source (categories.controller.ts, create/update-category.request.ts,
+// category.response.ts): fields are camelCase, there is no `code` field, and status is the boolean
+// `isActive` (settable only via update, not create).
 export interface Category {
   id: string;
-  name: string;
-  code?: string;
+  organizationId?: string;
+  parentId?: string;
+  name?: string;
   description?: string;
-  parent_id?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
+
+// Verified 2026-07-26 against core-apis source (products.controller.ts,
+// create/update-product.request.ts): fields are camelCase and there is no
+// snake_case conversion layer in api.ts, so these names must match the wire
+// format exactly. `unit` is a fixed backend enum, not free text.
+export type ProductUnit = 'piece' | 'kg' | 'gram' | 'litre' | 'ml' | 'box' | 'pack' | 'dozen';
 
 export interface Product {
   id: string;
-  name: string;
-  code?: string;
-  unit?: string;
-  unit_price?: number;
+  organizationId?: string;
+  categoryId?: string;
+  createdById?: string;
+  name?: string;
   sku?: string;
   barcode?: string;
-  category_id?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
+  description?: string;
+  unit?: ProductUnit;
+  costPrice?: number;
+  retailPrice?: number;
+  loyaltyPrice?: number;
+  wholesalePrice?: number;
+  transferPrice?: number;
+  reorderPoint?: number;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
+// GET/POST/PUT/DELETE /api/v1/products/:id/suppliers[...] — links a Supplier to a Product.
+export interface ProductSupplier {
+  id: string;
+  productId: string;
+  supplierId: string;
+  isDefault: boolean;
+  unitCost?: number;
+  leadTimeDays?: number;
+  minOrderQty?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// GET/POST /api/v1/products/:id/images — separate from the Product record.
+export interface ProductImage {
+  id: string;
+  productId: string;
+  storageKey: string;
+  sortOrder: number;
+  isPrimary: boolean;
+  uploadedById?: string;
+  url?: string;
+  createdAt: string;
+}
+
+/** Response from GET /api/v1/products/:id/image/presigned-url */
+export interface ProductImageUploadUrl {
+  uploadUrl: string;
+  key: string;
+  publicUrl: string;
+}
+
+// Matches core-apis' InventoryResponse DTO (camelCase). Verified 2026-07-30
+// against src/application/modules/inventory source — the module was fully
+// overhauled 2026-07-28 (commit 49a1426), after which this became the real
+// wire shape for search/list/getById/create/update on `/api/v1/inventory`.
 export interface InventoryItem {
   id: string;
-  product_id?: string;
-  store_id?: string;
-  quantity?: number;
-  min_quantity?: number;
-  unit?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
+  organizationId: string;
+  locationId: string;
+  productId: string;
+  quantityOnHand: number;
+  quantityReserved: number;
+  reorderLevel: number;
+  maxStock?: number;
+  averageCost?: number;
+  binLocation?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Supplier {
@@ -132,40 +155,109 @@ export interface Supplier {
   code?: string;
   email?: string;
   phone?: string;
+  address?: string;
+  contactPerson?: string;
+  taxId?: string;
   status?: string;
   created_at?: string;
   updated_at?: string;
 }
 
+// Verified 2026-07-31 (local core-apis): response/domain only id+name(+dates).
+// Entity has storeId/supplierId/poNumber/totalAmount but create persists `{ name }`
+// only and entity has no `name` column — create always fails. See #0.
 export interface PurchaseOrder {
   id: string;
-  supplier_id?: string;
-  store_id?: string;
-  total_amount?: number;
-  status?: string;
-  ordered_at?: string;
+  name?: string;
+  createdAt?: string;
+  updatedAt?: string;
   created_at?: string;
-  updated_at?: string;
+}
+
+/** Sales bill lifecycle — matches core-apis EBillStatus. */
+export type BillStatus = 'INITIATED' | 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+
+/** Matches core-apis EPaymentMethod. */
+export type PaymentMethod = 'CASH' | 'CARD' | 'UPI' | 'NET_BANKING' | 'CHEQUE' | 'CREDIT';
+
+export interface BillItem {
+  id: string;
+  billId: string;
+  productId: string;
+  variantId?: string | null;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  taxAmount: number;
+  discountAmount: number;
+  lineTotal: number;
 }
 
 export interface Bill {
   id: string;
-  purchase_order_id?: string;
-  amount?: number;
-  due_date?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
+  billNumber: string;
+  organizationId: string;
+  locationId: string;
+  customerId?: string | null;
+  createdById: string;
+  walkInName?: string | null;
+  walkInPhone?: string | null;
+  walkInGstin?: string | null;
+  status: BillStatus | string;
+  paymentMethod?: PaymentMethod | string | null;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  notes?: string | null;
+  billedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string | null;
+  items?: BillItem[];
 }
 
+export interface CreateBillItemInput {
+  productId: string;
+  variantId?: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate?: number;
+  discountAmount?: number;
+}
+
+export interface CreateBillInput {
+  locationId: string;
+  customerId?: string;
+  walkInName?: string;
+  walkInPhone?: string;
+  walkInGstin?: string;
+  notes?: string;
+  items: CreateBillItemInput[];
+}
+
+export interface UpdateBillInput {
+  locationId?: string;
+  customerId?: string | null;
+  walkInName?: string | null;
+  walkInPhone?: string | null;
+  walkInGstin?: string | null;
+  notes?: string | null;
+}
+
+// Verified 2026-07-31: CreatePaymentTransactionRequest has no @AutoMap; domain
+// orgId vs entity organizationId — create fails. See #0d.
 export interface PaymentTransaction {
   id: string;
-  reference?: string;
+  orgId?: string;
+  organizationId?: string;
+  referenceId?: string;
+  referenceType?: string;
   type?: string;
+  method?: string;
   amount?: number;
   status?: string;
+  createdAt?: string;
   created_at?: string;
-  updated_at?: string;
 }
 
 export interface Notification {
@@ -177,13 +269,18 @@ export interface Notification {
   created_at?: string;
 }
 
+// Verified 2026-07-31: entity field names match, but CreateItemReturnRequest has
+// no @AutoMap so Automapper leaves the command empty — create fails until Core
+// API adds @AutoMap (or maps manually). No returnNumber / purchaseOrderId. #0e
 export interface ItemReturn {
   id: string;
-  return_number?: string;
   status?: string;
-  total_amount?: number;
-  created_at?: string;
-  updated_at?: string;
+  totalAmount?: number;
+  returnType?: 'sales' | 'purchase';
+  storeId?: string;
+  orderId?: string;
+  supplierId?: string;
+  createdAt?: string;
 }
 
 export interface ReportGenerationLog {
@@ -193,97 +290,222 @@ export interface ReportGenerationLog {
   created_at?: string;
 }
 
+// Matches core-apis StockMovementResponse + StockOperationRequest / AdjustStockRequest.
+export type StockMovementOp =
+  | 'add'
+  | 'remove'
+  | 'adjust'
+  | 'reserve'
+  | 'release-reservation'
+  | 'damage'
+  | 'write-off';
+
+export interface StockOperationBody {
+  inventoryId: string;
+  locationId: string;
+  productId: string;
+  quantity?: number;
+  absoluteQuantity?: number;
+  unitCost?: number;
+  referenceId?: string;
+  referenceType?: string;
+  notes?: string;
+}
+
 export interface StockMovement {
   id: string;
-  type?: string;
-  product_id?: string;
-  quantity?: number;
-  created_at?: string;
+  inventoryId: string;
+  locationId: string;
+  productId: string;
+  performedById?: string;
+  referenceId?: string;
+  referenceType?: string;
+  movementType: string;
+  quantity: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  unitCost?: number;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface UnpublishedStock {
+  id: string;
+  organizationId: string;
+  locationId: string;
+  productId: string;
+  quantityOnHand: number;
+  averageCost?: number;
+  binLocation?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UnpublishedStockMovement {
+  id: string;
+  unpublishedStockId: string;
+  locationId: string;
+  productId: string;
+  performedById?: string;
+  movementType: string;
+  quantity: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  unitCost?: number;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface ProductLog {
+  id: string;
+  organizationId: string;
+  productId: string;
+  inventoryId?: string;
+  locationId?: string;
+  performedById?: string;
+  action: string;
+  changedFields?: Array<{ field: string; oldValue: unknown; newValue: unknown }>;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
 }
 
 export interface StockTransfer {
   id: string;
-  from_store_id?: string;
-  to_store_id?: string;
+  organizationId: string;
+  fromStoreId: string;
+  toStoreId: string;
+  transferNumber: string;
   status?: string;
-  created_at?: string;
 }
 
+// Verified 2026-07-26 against core-apis's OrderResponse/CreateOrderRequest source
+// directly — camelCase, matches the entity well. OrderEntity has no organizationId
+// column (tenancy flows through storeId -> store -> org). The real blocker for
+// create is that customerId (required) has no valid value to test with, because
+// Customers create is broken separately (see Customer below). See Orders.tsx.
 export interface Order {
   id: string;
-  order_number?: string;
-  customer_id?: string;
+  orderNumber?: string;
+  storeId?: string;
+  customerId?: string;
   status?: string;
-  total_amount?: number;
-  created_at?: string;
+  subtotal?: number;
+  taxAmount?: number;
+  totalAmount?: number;
+  paymentStatus?: string;
 }
 
+// Verified 2026-07-26 against core-apis's InvoiceResponse/CreateInvoiceRequest
+// source directly — the cleanest resource found in this investigation (no
+// organizationId needed, invoiceNumber auto-generated server-side). Not live-tested
+// — treat as unverified, not working, given every other create tested this session
+// failed regardless of DTO cleanliness (see docs/core-apis-fixes.md callout).
 export interface Invoice {
   id: string;
-  invoice_number?: string;
-  customer_id?: string;
+  orderId?: string;
+  invoiceNumber?: string;
+  totalAmount?: number;
   status?: string;
-  total_amount?: number;
-  due_date?: string;
-  created_at?: string;
 }
 
+// core-apis customers: create sets organizationId from auth/fallback; search/PATCH/DELETE supported.
 export interface Customer {
   id: string;
+  organizationId?: string;
   name?: string;
   email?: string;
   phone?: string;
-  status?: string;
-  created_at?: string;
+  gstin?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Expense {
   id: string;
-  description?: string;
-  amount?: number;
+  organizationId?: string;
+  storeId?: string;
   category?: string;
-  status?: string;
-  created_at?: string;
+  amount?: number;
+  expenseDate?: string;
+  description?: string;
+  createdAt?: string;
 }
 
+// Verified 2026-07-28 directly against core-apis source (purchase-item.entity.ts):
+// CreatePurchaseItemRequest sends quantity/unitPrice, but the entity's real NOT-NULL
+// columns are quantityOrdered/unitCost with no default — every create fails on the
+// backend with a NOT NULL violation. This is a real backend bug, not a client fix.
 export interface PurchaseItem {
   id: string;
-  purchase_order_id?: string;
-  product_id?: string;
+  purchaseOrderId?: string;
+  productId?: string;
   quantity?: number;
-  unit_price?: number;
-  created_at?: string;
+  unitPrice?: number;
 }
+
+export const ACTIVITY_LOG_ACTIONS = [
+  'login', 'logout',
+  'add_stock', 'remove_stock', 'adjust_stock', 'transfer_stock',
+  'create_product', 'update_product', 'delete_product',
+  'create_purchase_order', 'receive_purchase_order', 'cancel_purchase_order',
+  'create_store', 'update_store',
+  'create_user', 'update_user', 'deactivate_user',
+] as const;
 
 export interface ActivityLog {
   id: string;
+  organizationId?: string;
+  userId?: string;
   action?: string;
-  entity_type?: string;
-  entity_id?: string;
-  user_id?: string;
-  created_at?: string;
+  entityName?: string;
+  entityId?: string;
+  createdAt?: string;
 }
+
+// Verified 2026-07-28 against role.entity.ts: `name` is a Postgres enum (4 fixed
+// values, unique) — free text will fail. organizationId/permissions are required by
+// CreateRoleRequest validation but RoleEntity has no matching columns, so the backend
+// silently discards them after accepting the request.
+export const ROLE_NAMES = ['super_admin', 'org_admin', 'store_manager', 'store_staff'] as const;
 
 export interface Role {
   id: string;
+  organizationId?: string;
   name?: string;
+  permissions?: Record<string, unknown>;
   description?: string;
-  created_at?: string;
+  createdAt?: string;
 }
 
 export interface UserRole {
   id: string;
-  user_id?: string;
-  role_id?: string;
-  created_at?: string;
+  userId?: string;
+  roleId?: string;
+  storeId?: string;
+  createdAt?: string;
 }
 
 export interface PlatformConfiguration {
   id: string;
-  key?: string;
-  value?: string;
+  configKey?: string;
+  configValue?: Record<string, unknown>;
   description?: string;
-  updated_at?: string;
+  updatedAt?: string;
+}
+
+// ── Platform Users (backend /api/v1/users — distinct from the local PIN-based `User` above) ──
+
+export interface PlatformUser {
+  id: string;
+  organizationId?: string;
+  storeId?: string;
+  email?: string;
+  passwordHash?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
 // ── Fleet / Vehicles ──────────────────────────────────────────────────────────

@@ -98,6 +98,10 @@
   }
 }
 
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
@@ -107,4 +111,219 @@
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: var(--color-border);
   border-radius: 20px;
+}
+
+/* Login split visual panel */
+.login-visual {
+  position: relative;
+  overflow: hidden;
+  width: 50%;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  background: hsl(222 47% 16%);
+  color: hsl(210 40% 98%);
+}
+
+.login-aurora {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+}
+
+.login-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.7;
+  animation: login-blob 14s ease-in-out infinite;
+}
+
+.login-blob-a {
+  width: 55%;
+  height: 55%;
+  top: 12%;
+  left: 8%;
+  background: hsl(217 91% 60%);
+}
+
+.login-blob-b {
+  width: 50%;
+  height: 50%;
+  right: 0;
+  bottom: 10%;
+  background: hsl(199 89% 48%);
+  animation-delay: -7s;
+}
+
+.login-copy {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  padding: 2rem;
+}
+
+.login-brand {
+  margin: 0;
+  font-size: clamp(2.75rem, 5vw, 4rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.login-tagline {
+  margin: 0.85rem 0 0;
+  font-size: 1.1rem;
+  opacity: 0.82;
+}
+
+@keyframes login-blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(10%, 12%) scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-blob {
+    animation: none !important;
+  }
+}
+
+/* First-time / cold-start auth boot */
+.auth-boot {
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(222 47% 16%);
+  color: hsl(210 40% 98%);
+  padding: 2rem;
+}
+
+.auth-boot-aurora {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+}
+
+.auth-boot-copy {
+  position: relative;
+  z-index: 1;
+  width: min(22rem, 100%);
+  text-align: center;
+}
+
+.auth-boot-brand {
+  margin: 0;
+  font-size: clamp(2.25rem, 6vw, 3.25rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.auth-boot-headline {
+  margin: 1rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 500;
+  opacity: 0.95;
+}
+
+.auth-boot-sub {
+  margin: 0.4rem 0 0;
+  font-size: 0.875rem;
+  opacity: 0.65;
+  line-height: 1.4;
+}
+
+.auth-boot-steps {
+  list-style: none;
+  margin: 1.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  text-align: left;
+}
+
+.auth-boot-step {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.9rem;
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+}
+
+.auth-boot-step--active,
+.auth-boot-step--done {
+  opacity: 1;
+}
+
+.auth-boot-step-icon {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: hsl(210 40% 98% / 0.12);
+}
+
+.auth-boot-step--done .auth-boot-step-icon {
+  background: hsl(142 71% 45% / 0.25);
+  color: hsl(142 70% 70%);
+}
+
+.auth-boot-step--active .auth-boot-step-icon {
+  background: hsl(217 91% 60% / 0.3);
+  color: hsl(210 40% 98%);
+}
+
+.auth-boot-dot {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+/* POS: print only the receipt sheet */
+.pos-print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 10mm;
+    size: auto;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .pos-print-root,
+  .pos-print-root * {
+    visibility: visible !important;
+  }
+
+  .pos-print-root {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white;
+  }
+
+  .pos-no-print {
+    display: none !important;
+  }
 }

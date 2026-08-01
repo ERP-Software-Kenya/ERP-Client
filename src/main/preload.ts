@@ -1,61 +1,85 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-// ── Types ──────────────────────────────────────────────────────────────────
-type IpcSuccess<T = void> = { success: true } & (T extends void ? object : { data: T });
-type IpcError = { success: false; error: string };
-type IpcResult<T = void> = IpcSuccess<T> | IpcError;
+export type UpdateSettingsPayload = {
+  githubToken: string;
+  updateCheckIntervalMinutes: number;
+};
 
-// ── Bridge ──────────────────────────────────────────────────────────────────
-contextBridge.exposeInMainWorld('electronAPI', {
-  // Auth
-  hasUsers: (): Promise<{ success: boolean; hasUsers?: boolean; error?: string }> =>
-    ipcRenderer.invoke('auth:has-users'),
-  setup: (input: { name: string; username: string; password: string; pin: string }) =>
-    ipcRenderer.invoke('auth:setup', input),
-  login: (username: string, password: string) =>
-    ipcRenderer.invoke('auth:login', username, password),
-  validateSession: (sessionId: string) =>
-    ipcRenderer.invoke('auth:validate-session', sessionId),
-  logout: (sessionId: string) =>
-    ipcRenderer.invoke('auth:logout', sessionId),
-  verifyPin: (userId: number, pin: string) =>
-    ipcRenderer.invoke('auth:verify-pin', userId, pin),
-  setPin: (userId: number, newPin: string) =>
-    ipcRenderer.invoke('auth:set-pin', userId, newPin),
-  changePassword: (userId: number, currentPassword: string, newPassword: string) =>
-    ipcRenderer.invoke('auth:change-password', userId, currentPassword, newPassword),
+const electronAPI = {
+  getAppVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,
 
-  // User Management
-  getUsers: () =>
-    ipcRenderer.invoke('users:get-all'),
-  getUserById: (userId: number) =>
-    ipcRenderer.invoke('users:get-by-id', userId),
-  createUser: (input: { name: string; username: string; password: string; pin: string; role: string }) =>
-    ipcRenderer.invoke('users:create', input),
-  updateUser: (userId: number, input: { name?: string; username?: string; role?: string }) =>
-    ipcRenderer.invoke('users:update', userId, input),
-  deactivateUser: (userId: number) =>
-    ipcRenderer.invoke('users:deactivate', userId),
-  reactivateUser: (userId: number) =>
-    ipcRenderer.invoke('users:reactivate', userId),
-  adminResetPassword: (userId: number, newPassword: string) =>
-    ipcRenderer.invoke('users:admin-reset-password', userId, newPassword),
+  getUpdateSettings: () =>
+    ipcRenderer.invoke('app:get-update-settings') as Promise<UpdateSettingsPayload>,
 
-  // Settings
-  loadSettings: () =>
-    ipcRenderer.invoke('settings:load'),
-  saveSettings: (settings: Record<string, unknown>) =>
-    ipcRenderer.invoke('settings:save', settings),
+  saveUpdateSettings: (settings: Partial<UpdateSettingsPayload>) =>
+    ipcRenderer.invoke('app:save-update-settings', settings) as Promise<{
+      success: boolean;
+      settings?: UpdateSettingsPayload;
+      error?: string;
+    }>,
 
-  // API Token
-  getApiToken: () =>
-    ipcRenderer.invoke('api:get-token'),
-  setApiToken: (token: string) =>
-    ipcRenderer.invoke('api:set-token', token),
-  clearApiToken: () =>
-    ipcRenderer.invoke('api:clear-token'),
+  getUpdateState: () =>
+    ipcRenderer.invoke('app:get-update-state') as Promise<{
+      status: string;
+      version?: string;
+      releaseDate?: string;
+    }>,
 
-  // Cache
-  clearCache: (cacheKey?: string) =>
-    ipcRenderer.invoke('cache:clear', cacheKey),
-});
+  checkForUpdate: () =>
+    ipcRenderer.invoke('app:check-update') as Promise<{ success: boolean; error?: string }>,
+
+  downloadUpdate: () =>
+    ipcRenderer.invoke('app:download-update') as Promise<{ success: boolean; error?: string }>,
+
+  installUpdate: () =>
+    ipcRenderer.invoke('app:install-update') as Promise<{ success: boolean; error?: string }>,
+
+  onUpdateChecking: (cb: () => void) => {
+    const h = () => cb();
+    ipcRenderer.on('update:checking', h);
+    return () => ipcRenderer.removeListener('update:checking', h);
+  },
+
+  onUpdateAvailable: (cb: (info: { version: string; releaseDate: string }) => void) => {
+    const h = (_e: Electron.IpcRendererEvent, info: { version: string; releaseDate: string }) =>
+      cb(info);
+    ipcRenderer.on('update:available', h);
+    return () => ipcRenderer.removeListener('update:available', h);
+  },
+
+  onUpdateNotAvailable: (cb: () => void) => {
+    const h = () => cb();
+    ipcRenderer.on('update:not-available', h);
+    return () => ipcRenderer.removeListener('update:not-available', h);
+  },
+
+  onUpdateProgress: (
+    cb: (p: {
+      percent: number;
+      bytesPerSecond: number;
+      transferred: number;
+      total: number;
+    }) => void,
+  ) => {
+    const h = (
+      _e: Electron.IpcRendererEvent,
+      p: { percent: number; bytesPerSecond: number; transferred: number; total: number },
+    ) => cb(p);
+    ipcRenderer.on('update:progress', h);
+    return () => ipcRenderer.removeListener('update:progress', h);
+  },
+
+  onUpdateDownloaded: (cb: (info: { version: string }) => void) => {
+    const h = (_e: Electron.IpcRendererEvent, info: { version: string }) => cb(info);
+    ipcRenderer.on('update:downloaded', h);
+    return () => ipcRenderer.removeListener('update:downloaded', h);
+  },
+
+  onUpdateError: (cb: (msg: string) => void) => {
+    const h = (_e: Electron.IpcRendererEvent, msg: string) => cb(msg);
+    ipcRenderer.on('update:error', h);
+    return () => ipcRenderer.removeListener('update:error', h);
+  },
+};
+
+contextBridge.exposeInMainWorld('electronAPI', electronAPI);
