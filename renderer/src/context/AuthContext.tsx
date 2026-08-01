@@ -203,6 +203,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Keep a stable ref so the event listener always calls the latest logout closure.
+  const logoutRef = useRef<() => Promise<void>>();
+
   const logout = async () => {
     // Invalidate any in-flight refresh before signOut so Login won't flash "Signing you in…".
     signingOut.current = true;
@@ -225,6 +228,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setBootPhase(null);
     }
   };
+
+  // Update ref every render so the event listener always has the latest closure.
+  logoutRef.current = logout;
+
+  // Listen for 401/403 events dispatched by http.ts and force-logout immediately.
+  useEffect(() => {
+    if (DEV_BYPASS) return;
+    const handler = () => {
+      if (!signingOut.current) void logoutRef.current?.();
+    };
+    document.addEventListener('auth:unauthorized', handler);
+    return () => document.removeEventListener('auth:unauthorized', handler);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, syncing, bootPhase, logout, refresh }}>

@@ -1,3 +1,10 @@
+export class HttpError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
 let _baseUrl = 'https://core-apis-m03n.onrender.com';
 let _getToken: () => Promise<string | null> = async () => null;
 
@@ -39,9 +46,17 @@ async function readErrorBody(resp: Response): Promise<string> {
   }
 }
 
+// Fires a DOM event so AuthContext can log the user out without a direct import dependency.
+function checkAuth(resp: Response): void {
+  if (resp.status === 401 || resp.status === 403) {
+    document.dispatchEvent(new CustomEvent('auth:unauthorized'));
+  }
+}
+
 export async function get<T>(path: string, params?: QueryParams): Promise<T> {
   const resp = await fetch(buildUrl(path, params), { headers: await jsonHeaders() });
-  if (!resp.ok) throw new Error(await readErrorBody(resp));
+  checkAuth(resp);
+  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
   return readJsonBody<T>(resp);
 }
 
@@ -51,7 +66,8 @@ export async function post<T>(path: string, body?: unknown): Promise<T> {
     headers: await jsonHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (!resp.ok) throw new Error(await readErrorBody(resp));
+  checkAuth(resp);
+  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
   return readJsonBody<T>(resp);
 }
 
@@ -61,7 +77,8 @@ export async function put<T>(path: string, body?: unknown): Promise<T> {
     headers: await jsonHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (!resp.ok) throw new Error(await readErrorBody(resp));
+  checkAuth(resp);
+  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
   return readJsonBody<T>(resp);
 }
 
@@ -71,7 +88,8 @@ export async function patch<T>(path: string, body?: unknown): Promise<T> {
     headers: await jsonHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (!resp.ok) throw new Error(await readErrorBody(resp));
+  checkAuth(resp);
+  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
   return readJsonBody<T>(resp);
 }
 
@@ -83,11 +101,13 @@ async function readJsonBody<T>(resp: Response): Promise<T> {
 
 export async function del(path: string): Promise<void> {
   const resp = await fetch(buildUrl(path), { method: 'DELETE', headers: await jsonHeaders() });
-  if (!resp.ok) throw new Error(await readErrorBody(resp));
+  checkAuth(resp);
+  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
 }
 
 export async function uploadForm<T>(path: string, form: FormData): Promise<T> {
   const resp = await fetch(buildUrl(path), { method: 'POST', headers: await authHeader(), body: form });
-  if (!resp.ok) throw new Error(await readErrorBody(resp));
+  checkAuth(resp);
+  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
   return resp.json() as Promise<T>;
 }
