@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { FilterDropdown } from '../components/FilterDropdown';
+import { CategoryDetailModal } from '../components/CategoryDetailModal';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field } from '../components/FormDrawer';
-import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Categories, Organizations, useCategoryParents } from '../api';
@@ -29,12 +30,22 @@ export default function CategoriesPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const [viewRow, setViewRow] = useState<Category | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
   const createMutation = Categories.useCreate();
   const updateMutation = Categories.useUpdate();
   const removeMutation = Categories.useDelete();
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
-  const { data, isLoading, error, refetch } = Categories.useSearch({ page, search: debouncedSearch });
+
+  const filters = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (statusFilter) next.isActive = statusFilter;
+    if (typeFilter !== null) next.hasParent = typeFilter;
+    return Object.keys(next).length ? next : undefined;
+  }, [statusFilter, typeFilter]);
+
+  const { data, isLoading, error, refetch } = Categories.useSearch({ page, search: debouncedSearch, filters });
   const { data: allCategories } = Categories.useList();
   const categoryName = useMemo(() => {
     const m = new Map<string, string>();
@@ -90,9 +101,15 @@ export default function CategoriesPage() {
       key: 'parentId',
       label: 'Parent',
       render: (row) =>
-        row.parentId
-          ? categoryName.get(row.parentId) ?? formatEntityLabel({ id: row.parentId })
-          : '—',
+        row.parentId ? (
+          <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20">
+            {categoryName.get(row.parentId) ?? formatEntityLabel({ id: row.parentId })}
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-500 ring-1 ring-inset ring-green-500/20">
+            Yes
+          </span>
+        ),
     },
     { key: 'description', label: 'Description' },
     {
@@ -103,14 +120,6 @@ export default function CategoriesPage() {
   ];
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
-
-  const viewData = viewRow
-    ? ({
-        ...viewRow,
-        organizationId: viewRow.organizationId ? (orgName.get(viewRow.organizationId) ?? viewRow.organizationId) : undefined,
-        parentId: viewRow.parentId ? (categoryName.get(viewRow.parentId) ?? viewRow.parentId) : undefined,
-      } as Record<string, unknown>)
-    : null;
 
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
@@ -132,13 +141,36 @@ export default function CategoriesPage() {
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+        toolbar={
+          <>
+            <FilterDropdown
+              label="Status"
+              options={[
+                { value: 'true',  label: 'Active' },
+                { value: 'false', label: 'Inactive' },
+              ]}
+              value={statusFilter}
+              onChange={(v) => { setStatusFilter(v); setPage(1); }}
+            />
+            <FilterDropdown
+              label="Type"
+              options={[
+                { value: 'false', label: 'Parent Categories' },
+                { value: 'true',  label: 'Sub Categories' },
+              ]}
+              value={typeFilter}
+              onChange={(v) => { setTypeFilter(v); setPage(1); }}
+            />
+          </>
+        }
       />
 
-      <ViewDrawer
-        open={viewRow != null}
-        title="View Category"
-        data={viewData}
+      <CategoryDetailModal
+        category={viewRow}
+        categoryName={categoryName}
+        orgName={orgName}
         onClose={() => setViewRow(null)}
+        onEdit={(cat) => { setViewRow(null); openEdit(cat); }}
       />
 
       <FormDrawer
