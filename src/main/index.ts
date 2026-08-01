@@ -1,15 +1,36 @@
 import * as path from 'path';
-import { app, BrowserWindow, Menu } from 'electron';
-import { getDb, closeDb } from './database';
-import { setupIpcHandlers } from './ipc-handlers';
-import { hasUsers, setupUser, adminResetPassword } from './auth';
+import { pathToFileURL } from 'url';
+import { app, BrowserWindow, Menu, net, protocol, ipcMain } from 'electron';
 import { version as APP_VERSION } from '../../package.json';
+import { initSettingsStore, loadSettings, saveSettings } from './settings-store';
+import { initAutoUpdater } from './auto-updater';
 
 // Keep dev and packaged on same AppData folder
 app.setName('Core ERP Client');
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development';
+
+// Stable origin for the packaged app (replaces file://, which has no origin Clerk/OAuth
+// can validate a redirect against and no working localStorage partition). Must be
+// registered before app 'ready'.
+const APP_SCHEME = 'app';
+protocol.registerSchemesAsPrivileged([
+  { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } },
+]);
+
+function registerAppProtocol(): void {
+  const rendererDir = path.join(__dirname, '../renderer');
+  protocol.handle(APP_SCHEME, (request) => {
+    const { pathname } = new URL(request.url);
+    const filePath = path.join(rendererDir, decodeURIComponent(pathname));
+    const relative = path.relative(rendererDir, filePath);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      return new Response('Forbidden', { status: 403 });
+    }
+    return net.fetch(pathToFileURL(filePath).toString());
+  });
+}
 
 // Single instance lock
 const gotLock = app.requestSingleInstanceLock();
@@ -23,11 +44,44 @@ app.on('second-instance', () => {
   }
 });
 
-let shuttingDown = false;
-function shutdownServices(): void {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  closeDb();
+let appIpcRegistered = false;
+
+function registerAppIpc(): void {
+  if (appIpcRegistered) return;
+  appIpcRegistered = true;
+
+  ipcMain.handle('app:get-version', () => APP_VERSION);
+
+  ipcMain.handle('app:get-update-settings', () => {
+    const s = loadSettings();
+    return {
+      githubToken: s.githubToken,
+      updateCheckIntervalMinutes: s.updateCheckIntervalMinutes,
+    };
+  });
+
+  ipcMain.handle('app:save-update-settings', (_event, partial: {
+    githubToken?: string;
+    updateCheckIntervalMinutes?: number;
+  }) => {
+    try {
+      const next = saveSettings({
+        ...(partial.githubToken !== undefined ? { githubToken: partial.githubToken } : {}),
+        ...(partial.updateCheckIntervalMinutes !== undefined
+          ? { updateCheckIntervalMinutes: partial.updateCheckIntervalMinutes }
+          : {}),
+      });
+      return {
+        success: true,
+        settings: {
+          githubToken: next.githubToken,
+          updateCheckIntervalMinutes: next.updateCheckIntervalMinutes,
+        },
+      };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
 }
 
 async function createWindow(): Promise<void> {
@@ -37,9 +91,9 @@ async function createWindow(): Promise<void> {
     minWidth: 960,
     minHeight: 640,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
     backgroundColor: '#0f172a',
     show: false,
@@ -53,13 +107,14 @@ async function createWindow(): Promise<void> {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
+    if (mainWindow) initAutoUpdater(mainWindow);
   });
 
   if (isDev) {
     await mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    await mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    await mainWindow.loadURL(`${APP_SCHEME}://bundle/index.html`);
   }
 
   mainWindow.on('closed', () => {
@@ -67,45 +122,17 @@ async function createWindow(): Promise<void> {
   });
 }
 
-app.whenReady().then(async () => {
-  // Init DB early (runs migrations)
-  getDb();
-  
-  // Ensure default admin exists and password is password123
-  try {
-    const db = getDb();
-    const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin') as { id: number } | undefined;
-    
-    if (!adminExists) {
-      console.log('[Setup] Creating default admin user.');
-      setupUser({
-        name: 'System Admin',
-        username: 'admin',
-        password: 'password123',
-        pin: '1234'
-      });
-    } else {
-      console.log('[Setup] Admin exists, resetting password to password123.');
-      adminResetPassword(adminExists.id, 'password123');
-    }
-  } catch (err) {
-    console.error('[Setup] Failed to seed/reset admin:', err);
-  }
-
-  // Register all IPC handlers
-  setupIpcHandlers();
-  await createWindow();
+app.whenReady().then(() => {
+  initSettingsStore(app.getPath('userData'));
+  registerAppIpc();
+  if (!isDev) registerAppProtocol();
+  return createWindow();
 });
 
 app.on('window-all-closed', () => {
-  shutdownServices();
   if (process.platform !== 'darwin') {
     app.quit();
   }
-});
-
-app.on('before-quit', () => {
-  shutdownServices();
 });
 
 app.on('activate', async () => {

@@ -16,7 +16,8 @@ const buildOptions: esbuild.BuildOptions = {
   outdir,
   outExtension: { '.js': '.cjs' },
   sourcemap: true,
-  external: ['electron', 'better-sqlite3'],
+  // Bundle electron-updater + electron-log — packaged app excludes node_modules
+  external: ['electron'],
   format: 'cjs',
   logLevel: 'info',
 };
