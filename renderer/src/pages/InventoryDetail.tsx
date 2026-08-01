@@ -15,6 +15,7 @@ import {
   useStockOperation,
   useProductLogsByInventory,
 } from '../api';
+import { formatEntityLabel, truncateId } from '../lib/entityLabel';
 import type { ProductLog, StockMovement, StockMovementOp } from '../types';
 
 const STOCK_OPS: StockMovementOp[] = [
@@ -155,15 +156,17 @@ export default function InventoryDetailPage() {
           <Link to="/inventory" className="mb-2 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft size={16} /> Inventory
           </Link>
-          <h2 className="text-2xl font-bold tracking-tight">{product?.name ?? 'Product'}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            {formatEntityLabel({ name: product?.name, sku: product?.sku, id: item.productId })}
+          </h2>
           <p className="text-sm text-muted-foreground">
             Location:{' '}
             {location
               ? location.type
                 ? `${location.name} (${location.type})`
-                : location.name
-              : item.locationId.slice(0, 8)}{' '}
-            · ID {item.id.slice(0, 8)}…
+                : formatEntityLabel({ name: location.name, id: location.id })
+              : formatEntityLabel({ id: item.locationId })}{' '}
+            · ID {truncateId(item.id)}
           </p>
         </div>
         <div className="flex gap-2">

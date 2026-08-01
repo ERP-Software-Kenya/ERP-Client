@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, AlertTriangle, DollarSign, Layers } from 'lucide-react';
-import { Inventory, useInventoryLowStock, useInventoryValuation } from '../../api';
+import { Inventory, Locations, Products, useInventoryLowStock, useInventoryValuation } from '../../api';
+import { formatEntityLabel } from '../../lib/entityLabel';
 import type { InventoryItem } from '../../types';
 
 function StatCard({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ size?: number }> }) {
@@ -27,6 +29,23 @@ export default function InventoryDashboard() {
   const { data: searchData, isLoading: totalLoading, isError: totalError } = Inventory.useSearch({ limit: 1 });
   const { data: lowStock, isLoading: lowLoading, isError: lowError } = useInventoryLowStock();
   const { data: valuation, isLoading: valLoading, isError: valError } = useInventoryValuation();
+  const { data: products } = Products.useList();
+  const { data: locations } = Locations.useList();
+
+  const productName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of products ?? []) {
+      m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
+    }
+    return m;
+  }, [products]);
+  const locationName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of locations ?? []) {
+      m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
+    }
+    return m;
+  }, [locations]);
 
   const lowItems = lowStock ?? [];
 
@@ -82,10 +101,12 @@ export default function InventoryDashboard() {
                   <tr key={row.id} className="border-b border-border/60">
                     <td className="py-2 pr-4">
                       <Link to={`/inventory/${row.id}`} className="hover:underline">
-                        {row.productId.slice(0, 8)}…
+                        {productName.get(row.productId) ?? formatEntityLabel({ id: row.productId })}
                       </Link>
                     </td>
-                    <td className="py-2 pr-4">{row.locationId.slice(0, 8)}…</td>
+                    <td className="py-2 pr-4">
+                      {locationName.get(row.locationId) ?? formatEntityLabel({ id: row.locationId })}
+                    </td>
                     <td className="py-2 pr-4">{row.quantityOnHand}</td>
                     <td className="py-2">{row.reorderLevel}</td>
                   </tr>

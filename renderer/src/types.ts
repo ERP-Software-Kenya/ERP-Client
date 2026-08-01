@@ -174,20 +174,74 @@ export interface PurchaseOrder {
   created_at?: string;
 }
 
-// Verified 2026-07-31: Swagger CreateBillRequest is orgId/billNumber/amount, but
-// command/entity need supplierId/storeId/totalAmount; request has no @AutoMap —
-// create always fails. Bill→BillResponse only maps id/status/createdAt. See #0c.
+/** Sales bill lifecycle — matches core-apis EBillStatus. */
+export type BillStatus = 'INITIATED' | 'DRAFT' | 'COMPLETED' | 'CANCELLED';
+
+/** Matches core-apis EPaymentMethod. */
+export type PaymentMethod = 'CASH' | 'CARD' | 'UPI' | 'NET_BANKING' | 'CHEQUE' | 'CREDIT';
+
+export interface BillItem {
+  id: string;
+  billId: string;
+  productId: string;
+  variantId?: string | null;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  taxAmount: number;
+  discountAmount: number;
+  lineTotal: number;
+}
+
 export interface Bill {
   id: string;
-  orgId?: string;
-  billNumber?: string;
-  amount?: number;
-  totalAmount?: number;
-  supplierId?: string;
-  storeId?: string;
-  status?: string;
+  billNumber: string;
+  organizationId: string;
+  locationId: string;
+  customerId?: string | null;
+  createdById: string;
+  walkInName?: string | null;
+  walkInPhone?: string | null;
+  walkInGstin?: string | null;
+  status: BillStatus | string;
+  paymentMethod?: PaymentMethod | string | null;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  notes?: string | null;
+  billedAt?: string | null;
   createdAt?: string;
-  created_at?: string;
+  updatedAt?: string | null;
+  items?: BillItem[];
+}
+
+export interface CreateBillItemInput {
+  productId: string;
+  variantId?: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate?: number;
+  discountAmount?: number;
+}
+
+export interface CreateBillInput {
+  locationId: string;
+  customerId?: string;
+  walkInName?: string;
+  walkInPhone?: string;
+  walkInGstin?: string;
+  notes?: string;
+  items: CreateBillItemInput[];
+}
+
+export interface UpdateBillInput {
+  locationId?: string;
+  customerId?: string | null;
+  walkInName?: string | null;
+  walkInPhone?: string | null;
+  walkInGstin?: string | null;
+  notes?: string | null;
 }
 
 // Verified 2026-07-31: CreatePaymentTransactionRequest has no @AutoMap; domain
@@ -354,15 +408,16 @@ export interface Invoice {
   status?: string;
 }
 
-// Verified 2026-07-31 (local core-apis): CreateCustomerCommand has no
-// organizationId; controller has no ClerkAuthGuard / @CurrentUser injection —
-// NOT NULL organizationId always fails. Body cannot work around it. See #8.
+// core-apis customers: create sets organizationId from auth/fallback; search/PATCH/DELETE supported.
 export interface Customer {
   id: string;
+  organizationId?: string;
   name?: string;
   email?: string;
   phone?: string;
   gstin?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Expense {

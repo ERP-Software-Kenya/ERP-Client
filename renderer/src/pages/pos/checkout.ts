@@ -1,5 +1,5 @@
-import { post } from '../../lib/http';
-import type { Bill, InventoryItem, Invoice, Order, PaymentTransaction } from '../../types';
+import { patch, post } from '../../lib/http';
+import type { Bill, InventoryItem, PaymentMethod } from '../../types';
 
 export type CheckoutStepStatus = 'ok' | 'failed' | 'skipped';
 
@@ -51,7 +51,7 @@ export interface CheckoutResult {
 export interface SalesCheckoutInput {
   storeId: string;
   storeName?: string;
-  /** Locations UUID for stock-movements (Stores ≠ Locations in Core API). */
+  /** Locations UUID — bill.locationId and stock source. */
   locationId?: string;
   locationName?: string;
   inventory?: InventoryItem[];
@@ -146,6 +146,10 @@ function findInventory(
   return inventory?.find((i) => i.productId === productId && i.locationId === locationId);
 }
 
+function toBillPaymentMethod(method: 'cash' | 'card'): PaymentMethod {
+  return method === 'card' ? 'CARD' : 'CASH';
+}
+
 /** Apply add/remove for each line; one CheckoutStep per line (honest failures). */
 async function runStockLines(
   op: 'add' | 'remove',
@@ -195,8 +199,15 @@ async function runStockLines(
   return steps;
 }
 
+/**
+ * Sales: POST bill (INITIATED) → PATCH DRAFT → PATCH COMPLETED.
+ * Stock is deducted on the server when COMPLETED — no client stock-remove.
+ */
 export async function runSalesCheckout(input: SalesCheckoutInput): Promise<CheckoutResult> {
   const steps: CheckoutStep[] = [];
+  const walkInName =
+    input.customerInfo?.trim() ||
+    (input.customerId ? undefined : 'Walk-in');
   const receipt: PosReceipt = {
     ref: localRef('POS'),
     mode: 'sales',
@@ -214,12 +225,24 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
     synced: false,
   };
 
-  if (!input.storeId) {
-    steps.push({ name: 'Validate store', status: 'failed', message: 'Select a store' });
+  if (!input.locationId) {
+    steps.push({
+      name: 'Validate location',
+      status: 'failed',
+      message: 'Select a stock location — required for sales bills',
+    });
     return { receipt, steps, primaryOk: false };
   }
   if (input.lines.length === 0) {
     steps.push({ name: 'Validate lines', status: 'failed', message: 'Cart is empty' });
+    return { receipt, steps, primaryOk: false };
+  }
+  if (!input.customerId?.trim() && !walkInName) {
+    steps.push({
+      name: 'Validate customer',
+      status: 'failed',
+      message: 'Walk-in name or customer is required',
+    });
     return { receipt, steps, primaryOk: false };
   }
 
@@ -229,85 +252,110 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
     message: `Issued ${receipt.ref} — ready to print`,
   });
 
-  let invoiceId: string | undefined;
-
-  if (!input.customerId?.trim()) {
+  if (input.extraCharges.length > 0) {
     steps.push(
       skipped(
-        'Create order / invoice',
-        'Walk-in sale — Order API needs a customer UUID. Receipt is local only.',
+        'Extra charges',
+        'Extra charges stay on the local receipt only (bill lines are products).',
       ),
     );
-    steps.push(skipped('Create payment', 'Skipped — no server invoice to attach payment to'));
-  } else {
-    const orderAttempt = await tryStep(
-      'Create order',
-      () =>
-        post<Order>('/api/v1/orders', {
-          storeId: input.storeId,
-          customerId: input.customerId,
-          status: 'CONFIRMED',
-          subtotal: input.subtotal,
-          taxAmount: input.taxAmount,
-          totalAmount: input.totalAmount,
-          paymentStatus: input.paymentMethod ? 'PENDING' : undefined,
-        }),
-      (o) => o.id,
-    );
-    steps.push(orderAttempt.step);
-
-    if (orderAttempt.result?.id) {
-      const invoiceAttempt = await tryStep(
-        'Create invoice',
-        () =>
-          post<Invoice>('/api/v1/invoices', {
-            orderId: orderAttempt.result!.id,
-            totalAmount: input.totalAmount,
-            status: 'ISSUED',
-          }),
-        (inv) => inv.id,
-      );
-      steps.push(invoiceAttempt.step);
-      if (invoiceAttempt.result) {
-        receipt.synced = true;
-        receipt.ref = invoiceAttempt.result.invoiceNumber ?? invoiceAttempt.result.id;
-        invoiceId = invoiceAttempt.result.id;
-        if (input.orgId) {
-          const payAttempt = await tryStep(
-            'Create payment',
-            () =>
-              post<PaymentTransaction>('/api/v1/payment-transactions', {
-                orgId: input.orgId,
-                referenceId: invoiceAttempt.result!.id,
-                referenceType: 'invoice',
-                type: 'INBOUND',
-                method: input.paymentMethod.toUpperCase(),
-                amount: input.totalAmount,
-                status: 'PENDING',
-              }),
-            (p) => p.id,
-          );
-          steps.push(payAttempt.step);
-        } else {
-          steps.push(skipped('Create payment', 'Skipped — store has no organization id'));
-        }
-      }
-    }
   }
 
-  steps.push(
-    ...(await runStockLines(
-      'remove',
-      input.lines,
-      input.locationId,
-      input.inventory,
-      invoiceId ?? receipt.ref,
-    )),
+  const notesParts: string[] = [];
+  if (input.extraCharges.length > 0) {
+    notesParts.push(
+      `POS extras: ${input.extraCharges.map((c) => `${c.label}=${c.amount}`).join(', ')}`,
+    );
+  }
+  if (input.storeName) notesParts.push(`Store: ${input.storeName}`);
+
+  const createAttempt = await tryStep(
+    'Create bill',
+    () =>
+      post<Bill>('/api/v1/bills', {
+        locationId: input.locationId,
+        customerId: input.customerId?.trim() || undefined,
+        walkInName: input.customerId?.trim() ? undefined : walkInName,
+        notes: notesParts.length ? notesParts.join(' · ') : undefined,
+        items: input.lines.map((l) => ({
+          productId: l.productId,
+          quantity: l.qty,
+          unitPrice: l.unitPrice,
+          taxRate: l.taxPct,
+        })),
+      }),
+    (b) => b.id,
   );
+  steps.push(createAttempt.step);
+
+  if (!createAttempt.result?.id) {
+    const msg = createAttempt.step.message || '';
+    if (/internal server error/i.test(msg)) {
+      steps.push({
+        name: 'Create bill hint',
+        status: 'failed',
+        message:
+          'Server 500 on bill create — usually createdById fallback (BillsController has no ClerkAuthGuard). Needs core-apis fix; client payload is valid.',
+      });
+    }
+    return { receipt, steps, primaryOk: false };
+  }
+
+  const billId = createAttempt.result.id;
+  if (createAttempt.result.billNumber) {
+    receipt.ref = createAttempt.result.billNumber;
+  }
+
+  const draftAttempt = await tryStep(
+    'Mark draft',
+    () => patch<Bill>(`/api/v1/bills/${billId}/status`, { status: 'DRAFT' }),
+    (b) => b.id,
+  );
+  steps.push(draftAttempt.step);
+  if (draftAttempt.step.status === 'failed') {
+    return { receipt, steps, primaryOk: false };
+  }
+
+  const completeAttempt = await tryStep(
+    'Complete bill',
+    () =>
+      patch<Bill>(`/api/v1/bills/${billId}/status`, {
+        status: 'COMPLETED',
+        paymentMethod: toBillPaymentMethod(input.paymentMethod),
+      }),
+    (b) => b.id,
+  );
+  steps.push(completeAttempt.step);
+
+  if (completeAttempt.step.status !== 'ok') {
+    return { receipt, steps, primaryOk: false };
+  }
+
+  // Extras inflate local receipt total beyond server bill — do not claim full sync.
+  receipt.synced = input.extraCharges.length === 0;
+  if (completeAttempt.result?.billNumber) {
+    receipt.ref = completeAttempt.result.billNumber;
+  }
+  steps.push({
+    name: 'Inventory',
+    status: 'ok',
+    message: 'Stock deducted on server (COMPLETED)',
+  });
+  if (input.extraCharges.length > 0) {
+    steps.push({
+      name: 'Receipt totals',
+      status: 'skipped',
+      message: 'Server bill excludes POS extra charges — receipt total is local',
+    });
+  }
 
   return { receipt, steps, primaryOk: true };
 }
 
+/**
+ * Purchase receiving: stock add only.
+ * Do not POST /bills — that API is sales-only (locationId + items, INITIATED…).
+ */
 export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise<CheckoutResult> {
   const steps: CheckoutStep[] = [];
   const extras = input.extraCharges ?? [];
@@ -345,40 +393,28 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
   });
 
   steps.push(skipped('Create GRN', 'No goods-receipt API yet'));
-
-  let billId: string | undefined;
-  if (input.orgId) {
-    const billNumber = receipt.ref.replace('GRN', 'BILL');
-    const billAttempt = await tryStep(
-      'Create bill',
-      () =>
-        post<Bill>('/api/v1/bills', {
-          orgId: input.orgId,
-          billNumber,
-          amount: input.totalAmount,
-          status: 'UNPAID',
-        } as Partial<Bill>),
-      (b) => b.id,
-    );
-    steps.push(billAttempt.step);
-    if (billAttempt.result) {
-      receipt.synced = true;
-      receipt.ref = billAttempt.result.billNumber ?? billNumber;
-      billId = billAttempt.result.id;
-    }
-  } else {
-    steps.push(skipped('Create bill', 'Skipped — store has no organization id'));
-  }
-
-  steps.push(
-    ...(await runStockLines('add', input.lines, input.locationId, input.inventory, billId ?? receipt.ref)),
-  );
   steps.push(
     skipped(
-      'Link supplier',
-      `Supplier ${input.supplierId} not sent — CreateBillRequest has no supplierId field`,
+      'Create bill',
+      'Skipped — /api/v1/bills is sales-only (not purchase payables). Use PO/GRN when available.',
     ),
   );
 
-  return { receipt, steps, primaryOk: true };
+  const stockSteps = await runStockLines(
+    'add',
+    input.lines,
+    input.locationId,
+    input.inventory,
+    receipt.ref,
+  );
+  steps.push(...stockSteps);
+  steps.push(
+    skipped('Link supplier', `Supplier ${input.supplierId} recorded on local receipt only`),
+  );
+
+  const stockFailed = stockSteps.some((s) => s.status === 'failed');
+  const stockOk = stockSteps.some((s) => s.status === 'ok');
+  receipt.synced = stockOk && !stockFailed;
+
+  return { receipt, steps, primaryOk: stockOk && !stockFailed };
 }

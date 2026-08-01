@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MODULES } from '../../config/modules';
 import { cn } from '../../lib/utils';
+import { Tooltip } from '../ui/tooltip';
 
 export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const location = useLocation();
@@ -66,37 +67,54 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
                     const Icon = item.icon;
 
                     if (item.disabled) {
-                      return (
+                      const disabledItem = (
                         <div
-                          key={item.key}
                           className={cn(
                             "flex items-center gap-3 px-3 py-2 rounded-md text-muted-foreground/40 cursor-not-allowed",
-                            collapsed && "justify-center px-0"
+                            collapsed && "justify-center px-0 w-full"
                           )}
-                          title={collapsed ? `${item.title} (coming soon)` : 'Coming soon'}
+                          title={collapsed ? undefined : 'Coming soon'}
                         >
                           <Icon size={18} />
                           {!collapsed && <span className="truncate">{item.title}</span>}
                         </div>
                       );
+                      return collapsed ? (
+                        <Tooltip
+                          key={item.key}
+                          content={`${item.title} (coming soon)`}
+                          side="right"
+                          className="flex w-full"
+                        >
+                          {disabledItem}
+                        </Tooltip>
+                      ) : (
+                        <Fragment key={item.key}>{disabledItem}</Fragment>
+                      );
                     }
 
-                    return (
+                    const link = (
                       <NavLink
-                        key={item.key}
                         to={item.path}
                         className={({ isActive }) =>
                           cn(
                             "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
                             isActive ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                            collapsed && "justify-center px-0"
+                            collapsed && "justify-center px-0 w-full"
                           )
                         }
-                        title={collapsed ? item.title : undefined}
                       >
                         <Icon size={18} />
                         {!collapsed && <span className="truncate">{item.title}</span>}
                       </NavLink>
+                    );
+
+                    return collapsed ? (
+                      <Tooltip key={item.key} content={item.title} side="right" className="flex w-full">
+                        {link}
+                      </Tooltip>
+                    ) : (
+                      <Fragment key={item.key}>{link}</Fragment>
                     );
                   })}
                 </nav>

@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { PurchaseOrders } from '../api';
+import { PurchaseOrders, Stores, Suppliers } from '../api';
 import { usePagination } from '../hooks/usePagination';
+import { formatEntityLabel, truncateId } from '../lib/entityLabel';
 import type { PurchaseOrder } from '../types';
 
 interface FormState {
@@ -21,13 +22,25 @@ export default function PurchaseOrdersPage() {
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<PurchaseOrder | null>(null);
+  const [storeFilter, setStoreFilter] = useState('');
+  const [supplierFilter, setSupplierFilter] = useState('');
 
   const updateMutation = PurchaseOrders.useUpdate();
   const removeMutation = PurchaseOrders.useDelete();
-  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { page, setPage } = usePagination();
+  const { data: stores = [] } = Stores.useList();
+  const { data: suppliers = [] } = Suppliers.useList();
+
+  const filters = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (storeFilter) next.storeId = storeFilter;
+    if (supplierFilter) next.supplierId = supplierFilter;
+    return Object.keys(next).length ? next : undefined;
+  }, [storeFilter, supplierFilter]);
+
   const { data, isLoading, isError, error, refetch } = PurchaseOrders.useSearch({
     page,
-    search: debouncedSearch,
+    filters,
   });
   const listError = isError
     ? `Unable to load purchase orders.${error instanceof Error && error.message ? ` (${error.message})` : ''}`
@@ -58,8 +71,16 @@ export default function PurchaseOrdersPage() {
   };
 
   const columns: Column<PurchaseOrder>[] = [
-    { key: 'name', label: 'Name', render: (row) => row.name || '(unnamed — API has no poNumber on response)' },
-    { key: 'id', label: 'ID', render: (row) => row.id.slice(0, 8) },
+    {
+      key: 'name',
+      label: 'PO',
+      render: (row) => formatEntityLabel({ name: row.name, id: row.id }),
+    },
+    {
+      key: 'id',
+      label: 'ID',
+      render: (row) => truncateId(row.id),
+    },
     {
       key: 'createdAt',
       label: 'Created',
@@ -72,8 +93,12 @@ export default function PurchaseOrdersPage() {
       <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
         Create blocked — verified: handler persists only <code className="text-[10px]">{'{ name }'}</code> but
         entity requires storeId/supplierId/poNumber and has no name column (#0). List/search still work for
-        seeded rows (id / createdAt).
+        seeded rows (id / createdAt). Response omits storeId/supplierId/poNumber — filters still hit Core
+        query params.
       </div>
+      <p className="text-xs text-muted-foreground">
+        API gap: no free-text PO search; filter by store and supplier only. Labels use name when present.
+      </p>
       <DataTable
         title="Purchase Orders"
         description="Browse POs. Open a row for detail. Create needs a Core API fix."
@@ -84,9 +109,44 @@ export default function PurchaseOrdersPage() {
         loading={isLoading && !isError}
         error={listError}
         onPageChange={setPage}
-        onSearchChange={setSearch}
+        hideSearch
+        toolbar={
+          <>
+            <span className="text-xs text-muted-foreground">Store:</span>
+            <select
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              value={storeFilter}
+              onChange={(e) => {
+                setStoreFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All stores</option>
+              {stores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {formatEntityLabel({ name: s.name, code: s.code, id: s.id })}
+                </option>
+              ))}
+            </select>
+            <span className="ml-2 text-xs text-muted-foreground">Supplier:</span>
+            <select
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              value={supplierFilter}
+              onChange={(e) => {
+                setSupplierFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All suppliers</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {formatEntityLabel({ name: s.name, id: s.id })}
+                </option>
+              ))}
+            </select>
+          </>
+        }
         onRefetch={() => void refetch()}
-        searchPlaceholder="Search purchase orders…"
         isAdmin={true}
         onAdd={openCreate}
         onView={(row) => navigate(`/purchase-orders/${row.id}`)}

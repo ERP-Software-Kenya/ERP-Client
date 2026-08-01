@@ -8,6 +8,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Categories, useCategoryParents } from '../api';
 import { usePagination } from '../hooks/usePagination';
+import { formatEntityLabel } from '../lib/entityLabel';
 import type { Category } from '../types';
 
 // Every field here matches core-apis' CreateCategoryRequest/UpdateCategoryRequest exactly
@@ -37,7 +38,9 @@ export default function CategoriesPage() {
   const { data: allCategories } = Categories.useList();
   const categoryName = useMemo(() => {
     const m = new Map<string, string>();
-    for (const c of allCategories ?? []) m.set(c.id, c.name || c.id.slice(0, 8));
+    for (const c of allCategories ?? []) {
+      m.set(c.id, formatEntityLabel({ name: c.name, id: c.id }));
+    }
     return m;
   }, [allCategories]);
 
@@ -81,7 +84,9 @@ export default function CategoriesPage() {
       key: 'parentId',
       label: 'Parent',
       render: (row) =>
-        row.parentId ? categoryName.get(row.parentId) ?? row.parentId.slice(0, 8) : '—',
+        row.parentId
+          ? categoryName.get(row.parentId) ?? formatEntityLabel({ id: row.parentId })
+          : '—',
     },
     { key: 'description', label: 'Description' },
     {
@@ -155,7 +160,7 @@ export default function CategoriesPage() {
           <Field label="Parent Category">
             <ResourceSelect
               resource={{ useList: useCategoryParents }}
-              getLabel={(c) => c.name ?? ''}
+              getLabel={(c) => formatEntityLabel({ name: c.name, id: c.id })}
               value={form.parentId}
               onValueChange={(v) => setForm({ ...form, parentId: v })}
               placeholder="No parent (top level)"

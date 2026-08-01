@@ -3,8 +3,9 @@ import { useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Trash2 } from 'lucide-react';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
+import { AdvancedIdLookup } from '../components/AdvancedIdLookup';
+import { RecentRecords } from '../components/RecentRecords';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { SimpleTable } from '../components/SimpleTable';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import {
@@ -12,12 +13,15 @@ import {
   Organizations,
   Stores,
   Inventory,
+  Products,
+  Locations,
   useCompleteStockTransfer,
   useCancelStockTransfer,
   get,
 } from '../api';
 import { useAuth } from '../context/AuthContext';
-import { RECENT_NS, useRecentIds } from '../lib/recentIds';
+import { formatEntityLabel, truncateId } from '../lib/entityLabel';
+import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
 import type { InventoryItem, StockTransfer } from '../types';
 
 interface HeaderForm {
@@ -129,6 +133,9 @@ export default function StockTransfersPage() {
   const { data: transfer, isLoading, error, refetch } = StockTransfers.useGet(activeId);
   const { data: inventoryList } = Inventory.useList();
   const { data: stores } = Stores.useList();
+  const { data: orgs } = Organizations.useList();
+  const { data: products } = Products.useList();
+  const { data: locations } = Locations.useList();
   const createMutation = StockTransfers.useCreate();
   const completeMutation = useCompleteStockTransfer();
   const cancelMutation = useCancelStockTransfer();
@@ -141,12 +148,38 @@ export default function StockTransfersPage() {
 
   const storeName = useMemo(() => {
     const m = new Map<string, string>();
-    for (const s of stores ?? []) m.set(s.id, s.name || s.code || s.id.slice(0, 8));
+    for (const s of stores ?? []) {
+      m.set(s.id, formatEntityLabel({ name: s.name, code: s.code, id: s.id }));
+    }
     return m;
   }, [stores]);
 
+  const orgName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of orgs ?? []) {
+      m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
+    }
+    return m;
+  }, [orgs]);
+
+  const productName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of products ?? []) {
+      m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
+    }
+    return m;
+  }, [products]);
+
+  const locationName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of locations ?? []) {
+      m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
+    }
+    return m;
+  }, [locations]);
+
   const recentQueries = useQueries({
-    queries: recent.entries.map((e) => ({
+    queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
       queryKey: ['stock-transfers', e.id] as const,
       queryFn: () => get<StockTransfer>(`/api/v1/stock-transfers/${e.id}`),
       staleTime: 60_000,
@@ -156,7 +189,7 @@ export default function StockTransfersPage() {
 
   const listRows = useMemo(() => {
     return recent.entries.map((e, i) => {
-      const q = recentQueries[i];
+      const q = i < HYDRATE_LIMIT ? recentQueries[i] : undefined;
       const data = q?.data;
       return {
         id: e.id,
@@ -181,7 +214,7 @@ export default function StockTransfersPage() {
   const loadById = (id: string) => {
     const trimmed = id.trim();
     if (!trimmed) {
-      toast.error('Enter a transfer UUID');
+      toast.error('Enter a transfer ID');
       return;
     }
     setActiveId(trimmed);
@@ -190,7 +223,9 @@ export default function StockTransfersPage() {
   };
 
   const invLabel = (i: InventoryItem) =>
-    `${i.productId.slice(0, 8)} @ ${i.locationId.slice(0, 8)} (on hand ${Number(i.quantityOnHand)})`;
+    `${productName.get(i.productId) ?? formatEntityLabel({ id: i.productId })} @ ${
+      locationName.get(i.locationId) ?? formatEntityLabel({ id: i.locationId })
+    } (on hand ${Number(i.quantityOnHand)})`;
 
   const updateLine = (idx: number, patch: Partial<LineForm>) => {
     setLines((prev) => {
@@ -336,9 +371,18 @@ export default function StockTransfersPage() {
             </Field>
             {(line.productId || line.fromLocationId || line.toLocationId) && (
               <p className="text-xs text-muted-foreground">
-                Product {line.productId ? line.productId.slice(0, 8) : '—'}
-                {' · '}from loc {line.fromLocationId ? line.fromLocationId.slice(0, 8) : '—'}
-                {' · '}to loc {line.toLocationId ? line.toLocationId.slice(0, 8) : '—'}
+                Product{' '}
+                {line.productId
+                  ? productName.get(line.productId) ?? formatEntityLabel({ id: line.productId })
+                  : '—'}
+                {' · '}from loc{' '}
+                {line.fromLocationId
+                  ? locationName.get(line.fromLocationId) ?? formatEntityLabel({ id: line.fromLocationId })
+                  : '—'}
+                {' · '}to loc{' '}
+                {line.toLocationId
+                  ? locationName.get(line.toLocationId) ?? formatEntityLabel({ id: line.toLocationId })
+                  : '—'}
                 {onHand != null ? ` · max ${onHand}` : ''}
               </p>
             )}
@@ -376,82 +420,63 @@ export default function StockTransfersPage() {
         <Button onClick={openWizard}>New transfer</Button>
       </div>
 
-      <FormSection title="Recent transfers">
-        {listRows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No recent transfers yet. Create one or look up a UUID — it will appear here.
-          </p>
-        ) : (
-          <SimpleTable
-            columns={[
-              {
-                key: 'number',
-                header: 'Number',
-                render: (r) => r.transferNumber || r.label || '—',
-              },
-              {
-                key: 'status',
-                header: 'Status',
-                render: (r) => (r.loading ? '…' : r.failed ? 'unavailable' : r.status ?? '—'),
-              },
-              {
-                key: 'from',
-                header: 'From',
-                render: (r) =>
-                  r.fromStoreId
-                    ? storeName.get(r.fromStoreId) ?? r.fromStoreId.slice(0, 8)
-                    : '—',
-              },
-              {
-                key: 'to',
-                header: 'To',
-                render: (r) =>
-                  r.toStoreId ? storeName.get(r.toStoreId) ?? r.toStoreId.slice(0, 8) : '—',
-              },
-              {
-                key: 'when',
-                header: 'Saved',
-                render: (r) => new Date(r.savedAt).toLocaleString(),
-              },
-              {
-                key: 'actions',
-                header: '',
-                render: (r) => (
-                  <div className="flex gap-2">
-                    <Button type="button" size="sm" variant="outline" onClick={() => loadById(r.id)}>
-                      Open
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
-                      Remove
-                    </Button>
-                  </div>
-                ),
-              },
-            ]}
-            rows={listRows}
-            rowKey={(r) => r.id}
-          />
-        )}
-        {listRows.length > 0 && (
-          <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => recent.clear()}>
-            Clear recent list
-          </Button>
-        )}
-      </FormSection>
+      <RecentRecords
+        title="Recent transfers"
+        emptyHint="No recent transfers yet. Create one or use Advanced load by ID — it will appear here."
+        rows={listRows}
+        columns={[
+          {
+            key: 'number',
+            header: 'Number',
+            render: (r) => r.transferNumber || r.label || '—',
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            render: (r) => (r.loading ? '…' : r.failed ? 'unavailable' : r.status ?? '—'),
+          },
+          {
+            key: 'from',
+            header: 'From',
+            render: (r) =>
+              r.fromStoreId ? storeName.get(r.fromStoreId) ?? formatEntityLabel({ id: r.fromStoreId }) : '—',
+          },
+          {
+            key: 'to',
+            header: 'To',
+            render: (r) =>
+              r.toStoreId ? storeName.get(r.toStoreId) ?? formatEntityLabel({ id: r.toStoreId }) : '—',
+          },
+          {
+            key: 'when',
+            header: 'Saved',
+            render: (r) => new Date(r.savedAt).toLocaleString(),
+          },
+          {
+            key: 'actions',
+            header: '',
+            render: (r) => (
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => loadById(r.id)}>
+                  Open
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
+                  Remove
+                </Button>
+              </div>
+            ),
+          },
+        ]}
+        rowKey={(r) => r.id}
+        onClear={recent.clear}
+      />
 
-      <FormSection title="Look up by UUID">
-        <div className="flex flex-wrap gap-2">
-          <Input
-            className="max-w-md flex-1"
-            placeholder="Transfer UUID"
-            value={lookupId}
-            onChange={(e) => setLookupId(e.target.value)}
-          />
-          <Button type="button" onClick={() => loadById(lookupId)}>
-            Load
-          </Button>
-        </div>
-      </FormSection>
+      <AdvancedIdLookup
+        entityLabel="transfer"
+        value={lookupId}
+        onChange={setLookupId}
+        onLoad={() => loadById(lookupId)}
+      />
 
       {activeId && (
         <FormSection title="Transfer detail">
@@ -477,16 +502,21 @@ export default function StockTransfersPage() {
                   <span className="text-muted-foreground">Status:</span> {transfer.status ?? '—'}
                 </p>
                 <p>
-                  <span className="text-muted-foreground">ID:</span> {transfer.id}
+                  <span className="text-muted-foreground">ID:</span> {truncateId(transfer.id)}
                 </p>
                 <p>
-                  <span className="text-muted-foreground">Org:</span> {transfer.organizationId}
+                  <span className="text-muted-foreground">Org:</span>{' '}
+                  {orgName.get(transfer.organizationId) ??
+                    formatEntityLabel({ id: transfer.organizationId })}
                 </p>
                 <p>
-                  <span className="text-muted-foreground">From store:</span> {transfer.fromStoreId}
+                  <span className="text-muted-foreground">From store:</span>{' '}
+                  {storeName.get(transfer.fromStoreId) ??
+                    formatEntityLabel({ id: transfer.fromStoreId })}
                 </p>
                 <p>
-                  <span className="text-muted-foreground">To store:</span> {transfer.toStoreId}
+                  <span className="text-muted-foreground">To store:</span>{' '}
+                  {storeName.get(transfer.toStoreId) ?? formatEntityLabel({ id: transfer.toStoreId })}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -539,7 +569,7 @@ export default function StockTransfersPage() {
           <Field label="Organization" required>
             <ResourceSelect
               resource={Organizations}
-              getLabel={(o) => o.name ?? o.id.slice(0, 8)}
+              getLabel={(o) => formatEntityLabel({ name: o.name, id: o.id })}
               value={header.organizationId}
               onValueChange={(v) => setHeader({ ...header, organizationId: v })}
             />

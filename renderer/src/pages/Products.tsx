@@ -14,6 +14,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Categories, Products, Suppliers, useCategoryParents, useUploadProductImage, useProductImagePresignedUpload, useProductImages, useProductSuppliers } from '../api';
 import { usePagination } from '../hooks/usePagination';
+import { formatEntityLabel } from '../lib/entityLabel';
 import type { Product, ProductUnit } from '../types';
 
 
@@ -67,13 +68,21 @@ export default function ProductsPage() {
   const [uploading, setUploading] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState('');
 
   const createMutation = Products.useCreate();
   const updateMutation = Products.useUpdate();
   const removeMutation = Products.useDelete();
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
+
+  const filters = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (categoryFilter) next.categoryId = categoryFilter;
+    return Object.keys(next).length ? next : undefined;
+  }, [categoryFilter]);
+
   const { data: productsData, isLoading: productsLoading, error: productsError, refetch: refetchProducts } =
-    Products.useSearch({ page, search: debouncedSearch });
+    Products.useSearch({ page, search: debouncedSearch, filters });
 
   const { data: images } = useProductImages(editing?.id);
   const { data: viewImages, isLoading: viewImagesLoading } = useProductImages(viewRow?.id);
@@ -82,7 +91,9 @@ export default function ProductsPage() {
   const { data: categories } = Categories.useList();
   const categoryName = useMemo(() => {
     const m = new Map<string, string>();
-    for (const c of categories ?? []) m.set(c.id, c.name || c.id.slice(0, 8));
+    for (const c of categories ?? []) {
+      m.set(c.id, formatEntityLabel({ name: c.name, id: c.id }));
+    }
     return m;
   }, [categories]);
 
@@ -247,7 +258,9 @@ export default function ProductsPage() {
       key: 'categoryId',
       label: 'Category',
       render: (row) =>
-        row.categoryId ? categoryName.get(row.categoryId) ?? row.categoryId.slice(0, 8) : '—',
+        row.categoryId
+          ? formatEntityLabel({ name: categoryName.get(row.categoryId), id: row.categoryId })
+          : '—',
     },
     {
       key: 'retailPrice',
@@ -277,6 +290,26 @@ export default function ProductsPage() {
         error={productsError ? String(productsError) : null}
         onPageChange={setPage}
         onSearchChange={setSearch}
+        toolbar={
+          <>
+            <span className="text-xs text-muted-foreground">Category:</span>
+            <select
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              value={categoryFilter}
+              onChange={(e) => {
+                setCategoryFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All categories</option>
+              {(categories ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name || c.id}
+                </option>
+              ))}
+            </select>
+          </>
+        }
         onRefetch={() => void refetchProducts()}
         searchPlaceholder="Search products…"
         isAdmin={true}

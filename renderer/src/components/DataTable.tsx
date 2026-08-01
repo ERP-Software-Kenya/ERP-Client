@@ -21,15 +21,21 @@ interface DataTableProps<T extends { id: string }> {
   loading: boolean;
   error?: string | null;
   onPageChange: (page: number) => void;
-  onSearchChange: (search: string) => void;
+  onSearchChange?: (search: string) => void;
+  hideSearch?: boolean;
+  toolbar?: React.ReactNode;
   onRefetch?: () => void;
   onAdd?: () => void;
   onView?: (row: T) => void;
   onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
+  /** When set, Delete menu item is shown only if this returns true for the row. */
+  canDelete?: (row: T) => boolean;
   isAdmin?: boolean;
   searchPlaceholder?: string;
   limit?: number;
+  /** Optional muted note under the pager (e.g. omitPagination honesty). */
+  footerNote?: string;
 }
 
 function getCellValue<T>(row: T, key: string): unknown {
@@ -47,14 +53,18 @@ export function DataTable<T extends { id: string }>({
   error,
   onPageChange,
   onSearchChange,
+  hideSearch,
+  toolbar,
   onRefetch,
   onAdd,
   onView,
   onEdit,
   onDelete,
+  canDelete,
   isAdmin,
   searchPlaceholder = 'Search…',
   limit = 15,
+  footerNote,
 }: DataTableProps<T>) {
   const [searchInput, setSearchInput] = useState('');
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -69,19 +79,21 @@ export function DataTable<T extends { id: string }>({
           {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={searchInput}
-              onChange={(e) => {
-                setSearchInput(e.target.value);
-                onSearchChange(e.target.value);
-              }}
-              className="w-[220px] pl-9"
-            />
-          </div>
+          {!hideSearch && (
+            <div className="relative">
+              <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={searchInput}
+                onChange={(e) => {
+                  setSearchInput(e.target.value);
+                  onSearchChange?.(e.target.value);
+                }}
+                className="w-[220px] pl-9"
+              />
+            </div>
+          )}
           {onRefetch && (
             <Button variant="ghost" size="icon" onClick={onRefetch} title="Refresh">
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -95,7 +107,11 @@ export function DataTable<T extends { id: string }>({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto rounded-lg border border-border bg-card">
+      {toolbar ? (
+        <div className="flex flex-wrap items-center gap-2">{toolbar}</div>
+      ) : null}
+
+      <div className="flex-1 overflow-auto rounded-lg border border-border bg-card custom-scrollbar">
         {error && (
           <div className="p-6 text-center text-destructive">
             <p>Failed to load: {error}</p>
@@ -155,7 +171,13 @@ export function DataTable<T extends { id: string }>({
                       <RowActionsMenu
                         onView={onView ? () => onView(row) : undefined}
                         onEdit={showAdminActions && onEdit ? () => onEdit(row) : undefined}
-                        onDelete={showAdminActions && onDelete ? () => onDelete(row) : undefined}
+                        onDelete={
+                          showAdminActions &&
+                          onDelete &&
+                          (canDelete ? canDelete(row) : true)
+                            ? () => onDelete(row)
+                            : undefined
+                        }
                       />
                     </td>
                   )}
@@ -166,19 +188,38 @@ export function DataTable<T extends { id: string }>({
         )}
       </div>
 
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {total > 0 ? `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total}` : 'No results'}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page <= 1}>
-            <ChevronLeft size={15} />
-          </Button>
-          <span className="min-w-[4rem] text-center">{page} / {totalPages}</span>
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page >= totalPages}>
-            <ChevronRight size={15} />
-          </Button>
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {total > 0
+              ? `Showing ${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total}`
+              : 'No results'}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onPageChange(Math.max(1, page - 1))}
+              disabled={page <= 1}
+            >
+              <ChevronLeft size={15} />
+            </Button>
+            <span className="min-w-[4rem] text-center">
+              {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+              disabled={page >= totalPages}
+            >
+              <ChevronRight size={15} />
+            </Button>
+          </div>
         </div>
+        {footerNote ? <p className="text-xs text-muted-foreground">{footerNote}</p> : null}
       </div>
     </div>
   );

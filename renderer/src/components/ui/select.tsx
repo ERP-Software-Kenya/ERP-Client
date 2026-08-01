@@ -34,7 +34,7 @@ export const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'z-50 max-h-64 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md',
+        'z-50 max-h-64 overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md custom-scrollbar',
         className,
       )}
       position="popper"

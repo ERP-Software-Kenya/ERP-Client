@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
@@ -9,17 +9,27 @@ import { ReportGenerationLogs } from '../api';
 import { usePagination } from '../hooks/usePagination';
 import type { ReportGenerationLog } from '../types';
 
+const STATUS_FILTERS = ['ALL', 'PENDING', 'COMPLETED', 'FAILED'] as const;
+
 export default function ReportGenerationLogsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ReportGenerationLog | null>(null);
   const [status, setStatus] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ReportGenerationLog | null>(null);
   const [viewRow, setViewRow] = useState<ReportGenerationLog | null>(null);
+  const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>('ALL');
 
   const updateMutation = ReportGenerationLogs.useUpdate();
   const removeMutation = ReportGenerationLogs.useDelete();
-  const { page, setPage, setSearch, debouncedSearch } = usePagination();
-  const { data, isLoading, error, refetch } = ReportGenerationLogs.useSearch({ page, search: debouncedSearch });
+  const { page, setPage } = usePagination();
+
+  const filters = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (statusFilter !== 'ALL') next.status = statusFilter;
+    return Object.keys(next).length ? next : undefined;
+  }, [statusFilter]);
+
+  const { data, isLoading, error, refetch } = ReportGenerationLogs.useSearch({ page, filters });
 
   const openEdit = (row: ReportGenerationLog) => {
     setEditing(row);
@@ -43,6 +53,10 @@ export default function ReportGenerationLogsPage() {
 
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
+      <p className="text-xs text-muted-foreground">
+        API gap: no free-text search; org filter omitted (Core <code className="text-[10px]">orgId</code> ≠
+        entity <code className="text-[10px]">organizationId</code>). Status filter only.
+      </p>
       <DataTable
         title="Report Generation Logs"
         description="System-generated report job logs. Update status or delete."
@@ -53,9 +67,27 @@ export default function ReportGenerationLogsPage() {
         loading={isLoading}
         error={error ? String(error) : null}
         onPageChange={setPage}
-        onSearchChange={setSearch}
+        hideSearch
+        toolbar={
+          <>
+            <span className="text-xs text-muted-foreground">Status:</span>
+            {STATUS_FILTERS.map((s) => (
+              <Button
+                key={s}
+                type="button"
+                size="sm"
+                variant={statusFilter === s ? 'default' : 'outline'}
+                onClick={() => {
+                  setStatusFilter(s);
+                  setPage(1);
+                }}
+              >
+                {s === 'ALL' ? 'All' : s}
+              </Button>
+            ))}
+          </>
+        }
         onRefetch={() => void refetch()}
-        searchPlaceholder="Search report logs…"
         isAdmin={true}
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}

@@ -20,8 +20,10 @@ import {
   X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Inventory, Locations, Products, Stores, Suppliers } from '../../api';
-import type { Location, Product, Store, Supplier } from '../../types';
+import { Customers, Inventory, Locations, Products, Stores, Suppliers } from '../../api';
+import type { Customer, Location, Product, Store, Supplier } from '../../types';
+import { useDebounce } from '../../hooks/useDebounce';
+import { formatEntityLabel } from '../../lib/entityLabel';
 import {
   runPurchaseCheckout,
   runSalesCheckout,
@@ -117,18 +119,29 @@ function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => voi
 
 function StepList({ steps }: { steps: CheckoutStep[] }) {
   return (
-    <ul className="text-left space-y-1.5 max-h-40 overflow-y-auto">
+    <ul className="max-h-36 space-y-1.5 overflow-y-auto text-left">
       {steps.map((s) => (
-        <li key={s.name} className="text-xs border border-border rounded-lg px-2.5 py-1.5">
-          <span
-            className={`font-semibold uppercase tracking-wide mr-2 ${
-              s.status === 'ok' ? 'text-green-600' : s.status === 'failed' ? 'text-red-600' : 'text-amber-600'
-            }`}
-          >
-            {s.status}
-          </span>
-          <span className="font-medium text-foreground">{s.name}</span>
-          {s.message && <p className="text-muted-foreground mt-0.5 break-words">{s.message}</p>}
+        <li
+          key={s.name}
+          className="rounded-lg border border-border bg-background/60 px-3 py-2 text-xs"
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                s.status === 'ok'
+                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                  : s.status === 'failed'
+                    ? 'bg-red-500/15 text-red-600 dark:text-red-400'
+                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+              }`}
+            >
+              {s.status}
+            </span>
+            <span className="font-medium text-foreground">{s.name}</span>
+          </div>
+          {s.message && (
+            <p className="mt-1 break-words text-muted-foreground leading-relaxed">{s.message}</p>
+          )}
         </li>
       ))}
     </ul>
@@ -149,49 +162,88 @@ function BillSuccessModal({
   onClose: () => void;
 }) {
   const hasGaps = steps.some((s) => s.status === 'failed' || s.status === 'skipped');
+  const failed = steps.some((s) => s.status === 'failed');
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pos-no-print">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative bg-card rounded-2xl shadow-2xl border border-border p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="text-center mb-4">
-          <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-            <Check size={26} className="text-green-600" />
+      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
+      <div
+        role="dialog"
+        aria-labelledby="pos-success-title"
+        className="relative flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+      >
+        <div className="flex-shrink-0 border-b border-border px-5 pt-5 pb-4">
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ${
+                receipt.synced && !failed
+                  ? 'bg-emerald-500/15 text-emerald-500'
+                  : 'bg-amber-500/15 text-amber-500'
+              }`}
+            >
+              <Check size={22} strokeWidth={2.5} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 id="pos-success-title" className="text-lg font-semibold tracking-tight text-foreground">
+                {receipt.mode === 'sales' ? 'Sale complete' : 'Receiving complete'}
+              </h2>
+              <p className="mt-0.5 font-mono text-xs text-muted-foreground truncate">{receipt.ref}</p>
+              <div className="mt-2">
+                {receipt.synced && !failed ? (
+                  <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                    Synced to server
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    Partial sync — review steps
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex-shrink-0 text-right">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total</p>
+              <p className="text-lg font-bold tabular-nums text-foreground">
+                ${receipt.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
           </div>
-          <h2 className="text-xl font-bold text-foreground">
-            {receipt.mode === 'sales' ? 'Invoice ready' : 'Bill ready'}
-          </h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {receipt.synced
-              ? 'Synced to server where possible'
-              : 'Local receipt — print now; server sync pending API gaps'}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Receipt preview
           </p>
-        </div>
-
-        <div className="rounded-xl border border-border bg-muted p-4 mb-4">
-          <ReceiptDocument receipt={receipt} />
-        </div>
-
-        {hasGaps && (
-          <div className="mb-4 text-left">
-            <p className="text-xs font-semibold text-amber-700 mb-2">API steps (informational)</p>
-            <StepList steps={steps} />
+          <div className="rounded-xl border border-border/80 bg-muted/40 p-3 sm:p-4">
+            <div className="overflow-hidden rounded-lg ring-1 ring-black/5">
+              <ReceiptDocument receipt={receipt} />
+            </div>
           </div>
-        )}
 
-        <div className="flex gap-3">
+          {hasGaps && (
+            <div className="mt-4">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Checkout steps
+              </p>
+              <StepList steps={steps} />
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-shrink-0 gap-2 border-t border-border bg-card/80 px-5 py-4 backdrop-blur">
           <button
             type="button"
             onClick={printReceipt}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-border rounded-xl text-sm font-medium text-foreground hover:bg-muted transition"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
           >
-            <Printer size={15} /> Print receipt
+            <Printer size={15} />
+            Print
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition"
+            className="flex-[1.4] rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
           >
-            {receipt.mode === 'sales' ? 'New Invoice' : 'New Bill'}
+            {receipt.mode === 'sales' ? 'New sale' : 'New receiving'}
           </button>
         </div>
       </div>
@@ -221,8 +273,10 @@ export default function POSTerminal() {
   const [lastReceipt, setLastReceipt] = useState<PosReceipt | null>(null);
   const [checkoutResult, setCheckoutResult] = useState<CheckoutResult | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
-  const [showAdvancedCustomer, setShowAdvancedCustomer] = useState(false);
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const debouncedCustomerInfo = useDebounce(customerInfo, 300);
 
   const { data: stores = [], isLoading: storesLoading } = Stores.useList();
   const { data: locations = [], isLoading: locationsLoading } = Locations.useList();
@@ -232,6 +286,15 @@ export default function POSTerminal() {
     page: 1,
     limit: 20,
     search: searchVal.trim() || undefined,
+  });
+  const { data: customerSearch } = Customers.useSearch({
+    page: 1,
+    limit: 8,
+    search:
+      mode === 'sales' && debouncedCustomerInfo.trim().length >= 2 && !customerId
+        ? debouncedCustomerInfo.trim()
+        : undefined,
+    enabled: mode === 'sales' && debouncedCustomerInfo.trim().length >= 2 && !customerId,
   });
 
   useEffect(() => {
@@ -278,7 +341,7 @@ export default function POSTerminal() {
   }, [productSearch, searchVal]);
 
   const addProduct = (p: Product) => {
-    const sku = p.sku || p.id.slice(0, 8);
+    const sku = formatEntityLabel({ sku: p.sku, id: p.id });
     const existing = lines.find((l) => l.productId === p.id);
     if (existing) {
       setLines((ls) => ls.map((l) => (l.productId === p.id ? { ...l, qty: l.qty + qty } : l)));
@@ -438,7 +501,7 @@ export default function POSTerminal() {
         };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5.5rem)] min-h-[520px] rounded-lg border border-border bg-muted overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-muted">
       <div className="flex items-center gap-4 px-5 py-3 bg-card border-b border-border flex-shrink-0">
         <ModeToggle
           mode={mode}
@@ -495,8 +558,8 @@ export default function POSTerminal() {
       </div>
 
       <div className="px-5 py-2 bg-amber-500/10 border-b border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 flex-shrink-0">
-        Stock uses Locations (header right of Store). Create inventory rows per product+location first.
-        Walk-in sales skip Order API but still attempt stock remove.
+        Stock uses Locations (header right of Store). Sales create a bill then DRAFT → COMPLETED (stock
+        deducted on the server). Walk-in needs a name; or pick a customer from search.
       </div>
 
       <div className="flex flex-1 gap-0 overflow-hidden">
@@ -540,7 +603,9 @@ export default function POSTerminal() {
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-foreground truncate">{p.name}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono">{p.sku || p.id.slice(0, 8)}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        {formatEntityLabel({ sku: p.sku, id: p.id })}
+                      </p>
                       <span className="text-[10px] font-semibold text-primary">{fmt(productRate(p, mode))}</span>
                     </div>
                   </button>
@@ -627,11 +692,11 @@ export default function POSTerminal() {
 
           <div className="mt-auto p-4 space-y-2">
             <Link
-              to={mode === 'sales' ? '/invoices' : '/bills'}
+              to="/bills"
               className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition"
             >
               <Receipt size={14} />
-              {mode === 'sales' ? 'Invoice History' : 'Bills'}
+              {mode === 'sales' ? 'Bill History' : 'Bills'}
             </Link>
           </div>
         </div>
@@ -915,36 +980,67 @@ export default function POSTerminal() {
 
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                {mode === 'sales' ? 'Customer (optional)' : 'Supplier Ref. / Notes'}
+                {mode === 'sales' ? 'Customer' : 'Supplier Ref. / Notes'}
               </p>
               <div className="relative">
                 <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
                 <input
                   value={mode === 'sales' ? customerInfo : supplierRef}
-                  onChange={(e) =>
-                    mode === 'sales' ? setCustomerInfo(e.target.value) : setSupplierRef(e.target.value)
+                  onChange={(e) => {
+                    if (mode === 'sales') {
+                      setCustomerInfo(e.target.value);
+                      setCustomerId('');
+                      setShowCustomerSuggestions(true);
+                    } else {
+                      setSupplierRef(e.target.value);
+                    }
+                  }}
+                  onFocus={() => mode === 'sales' && setShowCustomerSuggestions(true)}
+                  placeholder={
+                    mode === 'sales' ? 'Walk-in name or search customer…' : 'Supplier invoice / LPO no.'
                   }
-                  placeholder={mode === 'sales' ? 'Walk-in / phone / email' : 'Supplier invoice / LPO no.'}
                   className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-primary"
                 />
+                {mode === 'sales' &&
+                  showCustomerSuggestions &&
+                  !customerId &&
+                  (customerSearch?.items?.length ?? 0) > 0 && (
+                    <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+                      {(customerSearch?.items ?? []).map((c: Customer) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="block w-full px-3 py-2 text-left text-sm hover:bg-muted border-b border-border last:border-0"
+                          onClick={() => {
+                            setCustomerId(c.id);
+                            setCustomerInfo(formatEntityLabel({ name: c.name, phone: c.phone, id: c.id }));
+                            setShowCustomerSuggestions(false);
+                          }}
+                        >
+                          <span className="font-medium">{c.name || 'Unnamed'}</span>
+                          {c.phone ? (
+                            <span className="text-xs text-muted-foreground ml-2">{c.phone}</span>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                  )}
               </div>
-              {mode === 'sales' && (
-                <div className="mt-2">
+              {mode === 'sales' && customerId && (
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    Linked: {formatEntityLabel({ name: customerInfo, id: customerId })}
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setShowAdvancedCustomer((v) => !v)}
                     className="text-[10px] text-muted-foreground underline"
+                    onClick={() => {
+                      setCustomerId('');
+                      setCustomerInfo('');
+                    }}
                   >
-                    {showAdvancedCustomer ? 'Hide' : 'Advanced'}: sync with server customer UUID
+                    Clear
                   </button>
-                  {showAdvancedCustomer && (
-                    <input
-                      value={customerId}
-                      onChange={(e) => setCustomerId(e.target.value)}
-                      placeholder="Customer UUID (optional — for Order API)"
-                      className="mt-1.5 w-full px-3 py-2 text-xs border border-border rounded-lg outline-none focus:border-primary font-mono"
-                    />
-                  )}
                 </div>
               )}
             </div>
@@ -952,11 +1048,11 @@ export default function POSTerminal() {
             <div className={`rounded-xl p-3 border text-xs ${accentCls.light}`}>
               <div className="flex items-center gap-1.5 font-semibold mb-0.5">
                 <StoreIcon size={12} />
-                {mode === 'sales' ? 'Stock deducted from' : 'Stock added to'}
+                {mode === 'sales' ? 'Bill stock location' : 'Stock added to'}
               </div>
               <p className="text-muted-foreground ml-4">
                 {stockLocation?.name ?? 'Select a stock location'}
-                {store?.name ? ` · order store: ${store.name}` : ''}
+                {store?.name ? ` · store: ${store.name}` : ''}
               </p>
             </div>
           </div>
@@ -965,11 +1061,20 @@ export default function POSTerminal() {
             <button
               type="button"
               onClick={() => void generateBill()}
-              disabled={lines.length === 0 || checkingOut || cashShort}
+              disabled={
+                lines.length === 0 ||
+                checkingOut ||
+                cashShort ||
+                (mode === 'sales' && !locationId)
+              }
               className={`w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed ${accentCls.btn}`}
             >
               {mode === 'sales' ? <Receipt size={16} /> : <PackagePlus size={16} />}
-              {checkingOut ? 'Processing…' : mode === 'sales' ? 'Generate Invoice' : 'Confirm Bill'}
+              {checkingOut
+                ? 'Processing…'
+                : mode === 'sales'
+                  ? 'Complete Sale'
+                  : 'Confirm Bill'}
             </button>
             <div className="grid grid-cols-2 gap-2">
               <button

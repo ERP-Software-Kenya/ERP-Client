@@ -49,7 +49,7 @@ export function FormDrawer({ open, onClose, title, subtitle, width = 520, childr
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">{children}</div>
 
         {footer && <div className="flex flex-shrink-0 items-center gap-3 border-t border-border bg-muted/40 px-4 py-3">{footer}</div>}
       </div>

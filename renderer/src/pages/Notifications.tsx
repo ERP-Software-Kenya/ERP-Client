@@ -16,8 +16,8 @@ export default function NotificationsPage() {
 
   const updateMutation = Notifications.useUpdate();
   const removeMutation = Notifications.useDelete();
-  const { page, setPage, setSearch, debouncedSearch } = usePagination();
-  const { data, isLoading, error, refetch } = Notifications.useSearch({ page, search: debouncedSearch });
+  const { page, setPage } = usePagination();
+  const { data, isLoading, error, refetch } = Notifications.useSearch({ page });
 
   const openEdit = (row: Notification) => {
     setEditing(row);
@@ -44,6 +44,10 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
+      <p className="text-xs text-muted-foreground">
+        API gap: no free-text search; org filter omitted (Core <code className="text-[10px]">orgId</code> ≠
+        entity <code className="text-[10px]">organizationId</code>). Type filter deferred (no shared enum).
+      </p>
       <DataTable
         title="Notifications"
         description="System-generated notifications. Mark as read or delete."
@@ -54,9 +58,8 @@ export default function NotificationsPage() {
         loading={isLoading}
         error={error ? String(error) : null}
         onPageChange={setPage}
-        onSearchChange={setSearch}
+        hideSearch
         onRefetch={() => void refetch()}
-        searchPlaceholder="Search notifications…"
         isAdmin={true}
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}

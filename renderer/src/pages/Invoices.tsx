@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { AdvancedIdLookup } from '../components/AdvancedIdLookup';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
+import { RecentIdPicker } from '../components/RecentIdPicker';
+import { RecentRecords } from '../components/RecentRecords';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Invoices } from '../api';
+import { get, Invoices } from '../api';
+import { formatEntityLabel } from '../lib/entityLabel';
+import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
 import type { Invoice } from '../types';
 
 interface FormState {
@@ -14,6 +20,10 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { orderId: '', totalAmount: '', status: '' };
 
+function invoiceLabel(invoice: Invoice) {
+  return invoice.invoiceNumber ?? invoice.status ?? (invoice.totalAmount != null ? `${invoice.totalAmount}` : undefined);
+}
+
 function copyId(id: string) {
   void navigator.clipboard.writeText(id).then(
     () => toast.success('ID copied'),
@@ -22,6 +32,8 @@ function copyId(id: string) {
 }
 
 export default function InvoicesPage() {
+  const recent = useRecentIds(RECENT_NS.invoices);
+  const recentOrders = useRecentIds(RECENT_NS.orders);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lastCreated, setLastCreated] = useState<Invoice | null>(null);
@@ -31,16 +43,58 @@ export default function InvoicesPage() {
   const createMutation = Invoices.useCreate();
   const { data: lookedUp, isLoading, error } = Invoices.useGet(activeId);
 
+  const recentQueries = useQueries({
+    queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
+      queryKey: ['invoices', e.id] as const,
+      queryFn: () => get<Invoice>(`/api/v1/invoices/${e.id}`),
+      staleTime: 60_000,
+      retry: false,
+    })),
+  });
+
+  const listRows = useMemo(
+    () =>
+      recent.entries.map((e, i) => {
+        const query = i < HYDRATE_LIMIT ? recentQueries[i] : undefined;
+        const invoice = query?.data;
+        return {
+          id: e.id,
+          label: e.label,
+          savedAt: e.savedAt,
+          invoiceNumber: invoice?.invoiceNumber,
+          status: invoice?.status,
+          totalAmount: invoice?.totalAmount,
+          loading: query?.isLoading ?? false,
+          failed: !!query?.isError,
+        };
+      }),
+    [recent.entries, recentQueries],
+  );
+
+  const recentOrderLabels = useMemo(
+    () => new Map(recentOrders.entries.map((entry) => [entry.id, entry.label])),
+    [recentOrders.entries],
+  );
+
   const closeDrawer = () => setDrawerOpen(false);
 
-  const loadInvoice = () => {
-    const trimmed = lookupId.trim();
+  useEffect(() => {
+    if (!lookedUp || lookedUp.id !== activeId) return;
+    recent.push(lookedUp.id, invoiceLabel(lookedUp));
+  }, [activeId, lookedUp, recent.push]);
+
+  const loadById = (id: string) => {
+    const trimmed = id.trim();
     if (!trimmed) {
-      toast.error('Enter an invoice UUID');
+      toast.error('Enter an invoice ID');
       return;
     }
     setActiveId(trimmed);
+    setLookupId(trimmed);
+    recent.push(trimmed);
   };
+
+  const loadInvoice = () => loadById(lookupId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +109,7 @@ export default function InvoicesPage() {
           setLastCreated(created);
           setActiveId(created.id);
           setLookupId(created.id);
+          recent.push(created.id, invoiceLabel(created));
           setDrawerOpen(false);
           setForm(EMPTY_FORM);
         },
@@ -68,7 +123,7 @@ export default function InvoicesPage() {
         <div>
           <h1 className="text-2xl font-semibold">Invoices</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Create + get by UUID only — no directory. Paste an Order ID.
+            Create invoices and reopen recent invoices saved in this browser.
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)}>New Invoice</Button>
@@ -79,19 +134,51 @@ export default function InvoicesPage() {
         failures surface in the error toast.
       </div>
 
-      <FormSection title="Look up invoice">
-        <div className="flex flex-wrap gap-2">
-          <Input
-            className="max-w-md flex-1"
-            placeholder="Invoice UUID"
-            value={lookupId}
-            onChange={(e) => setLookupId(e.target.value)}
-          />
-          <Button type="button" onClick={loadInvoice}>
-            Load
-          </Button>
-        </div>
-      </FormSection>
+      <RecentRecords
+        title="Recent invoices"
+        emptyHint="No recent invoices yet. Create one or use Advanced load by ID — it will appear here."
+        rows={listRows}
+        columns={[
+          {
+            key: 'number',
+            header: 'Number',
+            render: (row) => row.invoiceNumber || row.label || '—',
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            render: (row) => (row.loading ? '…' : row.failed ? 'unavailable' : row.status ?? '—'),
+          },
+          {
+            key: 'total',
+            header: 'Total',
+            render: (row) => (row.loading ? '…' : row.failed ? 'unavailable' : row.totalAmount ?? '—'),
+          },
+          {
+            key: 'saved',
+            header: 'Saved',
+            render: (row) => new Date(row.savedAt).toLocaleString(),
+          },
+          {
+            key: 'actions',
+            header: '',
+            render: (row) => (
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => loadById(row.id)}>
+                  Open
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(row.id)}>
+                  Remove
+                </Button>
+              </div>
+            ),
+          },
+        ]}
+        rowKey={(row) => row.id}
+        onClear={recent.clear}
+      />
+
+      <AdvancedIdLookup entityLabel="invoice" value={lookupId} onChange={setLookupId} onLoad={loadInvoice} />
 
       {activeId && (
         <FormSection title="Invoice">
@@ -114,7 +201,21 @@ export default function InvoicesPage() {
                 {lookedUp.invoiceNumber ?? '—'}
               </p>
               <p>
-                <span className="text-muted-foreground">Order:</span> {lookedUp.orderId ?? '—'}
+                <span className="text-muted-foreground">Order:</span>{' '}
+                {lookedUp.orderId
+                  ? recentOrderLabels.get(lookedUp.orderId) ?? formatEntityLabel({ id: lookedUp.orderId })
+                  : '—'}
+                {lookedUp.orderId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="ml-2"
+                    onClick={() => copyId(lookedUp.orderId!)}
+                  >
+                    Copy
+                  </Button>
+                ) : null}
               </p>
               <p>
                 <span className="text-muted-foreground">Total:</span>{' '}
@@ -147,7 +248,7 @@ export default function InvoicesPage() {
         title="New Invoice"
         footer={
           <>
-            <Button type="submit" form="invoice-form" disabled={createMutation.isPending}>
+            <Button type="submit" form="invoice-form" disabled={createMutation.isPending || !form.orderId}>
               {createMutation.isPending ? 'Creating…' : 'Create'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>
@@ -160,9 +261,17 @@ export default function InvoicesPage() {
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
             Live Swagger requires <code className="text-[10px]">orderId</code>.
           </div>
-          <Field label="Order ID" required>
+          <Field label="Order" required>
+            <RecentIdPicker
+              namespace={RECENT_NS.orders}
+              value={form.orderId}
+              onSelect={(id) => setForm({ ...form, orderId: id })}
+              emptyHint="No recent orders in this browser. Create or open a Sales Order first — there is no order directory API."
+            />
+            <p className="mt-2 text-xs text-muted-foreground">or enter an ID</p>
             <Input
-              placeholder="Paste an Order UUID"
+              className="mt-1"
+              placeholder="Paste order ID"
               value={form.orderId}
               onChange={(e) => setForm({ ...form, orderId: e.target.value })}
               required

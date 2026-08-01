@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormDrawer, Field } from '../components/FormDrawer';
@@ -8,6 +8,8 @@ import { Input } from '../components/ui/input';
 import { PaymentTransactions } from '../api';
 import { usePagination } from '../hooks/usePagination';
 import type { PaymentTransaction } from '../types';
+
+const STATUS_FILTERS = ['ALL', 'PENDING', 'COMPLETED', 'FAILED'] as const;
 
 interface FormState {
   referenceId: string;
@@ -33,13 +35,21 @@ export default function PaymentTransactionsPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<PaymentTransaction | null>(null);
   const [viewRow, setViewRow] = useState<PaymentTransaction | null>(null);
+  const [statusFilter, setStatusFilter] = useState<(typeof STATUS_FILTERS)[number]>('ALL');
 
   const updateMutation = PaymentTransactions.useUpdate();
   const removeMutation = PaymentTransactions.useDelete();
-  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+  const { page, setPage } = usePagination();
+
+  const filters = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (statusFilter !== 'ALL') next.status = statusFilter;
+    return Object.keys(next).length ? next : undefined;
+  }, [statusFilter]);
+
   const { data, isLoading, isError, error, refetch } = PaymentTransactions.useSearch({
     page,
-    search: debouncedSearch,
+    filters,
   });
   const listError = isError
     ? `Unable to load payments.${error instanceof Error && error.message ? ` (${error.message})` : ''}`
@@ -99,6 +109,10 @@ export default function PaymentTransactionsPage() {
         <code className="text-[10px]">@AutoMap</code>; domain orgId ≠ entity organizationId (#0d). List/search
         still work for existing rows.
       </div>
+      <p className="text-xs text-muted-foreground">
+        API gap: no free-text search; org filter omitted (Core <code className="text-[10px]">orgId</code> ≠
+        entity <code className="text-[10px]">organizationId</code>). Status filter only.
+      </p>
       <DataTable
         title="Payments"
         description="Browse payments. Create needs a Core API fix."
@@ -109,9 +123,27 @@ export default function PaymentTransactionsPage() {
         loading={isLoading && !isError}
         error={listError}
         onPageChange={setPage}
-        onSearchChange={setSearch}
+        hideSearch
+        toolbar={
+          <>
+            <span className="text-xs text-muted-foreground">Status:</span>
+            {STATUS_FILTERS.map((s) => (
+              <Button
+                key={s}
+                type="button"
+                size="sm"
+                variant={statusFilter === s ? 'default' : 'outline'}
+                onClick={() => {
+                  setStatusFilter(s);
+                  setPage(1);
+                }}
+              >
+                {s === 'ALL' ? 'All' : s}
+              </Button>
+            ))}
+          </>
+        }
         onRefetch={() => void refetch()}
-        searchPlaceholder="Search payments…"
         isAdmin={true}
         onAdd={openCreate}
         onView={(row) => setViewRow(row)}

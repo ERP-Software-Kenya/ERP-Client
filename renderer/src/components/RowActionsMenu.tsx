@@ -1,4 +1,4 @@
-import { MoreHorizontal, Eye, Pencil, Trash2 } from 'lucide-react';
+import { MoreVertical, Eye, Pencil, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -23,7 +23,7 @@ export function RowActionsMenu({ onView, onEdit, onDelete }: RowActionsMenuProps
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="h-7 w-7" title="Actions" aria-label="Actions">
-          <MoreHorizontal size={16} />
+          <MoreVertical size={16} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

@@ -6,7 +6,8 @@ import { SimpleTable } from '../components/SimpleTable';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Inventory, Locations, useStockMovementsByInventory, useStockOperation } from '../api';
+import { Inventory, Locations, Products, useStockMovementsByInventory, useStockOperation } from '../api';
+import { formatEntityLabel, truncateId } from '../lib/entityLabel';
 import { RECENT_NS, useRecentIds } from '../lib/recentIds';
 import type { InventoryItem, StockMovement, StockMovementOp } from '../types';
 
@@ -54,13 +55,21 @@ export default function StockMovementsPage() {
 
   const { data: inventoryList } = Inventory.useList();
   const { data: locations } = Locations.useList();
+  const { data: products } = Products.useList();
   const locationLabel = useMemo(() => {
     const m = new Map<string, string>();
     for (const l of locations ?? []) {
-      m.set(l.id, l.type ? `${l.name} (${l.type})` : l.name);
+      m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
     }
     return m;
   }, [locations]);
+  const productLabel = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of products ?? []) {
+      m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
+    }
+    return m;
+  }, [products]);
 
   const { data: movements, isLoading: historyLoading, refetch } = useStockMovementsByInventory(
     historyInventoryId || undefined,
@@ -94,7 +103,9 @@ export default function StockMovementsPage() {
     if (inventoryId) {
       const row = inventoryList?.find((i) => i.id === inventoryId);
       const label = row
-        ? `${row.productId.slice(0, 8)} @ ${(locationLabel.get(row.locationId) ?? row.locationId).slice(0, 24)}`
+        ? `${productLabel.get(row.productId) ?? formatEntityLabel({ id: row.productId })} @ ${
+            locationLabel.get(row.locationId) ?? formatEntityLabel({ id: row.locationId })
+          }`
         : undefined;
       recent.push(inventoryId, label);
     }
@@ -145,8 +156,9 @@ export default function StockMovementsPage() {
   };
 
   const inventoryLabel = (i: InventoryItem) => {
-    const loc = locationLabel.get(i.locationId) ?? i.locationId.slice(0, 8);
-    return `Product ${i.productId.slice(0, 8)} @ ${loc} (on hand ${i.quantityOnHand})`;
+    const loc = locationLabel.get(i.locationId) ?? formatEntityLabel({ id: i.locationId });
+    const prod = productLabel.get(i.productId) ?? formatEntityLabel({ id: i.productId });
+    return `${prod} @ ${loc} (on hand ${i.quantityOnHand})`;
   };
 
   return (
@@ -169,7 +181,7 @@ export default function StockMovementsPage() {
               {
                 key: 'label',
                 header: 'Inventory',
-                render: (r) => r.label || r.id.slice(0, 8),
+                render: (r) => r.label || truncateId(r.id),
               },
               {
                 key: 'when',
@@ -229,7 +241,7 @@ export default function StockMovementsPage() {
                   header: 'Reference',
                   render: (m: StockMovement) =>
                     m.referenceType || m.referenceId
-                      ? `${m.referenceType ?? '—'} / ${m.referenceId?.slice(0, 8) ?? '—'}`
+                      ? `${m.referenceType ?? '—'} / ${m.referenceId ? truncateId(m.referenceId) : '—'}`
                       : '—',
                 },
                 { key: 'notes', header: 'Notes', render: (m: StockMovement) => m.notes ?? '—' },

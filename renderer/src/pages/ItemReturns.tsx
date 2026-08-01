@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ResourceSelect } from '../components/ResourceSelect';
+import { RecentIdPicker } from '../components/RecentIdPicker';
 import { FormDrawer, Field } from '../components/FormDrawer';
 import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
@@ -18,6 +19,8 @@ import {
   useStockOperation,
 } from '../api';
 import { usePagination } from '../hooks/usePagination';
+import { formatEntityLabel, truncateId } from '../lib/entityLabel';
+import { RECENT_NS, useRecentIds } from '../lib/recentIds';
 import type { ItemReturn } from '../types';
 
 const RETURN_TYPE_OPTIONS = ['sales', 'purchase'] as const;
@@ -51,6 +54,7 @@ interface RestockForm {
 const EMPTY_RESTOCK: RestockForm = { inventoryId: '', locationId: '', productId: '', quantity: '', unitCost: '' };
 
 export default function ItemReturnsPage() {
+  const recentOrders = useRecentIds(RECENT_NS.orders);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<ItemReturn | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -61,8 +65,53 @@ export default function ItemReturnsPage() {
 
   const updateMutation = ItemReturns.useUpdate();
   const removeMutation = ItemReturns.useDelete();
-  const { page, setPage, setSearch, debouncedSearch } = usePagination();
-  const { data, isLoading, error, refetch } = ItemReturns.useSearch({ page, search: debouncedSearch });
+  const [storeFilter, setStoreFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'COMPLETED' | 'CANCELLED'>('ALL');
+  const { page, setPage } = usePagination();
+
+  const filters = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (storeFilter) next.storeId = storeFilter;
+    if (statusFilter !== 'ALL') next.status = statusFilter;
+    return Object.keys(next).length ? next : undefined;
+  }, [storeFilter, statusFilter]);
+
+  const { data, isLoading, error, refetch } = ItemReturns.useSearch({ page, filters });
+
+  const { data: stores } = Stores.useList();
+  const { data: suppliers } = Suppliers.useList();
+  const { data: products } = Products.useList();
+  const { data: locations } = Locations.useList();
+  const storeName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of stores ?? []) m.set(s.id, formatEntityLabel({ name: s.name, code: s.code, id: s.id }));
+    return m;
+  }, [stores]);
+  const supplierName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of suppliers ?? []) m.set(s.id, formatEntityLabel({ name: s.name, id: s.id }));
+    return m;
+  }, [suppliers]);
+  const productName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of products ?? []) m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
+    return m;
+  }, [products]);
+  const locationName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of locations ?? []) {
+      m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
+    }
+    return m;
+  }, [locations]);
+  const orderLabel = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of recentOrders.entries) {
+      const label = e.label?.trim();
+      if (label) m.set(e.id, label);
+    }
+    return m;
+  }, [recentOrders.entries]);
 
   // A sales return puts stock back on the shelf (add); a purchase return sends stock back
   // to the supplier (remove). core-apis has no line-items endpoint for returns (ReturnItemEntity
@@ -95,7 +144,7 @@ export default function ItemReturnsPage() {
           unitCost: restockForm.unitCost ? Number(restockForm.unitCost) : undefined,
           referenceId: restockTarget.id,
           referenceType: 'item_return',
-          notes: `${restockTarget.returnType} return ${restockTarget.id.slice(0, 8)}`,
+          notes: `${restockTarget.returnType} return ${truncateId(restockTarget.id)}`,
         },
       },
       {
@@ -152,8 +201,22 @@ export default function ItemReturnsPage() {
   };
 
   const columns: Column<ItemReturn>[] = [
-    { key: 'id', label: 'ID', render: (row) => row.id.slice(0, 8) },
+    { key: 'id', label: 'ID', render: (row) => truncateId(row.id) },
     { key: 'returnType', label: 'Type' },
+    {
+      key: 'storeId',
+      label: 'Store',
+      render: (row) =>
+        row.storeId ? storeName.get(row.storeId) ?? formatEntityLabel({ id: row.storeId }) : '—',
+    },
+    {
+      key: 'supplierId',
+      label: 'Supplier',
+      render: (row) =>
+        row.supplierId
+          ? supplierName.get(row.supplierId) ?? formatEntityLabel({ id: row.supplierId })
+          : '—',
+    },
     {
       key: 'totalAmount',
       label: 'Total',
@@ -173,6 +236,21 @@ export default function ItemReturnsPage() {
 
   const isSaving = updateMutation.isPending;
 
+  const viewData = viewRow
+    ? ({
+        ...viewRow,
+        storeId: viewRow.storeId
+          ? storeName.get(viewRow.storeId) ?? formatEntityLabel({ id: viewRow.storeId })
+          : '—',
+        supplierId: viewRow.supplierId
+          ? supplierName.get(viewRow.supplierId) ?? formatEntityLabel({ id: viewRow.supplierId })
+          : '—',
+        orderId: viewRow.orderId
+          ? orderLabel.get(viewRow.orderId) ?? formatEntityLabel({ id: viewRow.orderId })
+          : '—',
+      } as Record<string, unknown>)
+    : null;
+
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
       <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
@@ -180,6 +258,9 @@ export default function ItemReturnsPage() {
         <code className="text-[10px]">@AutoMap</code>, so the command arrives empty (#0e). List/update/restock
         still available for existing rows.
       </div>
+      <p className="text-xs text-muted-foreground">
+        API gap: returns have no free-text search — filter by store and status only.
+      </p>
       <DataTable
         title="Returns"
         description="Browse returns. Create needs a Core API @AutoMap fix."
@@ -190,9 +271,43 @@ export default function ItemReturnsPage() {
         loading={isLoading}
         error={error ? String(error) : null}
         onPageChange={setPage}
-        onSearchChange={setSearch}
+        hideSearch
+        toolbar={
+          <>
+            <span className="text-xs text-muted-foreground">Status:</span>
+            {(['ALL', 'PENDING', 'COMPLETED', 'CANCELLED'] as const).map((s) => (
+              <Button
+                key={s}
+                type="button"
+                size="sm"
+                variant={statusFilter === s ? 'default' : 'outline'}
+                onClick={() => {
+                  setStatusFilter(s);
+                  setPage(1);
+                }}
+              >
+                {s === 'ALL' ? 'All' : s}
+              </Button>
+            ))}
+            <span className="ml-2 text-xs text-muted-foreground">Store:</span>
+            <select
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              value={storeFilter}
+              onChange={(e) => {
+                setStoreFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All stores</option>
+              {(stores ?? []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {formatEntityLabel({ name: s.name, code: s.code, id: s.id })}
+                </option>
+              ))}
+            </select>
+          </>
+        }
         onRefetch={() => void refetch()}
-        searchPlaceholder="Search returns…"
         isAdmin={true}
         onAdd={openCreate}
         onView={(row) => setViewRow(row)}
@@ -203,7 +318,7 @@ export default function ItemReturnsPage() {
       <ViewDrawer
         open={viewRow != null}
         title="View Item Return"
-        data={viewRow as Record<string, unknown> | null}
+        data={viewData}
         onClose={() => setViewRow(null)}
       />
 
@@ -240,7 +355,7 @@ export default function ItemReturnsPage() {
           <Field label="Store" required>
             <ResourceSelect
               resource={Stores}
-              getLabel={(s) => s.name}
+              getLabel={(s) => formatEntityLabel({ name: s.name, code: s.code, id: s.id })}
               value={form.storeId}
               onValueChange={(v) => setForm({ ...form, storeId: v })}
               placeholder="Select store…"
@@ -250,7 +365,7 @@ export default function ItemReturnsPage() {
             <Field label="Supplier">
               <ResourceSelect
                 resource={Suppliers}
-                getLabel={(s) => s.name}
+                getLabel={(s) => formatEntityLabel({ name: s.name, id: s.id })}
                 value={form.supplierId}
                 onValueChange={(v) => setForm({ ...form, supplierId: v })}
                 placeholder="Select supplier…"
@@ -259,8 +374,17 @@ export default function ItemReturnsPage() {
             </Field>
           )}
           {form.returnType === 'sales' && (
-            <Field label="Order ID (optional)">
+            <Field label="Order">
+              <RecentIdPicker
+                namespace={RECENT_NS.orders}
+                value={form.orderId}
+                onSelect={(id) => setForm({ ...form, orderId: id })}
+                emptyHint="No recent sales orders. Open Sales Orders first — no order directory API."
+              />
+              <p className="mt-2 text-xs text-muted-foreground">or enter an ID</p>
               <Input
+                className="mt-1"
+                placeholder="Paste order ID (optional)"
                 value={form.orderId}
                 onChange={(e) => setForm({ ...form, orderId: e.target.value })}
               />
@@ -309,7 +433,9 @@ export default function ItemReturnsPage() {
           <Field label="Location" required>
             <ResourceSelect
               resource={Locations}
-              getLabel={(l) => (l.type ? `${l.name} (${l.type})` : l.name)}
+              getLabel={(l) =>
+                l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id })
+              }
               value={restockForm.locationId}
               onValueChange={(locationId) => setRestockForm({ ...restockForm, locationId })}
             />
@@ -317,7 +443,7 @@ export default function ItemReturnsPage() {
           <Field label="Product" required>
             <ResourceSelect
               resource={Products}
-              getLabel={(p) => p.name || p.id}
+              getLabel={(p) => formatEntityLabel({ name: p.name, sku: p.sku, id: p.id })}
               value={restockForm.productId}
               onValueChange={(productId) => setRestockForm({ ...restockForm, productId })}
             />
@@ -325,7 +451,11 @@ export default function ItemReturnsPage() {
           <Field label="Inventory record" required>
             <ResourceSelect
               resource={Inventory}
-              getLabel={(i) => `Product ${i.productId.slice(0, 8)} @ Location ${i.locationId.slice(0, 8)}`}
+              getLabel={(i) =>
+                `${productName.get(i.productId) ?? formatEntityLabel({ id: i.productId })} @ ${
+                  locationName.get(i.locationId) ?? formatEntityLabel({ id: i.locationId })
+                }`
+              }
               value={restockForm.inventoryId}
               onValueChange={(inventoryId) => setRestockForm({ ...restockForm, inventoryId })}
             />

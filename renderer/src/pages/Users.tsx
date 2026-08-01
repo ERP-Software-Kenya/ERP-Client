@@ -1,12 +1,17 @@
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { AdvancedIdLookup } from '../components/AdvancedIdLookup';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
+import { RecentIdPicker } from '../components/RecentIdPicker';
+import { RecentRecords } from '../components/RecentRecords';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { Users, Organizations, Stores } from '../api';
+import { Users, Organizations, Stores, get } from '../api';
 import { AuthService } from '../services/auth.service';
+import { formatEntityLabel } from '../lib/entityLabel';
+import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
 import type { PlatformUser } from '../types';
 
 interface FormState {
@@ -44,7 +49,27 @@ const EMPTY_FORM: FormState = {
 
 const EMPTY_INVITE: InviteForm = { email: '', roleId: '' };
 
+function userDisplayName(user: Pick<PlatformUser, 'firstName' | 'lastName'>) {
+  return [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+}
+
+function userLabel(user: Pick<PlatformUser, 'id' | 'email' | 'firstName' | 'lastName'>) {
+  const email = user.email?.trim();
+  if (email) return email;
+  const name = userDisplayName(user);
+  if (name) return name;
+  return formatEntityLabel({ id: user.id });
+}
+
+function copyId(id: string) {
+  void navigator.clipboard.writeText(id).then(
+    () => toast.success('ID copied'),
+    () => toast.error('Could not copy ID'),
+  );
+}
+
 export default function UsersPage() {
+  const recent = useRecentIds(RECENT_NS.users);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -60,14 +85,51 @@ export default function UsersPage() {
   const createMutation = Users.useCreate();
   const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = Users.useGet(activeId);
 
-  const loadLookup = () => {
-    const trimmed = lookupId.trim();
+  const recentQueries = useQueries({
+    queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
+      queryKey: ['users', e.id] as const,
+      queryFn: () => get<PlatformUser>(`/api/v1/users/${e.id}`),
+      staleTime: 60_000,
+      retry: false,
+    })),
+  });
+
+  const listRows = useMemo(
+    () =>
+      recent.entries.map((e, i) => {
+        const q = i < HYDRATE_LIMIT ? recentQueries[i] : undefined;
+        const data = q?.data;
+        return {
+          id: e.id,
+          label: e.label,
+          savedAt: e.savedAt,
+          email: data?.email,
+          name: data ? userDisplayName(data) : undefined,
+          loading: q?.isLoading ?? false,
+          failed: !!q?.isError,
+        };
+      }),
+    [recent.entries, recentQueries],
+  );
+
+  useEffect(() => {
+    const loaded = lookedUp;
+    if (!loaded || loaded.id !== activeId) return;
+    recent.push(loaded.id, userLabel(loaded));
+  }, [activeId, lookedUp, recent.push]);
+
+  const loadById = (id: string) => {
+    const trimmed = id.trim();
     if (!trimmed) {
-      toast.error('Enter a user UUID');
+      toast.error('Enter a user ID');
       return;
     }
     setActiveId(trimmed);
+    setLookupId(trimmed);
+    recent.push(trimmed);
   };
+
+  const loadUser = () => loadById(lookupId);
 
   const inviteMutation = useMutation({
     mutationFn: () =>
@@ -107,6 +169,7 @@ export default function UsersPage() {
           setLastCreated(created);
           setLookupId(created.id);
           setActiveId(created.id);
+          recent.push(created.id, userLabel(created));
           closeDrawer();
           setForm(EMPTY_FORM);
         },
@@ -117,7 +180,7 @@ export default function UsersPage() {
   const handleInvite = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteForm.email.trim() || !inviteForm.roleId.trim()) {
-      toast.error('Email and role ID are required');
+      toast.error('Email and role are required');
       return;
     }
     inviteMutation.mutate();
@@ -129,7 +192,7 @@ export default function UsersPage() {
         <div>
           <h1 className="text-2xl font-semibold">Users</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Create + get-by-id only — no list/search directory. Invite an existing Clerk user via{' '}
+            Create platform users and reopen recent ones saved in this browser. Invite members via{' '}
             <code className="text-xs">POST /auth/invite</code>.
           </p>
         </div>
@@ -141,36 +204,80 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <FormSection title="Look up user">
-        <div className="flex flex-wrap gap-2">
-          <Input
-            className="max-w-md flex-1"
-            placeholder="User UUID"
-            value={lookupId}
-            onChange={(e) => setLookupId(e.target.value)}
-          />
-          <Button type="button" onClick={loadLookup}>
-            Load
-          </Button>
-        </div>
-        {activeId && (
-          <div className="mt-3 text-sm">
-            {lookupLoading ? (
-              <p className="text-muted-foreground">Loading…</p>
-            ) : lookupError || !lookedUp ? (
-              <p className="text-destructive">User not found.</p>
-            ) : (
-              <div className="rounded-lg border border-border bg-card p-3 space-y-1">
-                <div>ID: {lookedUp.id}</div>
-                <div>Email: {lookedUp.email}</div>
-                <div>
-                  Name: {[lookedUp.firstName, lookedUp.lastName].filter(Boolean).join(' ') || '—'}
-                </div>
+      <p className="text-xs text-muted-foreground">
+        API gap: Users have no list/search directory — use Recent, create, or Advanced load by ID.
+      </p>
+
+      <RecentRecords
+        title="Recent users"
+        emptyHint="No recent users yet. Create one or use Advanced load by ID — it will appear here."
+        rows={listRows}
+        columns={[
+          {
+            key: 'email',
+            header: 'Email',
+            render: (r) => {
+              if (r.loading) return '…';
+              if (r.failed) return r.label?.trim() || 'unavailable';
+              return r.email || r.label || '—';
+            },
+          },
+          {
+            key: 'name',
+            header: 'Name',
+            render: (r) => (r.loading ? '…' : r.failed ? 'unavailable' : r.name || '—'),
+          },
+          {
+            key: 'saved',
+            header: 'Saved',
+            render: (r) => new Date(r.savedAt).toLocaleString(),
+          },
+          {
+            key: 'actions',
+            header: '',
+            render: (r) => (
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => loadById(r.id)}>
+                  Open
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
+                  Remove
+                </Button>
               </div>
-            )}
-          </div>
-        )}
-      </FormSection>
+            ),
+          },
+        ]}
+        rowKey={(r) => r.id}
+        onClear={recent.clear}
+      />
+
+      <AdvancedIdLookup entityLabel="user" value={lookupId} onChange={setLookupId} onLoad={loadUser} />
+
+      {activeId && (
+        <FormSection title="User">
+          {lookupLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : lookupError || !lookedUp ? (
+            <p className="text-sm text-destructive">User not found.</p>
+          ) : (
+            <div className="grid gap-2 text-sm sm:grid-cols-2">
+              <p className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                <span className="text-muted-foreground">ID:</span> {lookedUp.id}
+                <Button type="button" variant="outline" size="sm" onClick={() => copyId(lookedUp.id)}>
+                  Copy
+                </Button>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Email:</span> {lookedUp.email ?? '—'}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Name:</span>{' '}
+                {userDisplayName(lookedUp) || '—'}
+              </p>
+            </div>
+          )}
+        </FormSection>
+      )}
 
       {lastCreated && (
         <FormSection title="Last created user">
@@ -197,7 +304,11 @@ export default function UsersPage() {
         title="Invite organization member"
         footer={
           <>
-            <Button type="submit" form="invite-member-form" disabled={inviteMutation.isPending}>
+            <Button
+              type="submit"
+              form="invite-member-form"
+              disabled={inviteMutation.isPending || !inviteForm.roleId.trim()}
+            >
               {inviteMutation.isPending ? 'Inviting…' : 'Send invite'}
             </Button>
             <Button type="button" variant="outline" onClick={closeInvite}>
@@ -208,9 +319,9 @@ export default function UsersPage() {
       >
         <form id="invite-member-form" onSubmit={handleInvite} className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            The invitee must already have signed up via Clerk and be synced to the API. Role UUID
-            comes from the Roles page (create a role, copy its id). Org is taken from your session —
-            OrgAdmin / SuperAdmin only.
+            The invitee must already have signed up via Clerk and be synced to the API. Pick a role
+            from Recent (create one on the Roles page first) — there is no role directory API. Org is
+            taken from your session — OrgAdmin / SuperAdmin only.
           </p>
           <Field label="Email" required>
             <Input
@@ -222,11 +333,19 @@ export default function UsersPage() {
               autoFocus
             />
           </Field>
-          <Field label="Role ID (UUID)" required>
+          <Field label="Role" required>
+            <RecentIdPicker
+              namespace={RECENT_NS.roles}
+              value={inviteForm.roleId}
+              onSelect={(id) => setInviteForm({ ...inviteForm, roleId: id })}
+              emptyHint="No recent roles in this browser. Create or open a role on the Roles page first — there is no role directory API."
+            />
+            <p className="mt-2 text-xs text-muted-foreground">or enter an ID</p>
             <Input
+              className="mt-1"
+              placeholder="Paste role ID"
               value={inviteForm.roleId}
               onChange={(e) => setInviteForm({ ...inviteForm, roleId: e.target.value })}
-              placeholder="Paste role UUID…"
               required
             />
           </Field>

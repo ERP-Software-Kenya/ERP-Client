@@ -98,6 +98,10 @@
   }
 }
 
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }

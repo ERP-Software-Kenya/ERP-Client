@@ -9,13 +9,14 @@ if (!existsSync(outdir)) {
 }
 
 const buildOptions: esbuild.BuildOptions = {
-  entryPoints: ['src/main/index.ts'],
+  entryPoints: ['src/main/index.ts', 'src/main/preload.ts'],
   bundle: true,
   platform: 'node',
   target: 'node24',
   outdir,
   outExtension: { '.js': '.cjs' },
   sourcemap: true,
+  // Bundle electron-updater + electron-log — packaged app excludes node_modules
   external: ['electron'],
   format: 'cjs',
   logLevel: 'info',

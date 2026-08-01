@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
+import { AdvancedIdLookup } from '../components/AdvancedIdLookup';
+import { RecentRecords } from '../components/RecentRecords';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { SimpleTable } from '../components/SimpleTable';
 import { Button } from '../components/ui/button';
@@ -15,7 +17,8 @@ import {
   usePublishUnpublishedStock,
   get,
 } from '../api';
-import { RECENT_NS, useRecentIds } from '../lib/recentIds';
+import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
+import { formatEntityLabel } from '../lib/entityLabel';
 import type { UnpublishedStock, UnpublishedStockMovement } from '../types';
 
 interface AddForm {
@@ -61,17 +64,21 @@ export default function UnpublishedStockPage() {
   const { data: locations } = Locations.useList();
   const productLabel = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of products ?? []) m.set(p.id, p.name || p.sku || p.id.slice(0, 8));
+    for (const p of products ?? []) {
+      m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
+    }
     return m;
   }, [products]);
   const locationLabel = useMemo(() => {
     const m = new Map<string, string>();
-    for (const l of locations ?? []) m.set(l.id, l.name);
+    for (const l of locations ?? []) {
+      m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
+    }
     return m;
   }, [locations]);
 
   const recentQueries = useQueries({
-    queries: recent.entries.map((e) => ({
+    queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
       queryKey: ['unpublished-stock', e.id] as const,
       queryFn: () => get<UnpublishedStock>(`/api/v1/unpublished-stock/${e.id}`),
       staleTime: 60_000,
@@ -81,7 +88,7 @@ export default function UnpublishedStockPage() {
 
   const listRows = useMemo(() => {
     return recent.entries.map((e, i) => {
-      const q = recentQueries[i];
+      const q = i < HYDRATE_LIMIT ? recentQueries[i] : undefined;
       const data = q?.data;
       return {
         id: e.id,
@@ -111,7 +118,7 @@ export default function UnpublishedStockPage() {
   const loadById = (id: string) => {
     const trimmed = id.trim();
     if (!trimmed) {
-      toast.error('Enter an unpublished stock UUID');
+      toast.error('Enter an unpublished stock record ID');
       return;
     }
     setActiveId(trimmed);
@@ -146,7 +153,7 @@ export default function UnpublishedStockPage() {
           setAddOpen(false);
           setAddForm(EMPTY_ADD);
           setActiveId(undefined);
-          toast.success('Staging stock added — paste the UUID below (API returns no id)');
+          toast.success('Staging stock added — load its record ID from Advanced to publish (API returns no ID)');
         },
         onError: (err: Error) => toast.error(err.message || 'Failed to add staging stock'),
       },
@@ -188,7 +195,7 @@ export default function UnpublishedStockPage() {
         <div>
           <h1 className="text-2xl font-semibold">Unpublished stock</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Stage → load UUID → publish. Core API add returns void and has no list; Recent is this
+            Stage → load record → publish. Core API add returns void and has no list; Recent is this
             browser only.
           </p>
         </div>
@@ -198,7 +205,7 @@ export default function UnpublishedStockPage() {
       <div className="flex flex-wrap gap-2 text-xs">
         {[
           { n: 1, label: 'Add staging' },
-          { n: 2, label: 'Paste UUID' },
+          { n: 2, label: 'Load record' },
           { n: 3, label: 'Publish' },
         ].map((s) => (
           <span
@@ -217,121 +224,88 @@ export default function UnpublishedStockPage() {
       </div>
 
       {pending && !activeId && (
-        <FormSection title="2. Paste UUID to continue">
+        <FormSection title="2. Load the staged record to continue">
           <p className="mb-3 text-sm text-muted-foreground">
             Just staged{' '}
             <span className="text-foreground font-medium">
-              {pending.quantity} × {productLabel.get(pending.productId) ?? pending.productId.slice(0, 8)}
+              {pending.quantity} ×{' '}
+              {productLabel.get(pending.productId) ?? formatEntityLabel({ id: pending.productId })}
             </span>{' '}
-            at {locationLabel.get(pending.locationId) ?? pending.locationId.slice(0, 8)}. The API
-            did not return an id — paste the unpublished-stock UUID (from logs/DB) to publish.
+            at {locationLabel.get(pending.locationId) ?? formatEntityLabel({ id: pending.locationId })}. The API
+            did not return an ID, so load the record from Advanced when one is available.
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Input
-              className="max-w-md flex-1 font-mono text-sm"
-              placeholder="Unpublished stock UUID"
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
-              autoFocus
-            />
-            <Button type="button" onClick={() => loadById(lookupId)}>
-              Load & continue
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setPending(null)}>
-              Dismiss hint
-            </Button>
-          </div>
-        </FormSection>
-      )}
-
-      <FormSection title="Recent records">
-        {listRows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Empty until you load a UUID (add alone cannot populate this).
-          </p>
-        ) : (
-          <SimpleTable
-            columns={[
-              {
-                key: 'product',
-                header: 'Product',
-                render: (r) =>
-                  r.loading
-                    ? '…'
-                    : productLabel.get(r.productId ?? '') ?? r.productId?.slice(0, 8) ?? '—',
-              },
-              {
-                key: 'location',
-                header: 'Location',
-                render: (r) =>
-                  r.loading
-                    ? '…'
-                    : locationLabel.get(r.locationId ?? '') ?? r.locationId?.slice(0, 8) ?? '—',
-              },
-              {
-                key: 'qty',
-                header: 'On hand',
-                render: (r) => (r.loading ? '…' : r.failed ? '—' : r.quantityOnHand ?? '—'),
-              },
-              {
-                key: 'when',
-                header: 'Saved',
-                render: (r) => new Date(r.savedAt).toLocaleString(),
-              },
-              {
-                key: 'actions',
-                header: '',
-                render: (r) => (
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        loadById(r.id);
-                        if (r.quantityOnHand != null) {
-                          setPublishForm((f) => ({
-                            ...f,
-                            quantity: f.quantity || String(r.quantityOnHand),
-                          }));
-                        }
-                      }}
-                    >
-                      Open
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
-                      Remove
-                    </Button>
-                  </div>
-                ),
-              },
-            ]}
-            rows={listRows}
-            rowKey={(r) => r.id}
-          />
-        )}
-        {listRows.length > 0 && (
-          <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => recent.clear()}>
-            Clear recent list
+          <Button type="button" variant="ghost" size="sm" onClick={() => setPending(null)}>
+            Dismiss hint
           </Button>
-        )}
-      </FormSection>
-
-      {!pending && (
-        <FormSection title="Look up by UUID">
-          <div className="flex flex-wrap gap-2">
-            <Input
-              className="max-w-md flex-1 font-mono text-sm"
-              placeholder="Unpublished stock UUID"
-              value={lookupId}
-              onChange={(e) => setLookupId(e.target.value)}
-            />
-            <Button type="button" onClick={() => loadById(lookupId)}>
-              Load
-            </Button>
-          </div>
         </FormSection>
       )}
+
+      <RecentRecords
+        title="Recent records"
+        emptyHint="No recent records yet. Load a record from Advanced and it will appear here."
+        rows={listRows}
+        columns={[
+          {
+            key: 'product',
+            header: 'Product',
+            render: (r) =>
+              r.loading ? '…' : productLabel.get(r.productId ?? '') ?? formatEntityLabel({ id: r.productId }),
+          },
+          {
+            key: 'location',
+            header: 'Location',
+            render: (r) =>
+              r.loading ? '…' : locationLabel.get(r.locationId ?? '') ?? formatEntityLabel({ id: r.locationId }),
+          },
+          {
+            key: 'qty',
+            header: 'On hand',
+            render: (r) => (r.loading ? '…' : r.failed ? '—' : r.quantityOnHand ?? '—'),
+          },
+          {
+            key: 'when',
+            header: 'Saved',
+            render: (r) => new Date(r.savedAt).toLocaleString(),
+          },
+          {
+            key: 'actions',
+            header: '',
+            render: (r) => (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    loadById(r.id);
+                    if (r.quantityOnHand != null) {
+                      setPublishForm((f) => ({
+                        ...f,
+                        quantity: f.quantity || String(r.quantityOnHand),
+                      }));
+                    }
+                  }}
+                >
+                  Open
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
+                  Remove
+                </Button>
+              </div>
+            ),
+          },
+        ]}
+        rowKey={(r) => r.id}
+        onClear={recent.clear}
+      />
+
+      <AdvancedIdLookup
+        entityLabel="unpublished stock record"
+        value={lookupId}
+        onChange={setLookupId}
+        onLoad={() => loadById(lookupId)}
+        defaultOpen={!!pending}
+      />
 
       {activeId && (
         <FormSection title="3. Record & publish">
@@ -352,11 +326,11 @@ export default function UnpublishedStockPage() {
                 </p>
                 <p>
                   <span className="text-muted-foreground">Product:</span>{' '}
-                  {productLabel.get(record.productId) ?? record.productId}
+                  {productLabel.get(record.productId) ?? formatEntityLabel({ id: record.productId })}
                 </p>
                 <p>
                   <span className="text-muted-foreground">Location:</span>{' '}
-                  {locationLabel.get(record.locationId) ?? record.locationId}
+                  {locationLabel.get(record.locationId) ?? formatEntityLabel({ id: record.locationId })}
                 </p>
                 <p>
                   <span className="text-muted-foreground">Avg cost:</span> {record.averageCost ?? '—'}
@@ -447,7 +421,7 @@ export default function UnpublishedStockPage() {
       >
         <form id="unpub-add-form" onSubmit={submitAdd} className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            After save you will be asked for the UUID — Core API returns an empty body.
+            After save, load the staged record from Advanced — Core API returns an empty body.
           </p>
           <Field label="Location" required>
             <ResourceSelect
@@ -460,7 +434,7 @@ export default function UnpublishedStockPage() {
           <Field label="Product" required>
             <ResourceSelect
               resource={Products}
-              getLabel={(p) => p.name || p.id.slice(0, 8)}
+              getLabel={(p) => formatEntityLabel({ name: p.name, sku: p.sku, id: p.id })}
               value={addForm.productId}
               onValueChange={(productId) => setAddForm({ ...addForm, productId })}
             />

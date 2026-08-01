@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ResourceSelect } from '../components/ResourceSelect';
@@ -9,6 +9,7 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Stores, Organizations } from '../api';
 import { usePagination } from '../hooks/usePagination';
+import { formatEntityLabel } from '../lib/entityLabel';
 import type { Store } from '../types';
 
 const STATUS_OPTIONS = ['active', 'inactive'];
@@ -47,8 +48,19 @@ export default function StoresPage() {
   const createMutation = Stores.useCreate();
   const updateMutation = Stores.useUpdate();
   const removeMutation = Stores.useDelete();
+  const [orgFilter, setOrgFilter] = useState('');
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
-  const { data, isLoading, error, refetch } = Stores.useSearch({ page, search: debouncedSearch });
+  const { data: organizations = [] } = Organizations.useList();
+  const filters = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (orgFilter) next.organizationId = orgFilter;
+    return Object.keys(next).length ? next : undefined;
+  }, [orgFilter]);
+  const { data, isLoading, error, refetch } = Stores.useSearch({
+    page,
+    search: debouncedSearch,
+    filters,
+  });
 
   const openCreate = () => {
     setEditing(null);
@@ -118,6 +130,26 @@ export default function StoresPage() {
         error={error ? String(error) : null}
         onPageChange={setPage}
         onSearchChange={setSearch}
+        toolbar={
+          <>
+            <span className="text-xs text-muted-foreground">Organization:</span>
+            <select
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              value={orgFilter}
+              onChange={(e) => {
+                setOrgFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All organizations</option>
+              {organizations.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {formatEntityLabel({ name: o.name, code: o.code, id: o.id })}
+                </option>
+              ))}
+            </select>
+          </>
+        }
         onRefetch={() => void refetch()}
         searchPlaceholder="Search stores…"
         isAdmin={true}

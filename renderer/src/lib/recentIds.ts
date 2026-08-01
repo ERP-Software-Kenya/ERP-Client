@@ -8,6 +8,11 @@ export interface RecentIdEntry {
 
 const MAX = 50;
 
+/** Cap on how many Recent entries get hydrated via useQueries per page — avoids a 50-request
+ * fan-out (and refetch-on-focus storm) once a namespace fills up. Remaining entries still render
+ * using their stored label. */
+export const HYDRATE_LIMIT = 12;
+
 function storageKey(namespace: string) {
   return `erp:recent:${namespace}`;
 }
@@ -66,8 +71,11 @@ export function pushRecentId(namespace: string, id: string, label?: string) {
   const trimmed = id.trim();
   if (!trimmed) return;
   const now = Date.now();
-  const prev = readEntries(namespace).filter((e) => e.id !== trimmed);
-  writeEntries(namespace, [{ id: trimmed, label, savedAt: now }, ...prev]);
+  const all = readEntries(namespace);
+  const prevEntry = all.find((e) => e.id === trimmed);
+  const prev = all.filter((e) => e.id !== trimmed);
+  const nextLabel = label !== undefined ? label : prevEntry?.label;
+  writeEntries(namespace, [{ id: trimmed, label: nextLabel, savedAt: now }, ...prev]);
   emit(namespace);
 }
 
@@ -106,4 +114,14 @@ export const RECENT_NS = {
   stockTransfers: 'stock-transfers',
   unpublishedStock: 'unpublished-stock',
   stockMovementsInventory: 'stock-movements-inventory',
+  orders: 'orders',
+  invoices: 'invoices',
+  purchaseItems: 'purchase-items',
+  expenses: 'expenses',
+  users: 'users',
+  roles: 'roles',
+  userRoles: 'user-roles',
+  productLogs: 'product-logs',
+  platformConfigurations: 'platform-configurations',
+  activityLogs: 'activity-logs',
 } as const;

@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { AdvancedIdLookup } from '../components/AdvancedIdLookup';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
+import { RecentRecords } from '../components/RecentRecords';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { PlatformConfigurations } from '../api';
+import { PlatformConfigurations, get } from '../api';
+import { formatEntityLabel } from '../lib/entityLabel';
+import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
 import type { PlatformConfiguration } from '../types';
 
 interface FormState {
@@ -14,7 +19,21 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { configKey: '', configValue: '{}', description: '' };
 
+function configLabel(config: Pick<PlatformConfiguration, 'id' | 'configKey'>) {
+  const key = config.configKey?.trim();
+  if (key) return key;
+  return formatEntityLabel({ id: config.id });
+}
+
+function copyId(id: string) {
+  void navigator.clipboard.writeText(id).then(
+    () => toast.success('ID copied'),
+    () => toast.error('Could not copy ID'),
+  );
+}
+
 export default function PlatformConfigurationsPage() {
+  const recent = useRecentIds(RECENT_NS.platformConfigurations);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -28,14 +47,50 @@ export default function PlatformConfigurationsPage() {
 
   const closeDrawer = () => setDrawerOpen(false);
 
-  const loadLookup = () => {
-    const trimmed = lookupId.trim();
+  const recentQueries = useQueries({
+    queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
+      queryKey: ['platform-configurations', e.id] as const,
+      queryFn: () => get<PlatformConfiguration>(`/api/v1/platform-configurations/${e.id}`),
+      staleTime: 60_000,
+      retry: false,
+    })),
+  });
+
+  const listRows = useMemo(
+    () =>
+      recent.entries.map((e, i) => {
+        const q = i < HYDRATE_LIMIT ? recentQueries[i] : undefined;
+        const data = q?.data;
+        return {
+          id: e.id,
+          label: e.label,
+          savedAt: e.savedAt,
+          configKey: data?.configKey,
+          loading: q?.isLoading ?? false,
+          failed: !!q?.isError,
+        };
+      }),
+    [recent.entries, recentQueries],
+  );
+
+  useEffect(() => {
+    const loaded = lookedUp;
+    if (!loaded || loaded.id !== activeId) return;
+    recent.push(loaded.id, configLabel(loaded));
+  }, [activeId, lookedUp, recent.push]);
+
+  const loadById = (id: string) => {
+    const trimmed = id.trim();
     if (!trimmed) {
-      toast.error('Enter a configuration UUID');
+      toast.error('Enter a configuration ID');
       return;
     }
     setActiveId(trimmed);
+    setLookupId(trimmed);
+    recent.push(trimmed);
   };
+
+  const loadLookup = () => loadById(lookupId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +113,7 @@ export default function PlatformConfigurationsPage() {
           setLastCreated(created);
           setLookupId(created.id);
           setActiveId(created.id);
+          recent.push(created.id, configLabel(created));
           setDrawerOpen(false);
           setForm(EMPTY_FORM);
         },
@@ -71,45 +127,98 @@ export default function PlatformConfigurationsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Platform Configurations</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Create + get-by-id only — no list/search directory.
+            Create configurations and reopen recent ones saved in this browser.
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)}>New Configuration</Button>
       </div>
 
-      <FormSection title="Look up configuration">
-        <div className="flex flex-wrap gap-2">
-          <Input
-            className="max-w-md flex-1"
-            placeholder="Configuration UUID"
-            value={lookupId}
-            onChange={(e) => setLookupId(e.target.value)}
-          />
-          <Button type="button" onClick={loadLookup}>
-            Load
-          </Button>
-        </div>
-        {activeId && (
-          <div className="mt-3 text-sm">
-            {lookupLoading ? (
-              <p className="text-muted-foreground">Loading…</p>
-            ) : lookupError || !lookedUp ? (
-              <p className="text-destructive">Configuration not found.</p>
-            ) : (
-              <div className="rounded-lg border border-border bg-card p-3 space-y-1">
-                <div>ID: {lookedUp.id}</div>
-                <div>Key: {lookedUp.configKey}</div>
+      <p className="text-xs text-muted-foreground">
+        API gap: no list/search directory — use Recent, create, or Advanced load by ID.
+      </p>
+
+      <RecentRecords
+        title="Recent configurations"
+        emptyHint="No recent configurations yet. Create one or use Advanced load by ID — it will appear here."
+        rows={listRows}
+        columns={[
+          {
+            key: 'key',
+            header: 'Key',
+            render: (r) => {
+              if (r.loading) return '…';
+              if (r.failed) return r.label?.trim() || 'unavailable';
+              return r.configKey || r.label || '—';
+            },
+          },
+          {
+            key: 'saved',
+            header: 'Saved',
+            render: (r) => new Date(r.savedAt).toLocaleString(),
+          },
+          {
+            key: 'actions',
+            header: '',
+            render: (r) => (
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => loadById(r.id)}>
+                  Open
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
+                  Remove
+                </Button>
               </div>
-            )}
-          </div>
-        )}
-      </FormSection>
+            ),
+          },
+        ]}
+        rowKey={(r) => r.id}
+        onClear={recent.clear}
+      />
+
+      <AdvancedIdLookup
+        entityLabel="configuration"
+        value={lookupId}
+        onChange={setLookupId}
+        onLoad={loadLookup}
+      />
+
+      {activeId && (
+        <FormSection title="Configuration">
+          {lookupLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : lookupError || !lookedUp ? (
+            <p className="text-sm text-destructive">Configuration not found.</p>
+          ) : (
+            <div className="grid gap-2 text-sm">
+              <p className="flex flex-wrap items-center gap-2">
+                <span className="text-muted-foreground">ID:</span> {lookedUp.id}
+                <Button type="button" variant="outline" size="sm" onClick={() => copyId(lookedUp.id)}>
+                  Copy
+                </Button>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Key:</span> {lookedUp.configKey ?? '—'}
+              </p>
+              {lookedUp.description ? (
+                <p>
+                  <span className="text-muted-foreground">Description:</span> {lookedUp.description}
+                </p>
+              ) : null}
+            </div>
+          )}
+        </FormSection>
+      )}
 
       {lastCreated && (
         <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">
           <div className="font-medium">Last created configuration</div>
-          <div>ID: {lastCreated.id}</div>
-          <div>Key: {lastCreated.configKey}</div>
+          <div>{configLabel(lastCreated)}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            ID: {lastCreated.id}
+            <Button type="button" variant="outline" size="sm" onClick={() => copyId(lastCreated.id)}>
+              Copy
+            </Button>
+          </div>
         </div>
       )}
 

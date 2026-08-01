@@ -24,11 +24,6 @@ Newest entries first. Keep each entry to the four lines above — no extra narra
 
 ## Ledger
 
-### 2026-07-31 — Packaged Google OAuth failed on app:// custom scheme
-**What happened:** Google sign-in worked in `npm run dev` but failed silently after `npm run dist`. A prior session claimed Clerk Dashboard allowlisting of `app://bundle/#/sso-callback` was enough and that no code change was needed.
-**Why it was wrong:** Packaged UI loaded via `app://bundle`, so `Login.tsx` built redirects as `app://bundle/#/sso-callback`. Clerk’s web OAuth allowlist expects `http(s)`; custom-scheme redirects after Google are unreliable. Dashboard-only fixes for `app://` do not match the working localhost OAuth path.
-**Do instead:** Serve the packaged renderer over `http://127.0.0.1:47821` (see `src/main/static-server.ts`) so OAuth uses a real http origin like dev. Allowlist `http://127.0.0.1:47821` and `http://127.0.0.1:47821/#/sso-callback` in Clerk. Do not rely on `app://` redirects for Clerk Google OAuth.
-
 ### 2026-07-30 — Packaged Electron stuck on blank screen (BrowserRouter + empty resources)
 
 **What happened:** `npm run dist` / unpacked EXE showed a stuck blank dark window; `release/win-unpacked/resources` was sometimes empty after interrupted packs.

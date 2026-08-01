@@ -10,6 +10,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Inventory, Locations, Products, useStockOperation } from '../api';
 import { usePagination } from '../hooks/usePagination';
+import { formatEntityLabel } from '../lib/entityLabel';
 import type { InventoryItem } from '../types';
 
 interface CreateForm {
@@ -46,25 +47,36 @@ export default function InventoryPage() {
   const [editForm, setEditForm] = useState<EditForm>(EMPTY_EDIT);
   const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null);
   const [creating, setCreating] = useState(false);
+  const [locationFilter, setLocationFilter] = useState('');
 
   const createMutation = Inventory.useCreate();
   const updateMutation = Inventory.useUpdate();
   const removeMutation = Inventory.useDelete();
   const stockOp = useStockOperation();
-  const { page, setPage, setSearch, debouncedSearch } = usePagination();
-  const { data, isLoading, error, refetch } = Inventory.useSearch({ page, search: debouncedSearch });
+  const { page, setPage } = usePagination();
+
+  // SearchInventoryRequest: locationId / productId / organizationId — no free-text name.
+  const filters = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (locationFilter) next.locationId = locationFilter;
+    return Object.keys(next).length ? next : undefined;
+  }, [locationFilter]);
+
+  const { data, isLoading, error, refetch } = Inventory.useSearch({ page, filters });
 
   const { data: products } = Products.useList();
   const { data: locations } = Locations.useList();
   const productName = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of products ?? []) m.set(p.id, p.name || p.sku || p.id.slice(0, 8));
+    for (const p of products ?? []) {
+      m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
+    }
     return m;
   }, [products]);
   const locationName = useMemo(() => {
     const m = new Map<string, string>();
     for (const l of locations ?? []) {
-      m.set(l.id, l.type ? `${l.name} (${l.type})` : l.name);
+      m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
     }
     return m;
   }, [locations]);
@@ -152,12 +164,14 @@ export default function InventoryPage() {
     {
       key: 'productId',
       label: 'Product',
-      render: (row) => productName.get(row.productId) ?? row.productId.slice(0, 8),
+      render: (row) =>
+        formatEntityLabel({ name: productName.get(row.productId), id: row.productId }),
     },
     {
       key: 'locationId',
       label: 'Location',
-      render: (row) => locationName.get(row.locationId) ?? row.locationId.slice(0, 8),
+      render: (row) =>
+        formatEntityLabel({ name: locationName.get(row.locationId), id: row.locationId }),
     },
     { key: 'quantityOnHand', label: 'On hand' },
     { key: 'quantityReserved', label: 'Reserved' },
@@ -174,6 +188,9 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
+      <p className="text-xs text-muted-foreground">
+        API gap: Inventory has no free-text search — filter by location only.
+      </p>
       <DataTable
         title="Inventory"
         description="Create a product+location record, optionally with opening qty (via stock-movements/add). Later qty changes use Stock Movements."
@@ -184,9 +201,28 @@ export default function InventoryPage() {
         loading={isLoading}
         error={error ? String(error) : null}
         onPageChange={setPage}
-        onSearchChange={setSearch}
+        hideSearch
+        toolbar={
+          <>
+            <span className="text-xs text-muted-foreground">Location:</span>
+            <select
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              value={locationFilter}
+              onChange={(e) => {
+                setLocationFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All locations</option>
+              {(locations ?? []).map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.type ? `${l.name} (${l.type})` : l.name}
+                </option>
+              ))}
+            </select>
+          </>
+        }
         onRefetch={() => void refetch()}
-        searchPlaceholder="Search inventory…"
         isAdmin
         onAdd={openCreate}
         onView={(row) => setViewRow(row)}
@@ -237,7 +273,7 @@ export default function InventoryPage() {
               <Field label="Product" required>
                 <ResourceSelect
                   resource={Products}
-                  getLabel={(p) => p.name || p.sku || p.id.slice(0, 8)}
+                  getLabel={(p) => formatEntityLabel({ name: p.name, sku: p.sku, id: p.id })}
                   value={createForm.productId}
                   onValueChange={(v) => setCreateForm({ ...createForm, productId: v })}
                 />

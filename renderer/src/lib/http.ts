@@ -65,6 +65,16 @@ export async function put<T>(path: string, body?: unknown): Promise<T> {
   return readJsonBody<T>(resp);
 }
 
+export async function patch<T>(path: string, body?: unknown): Promise<T> {
+  const resp = await fetch(buildUrl(path), {
+    method: 'PATCH',
+    headers: await jsonHeaders(),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!resp.ok) throw new Error(await readErrorBody(resp));
+  return readJsonBody<T>(resp);
+}
+
 async function readJsonBody<T>(resp: Response): Promise<T> {
   const text = await resp.text().catch(() => '');
   if (!text) return undefined as T;

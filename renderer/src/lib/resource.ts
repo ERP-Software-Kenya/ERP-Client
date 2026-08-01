@@ -9,12 +9,23 @@ interface SearchParams {
   search?: string;
   /** Optional domain filters forwarded as query params (e.g. type=warehouse). */
   filters?: Record<string, string>;
+  /**
+   * Some DTOs use @IsNumber() on $page/$perPage without @Type(() => Number).
+   * Query strings then 400 — omit pagination and let the handler default.
+   */
+  omitPagination?: boolean;
+  /** When false, the query does not run. Default true. */
+  enabled?: boolean;
 }
 
 function toQuery(p?: SearchParams): QueryParams {
   return {
-    $page: p?.page ?? 1,
-    $perPage: p?.limit ?? 15,
+    ...(p?.omitPagination
+      ? {}
+      : {
+          $page: p?.page ?? 1,
+          $perPage: p?.limit ?? 15,
+        }),
     ...(p?.search ? { name: p.search } : {}),
     ...(p?.filters ?? {}),
   };
@@ -81,8 +92,17 @@ export function createResource<T extends { id: string }>(basePath: string, query
     /** Paginated search — resolves to { items, total }. */
     useSearch(params?: SearchParams) {
       return useQuery({
-        queryKey: [queryKey, 'search', params?.page ?? 1, params?.limit ?? 15, params?.search ?? '', params?.filters ?? {}],
+        queryKey: [
+          queryKey,
+          'search',
+          params?.page ?? 1,
+          params?.limit ?? 15,
+          params?.search ?? '',
+          params?.filters ?? {},
+          params?.omitPagination ?? false,
+        ],
         queryFn: async () => normalisePaginated(await get<PaginatedResponse<T> | T[]>(basePath, toQuery(params))),
+        enabled: params?.enabled !== false,
       });
     },
 

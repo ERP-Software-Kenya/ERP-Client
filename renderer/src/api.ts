@@ -1,5 +1,5 @@
-export { configureApi, get, post, put, del } from './lib/http';
-import { get, post, put, del, uploadForm } from './lib/http';
+export { configureApi, get, post, put, patch, del } from './lib/http';
+import { get, post, put, patch, del, uploadForm } from './lib/http';
 import { createResource, createCreateOnlyResource } from './lib/resource';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -10,6 +10,7 @@ import type {
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
+  BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -20,14 +21,138 @@ export const Categories = createResource<Category>('/api/v1/categories', 'catego
 export const Products = createResource<Product>('/api/v1/products', 'products', 'Product');
 export const Suppliers = createResource<Supplier>('/api/v1/suppliers', 'suppliers', 'Supplier');
 export const PurchaseOrders = createResource<PurchaseOrder>('/api/v1/purchase-orders', 'purchase-orders', 'Purchase order');
-export const Bills = createResource<Bill>('/api/v1/bills', 'bills', 'Bill');
+
+const billsBase = createResource<Bill>('/api/v1/bills', 'bills', 'Bill');
+
+/**
+ * Bills SearchBillsRequest uses @IsNumber() on $page/$perPage without @Type(() => Number).
+ * Sending those query params returns 400 on Render — omit them (handler defaults page 1 / 20).
+ */
+export const Bills = {
+  ...billsBase,
+  useSearch(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    filters?: Record<string, string>;
+    enabled?: boolean;
+  }) {
+    return billsBase.useSearch({ ...params, omitPagination: true });
+  },
+  useTransitionStatus() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({
+        id,
+        status,
+        paymentMethod,
+      }: {
+        id: string;
+        status: BillStatus;
+        paymentMethod?: PaymentMethod;
+      }) => patch<Bill>(`/api/v1/bills/${id}/status`, { status, paymentMethod }),
+      onSuccess: (_bill, vars) => {
+        toast.success(`Bill marked ${vars.status}`);
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to update bill status'),
+    });
+  },
+  useAddItem() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: CreateBillItemInput }) =>
+        post<Bill>(`/api/v1/bills/${id}/items`, body),
+      onSuccess: () => {
+        toast.success('Item added');
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to add item'),
+    });
+  },
+  useUpdateItem() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({
+        id,
+        itemId,
+        body,
+      }: {
+        id: string;
+        itemId: string;
+        body: Partial<CreateBillItemInput>;
+      }) => put<Bill>(`/api/v1/bills/${id}/items/${itemId}`, body),
+      onSuccess: () => {
+        toast.success('Item updated');
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to update item'),
+    });
+  },
+  useRemoveItem() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, itemId }: { id: string; itemId: string }) =>
+        del(`/api/v1/bills/${id}/items/${itemId}`).then(() => undefined),
+      onSuccess: () => {
+        toast.success('Item removed');
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to remove item'),
+    });
+  },
+  useUpdateHeader() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: UpdateBillInput }) =>
+        put<Bill>(`/api/v1/bills/${id}`, body),
+      onSuccess: () => {
+        toast.success('Bill updated');
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to update bill'),
+    });
+  },
+};
+
 export const PaymentTransactions = createResource<PaymentTransaction>('/api/v1/payment-transactions', 'payment-transactions', 'Payment');
 export const Notifications = createResource<Notification>('/api/v1/notifications', 'notifications', 'Notification');
 export const ItemReturns = createResource<ItemReturn>('/api/v1/item-returns', 'item-returns', 'Return');
 export const ReportGenerationLogs = createResource<ReportGenerationLog>('/api/v1/report-generation-logs', 'report-generation-logs', 'Report log');
 export const Orders = createCreateOnlyResource<Order>('/api/v1/orders', 'orders', 'Order');
 export const Invoices = createCreateOnlyResource<Invoice>('/api/v1/invoices', 'invoices', 'Invoice');
-export const Customers = createCreateOnlyResource<Customer>('/api/v1/customers', 'customers', 'Customer');
+
+const customersBase = createResource<Customer>('/api/v1/customers', 'customers', 'Customer');
+
+/**
+ * Customers SearchCustomersRequest: same $page/$perPage string→@IsNumber 400 as bills.
+ * Omit pagination; only send name/phone/filters. Handler defaults to page 1 / 20.
+ */
+export const Customers = {
+  ...customersBase,
+  useSearch(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    filters?: Record<string, string>;
+    enabled?: boolean;
+  }) {
+    return customersBase.useSearch({ ...params, omitPagination: true });
+  },
+  useUpdate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: Partial<Customer> }) =>
+        patch<Customer>(`/api/v1/customers/${id}`, body),
+      onSuccess: () => {
+        toast.success('Customer updated');
+        queryClient.invalidateQueries({ queryKey: ['customers'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to update customer'),
+    });
+  },
+};
+
 export const Expenses = createCreateOnlyResource<Expense>('/api/v1/expenses', 'expenses', 'Expense');
 export const PurchaseItems = createCreateOnlyResource<PurchaseItem>('/api/v1/purchase-items', 'purchase-items', 'Purchase item');
 export const ActivityLogs = createCreateOnlyResource<ActivityLog>('/api/v1/activity-logs', 'activity-logs', 'Activity log');
