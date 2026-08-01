@@ -8,16 +8,27 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 
+export interface ExtraAction {
+  label: string;
+  icon?: React.ReactNode;
+  onSelect: () => void;
+  destructive?: boolean;
+}
+
 export interface RowActionsMenuProps {
   onView?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  extraActions?: ExtraAction[];
 }
 
-export function RowActionsMenu({ onView, onEdit, onDelete }: RowActionsMenuProps) {
-  if (!onView && !onEdit && !onDelete) return null;
+export function RowActionsMenu({ onView, onEdit, onDelete, extraActions }: RowActionsMenuProps) {
+  const hasExtra = extraActions && extraActions.length > 0;
+  if (!onView && !onEdit && !onDelete && !hasExtra) return null;
 
-  const showDeleteSep = Boolean(onDelete && (onView || onEdit));
+  const hasStandard = Boolean(onView || onEdit);
+  const showDeleteSep = Boolean(onDelete && (hasStandard || hasExtra));
+  const showExtraSep = Boolean(hasExtra && hasStandard);
 
   return (
     <DropdownMenu>
@@ -39,6 +50,17 @@ export function RowActionsMenu({ onView, onEdit, onDelete }: RowActionsMenuProps
             Edit
           </DropdownMenuItem>
         )}
+        {showExtraSep && <DropdownMenuSeparator />}
+        {hasExtra && extraActions!.map((action, i) => (
+          <DropdownMenuItem
+            key={i}
+            onSelect={action.onSelect}
+            destructive={action.destructive}
+          >
+            {action.icon}
+            {action.label}
+          </DropdownMenuItem>
+        ))}
         {showDeleteSep && <DropdownMenuSeparator />}
         {onDelete && (
           <DropdownMenuItem destructive onSelect={onDelete}>

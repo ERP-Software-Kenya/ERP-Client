@@ -22,7 +22,7 @@ export default function CreateOrganization() {
     e.preventDefault();
     setLoading(true);
     try {
-      const clerkOrg = await clerk.createOrganization({ name: name.trim(), slug: slug.trim() });
+      const clerkOrg = await clerk.createOrganization({ name: name.trim() });
       await clerk.setActive({ organization: clerkOrg.id });
       await AuthService.createOrganization({
         name: name.trim(),

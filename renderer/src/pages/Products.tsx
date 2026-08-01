@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { EyeOff, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { FilterDropdown } from '../components/FilterDropdown';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
-import { ViewDrawer } from '../components/ViewDrawer';
 import { ImageLightbox } from '../components/ImageLightbox';
+import { ProductDetailView } from '../components/ProductDetailView';
 import { ProductImageUploader, type PendingImage } from '../components/ProductImageUploader';
 import { ProductSupplierLinksPanel } from '../components/ProductSupplierLinksPanel';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Categories, Organizations, Products, Suppliers, useCategoryParents, useUploadProductImage, useProductImagePresignedUpload, useProductImages, useProductSuppliers } from '../api';
+import { Categories, Products, Suppliers, useCategoryParents, useUploadProductImage, useProductImagePresignedUpload, useProductImages } from '../api';
 import { usePagination } from '../hooks/usePagination';
 import { formatEntityLabel } from '../lib/entityLabel';
 import type { Product, ProductUnit } from '../types';
@@ -64,11 +66,13 @@ export default function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [toggleActiveTarget, setToggleActiveTarget] = useState<Product | null>(null);
   const [viewRow, setViewRow] = useState<Product | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const createMutation = Products.useCreate();
   const updateMutation = Products.useUpdate();
@@ -78,15 +82,14 @@ export default function ProductsPage() {
   const filters = useMemo(() => {
     const next: Record<string, string> = {};
     if (categoryFilter) next.categoryId = categoryFilter;
+    if (statusFilter) next.isActive = statusFilter;
     return Object.keys(next).length ? next : undefined;
-  }, [categoryFilter]);
+  }, [categoryFilter, statusFilter]);
 
   const { data: productsData, isLoading: productsLoading, error: productsError, refetch: refetchProducts } =
     Products.useSearch({ page, search: debouncedSearch, filters });
 
   const { data: images } = useProductImages(editing?.id);
-  const { data: viewImages, isLoading: viewImagesLoading } = useProductImages(viewRow?.id);
-  const { data: viewSuppliers, isLoading: viewSuppliersLoading } = useProductSuppliers(viewRow?.id);
   const { data: allSuppliers } = Suppliers.useList();
   const { data: categories } = Categories.useList();
   const categoryName = useMemo(() => {
@@ -96,12 +99,6 @@ export default function ProductsPage() {
     }
     return m;
   }, [categories]);
-  const { data: orgs } = Organizations.useList();
-  const orgName = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const o of orgs ?? []) m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
-    return m;
-  }, [orgs]);
 
   const uploadProductImageMutation = useUploadProductImage();
   const presignedUploadMutation = useProductImagePresignedUpload();
@@ -283,6 +280,30 @@ export default function ProductsPage() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending || uploading;
 
+  if (viewRow) {
+    return (
+      <>
+        <ProductDetailView
+          productId={viewRow.id}
+          categoryName={categoryName}
+          allSuppliers={allSuppliers ?? []}
+          onClose={() => setViewRow(null)}
+          onEdit={(product) => { setViewRow(null); openEdit(product); }}
+        />
+        <ConfirmDialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+          title="Delete Product"
+          description={`Delete "${deleteTarget?.name}"? This can't be undone.`}
+          isPending={removeMutation.isPending}
+          onConfirm={() =>
+            deleteTarget && removeMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })
+          }
+        />
+      </>
+    );
+  }
+
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
@@ -298,22 +319,26 @@ export default function ProductsPage() {
         onSearchChange={setSearch}
         toolbar={
           <>
-            <span className="text-xs text-muted-foreground">Category:</span>
-            <select
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-              value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">All categories</option>
-              {(categories ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name || c.id}
-                </option>
-              ))}
-            </select>
+            <FilterDropdown
+              label="Category"
+              options={(categories ?? []).map((c) => ({
+                value: c.id,
+                label: c.name || c.id,
+              }))}
+              value={categoryFilter || null}
+              onChange={(v) => { setCategoryFilter(v ?? ''); setPage(1); }}
+              searchable={(categories ?? []).length > 6}
+              searchPlaceholder="Search categories…"
+            />
+            <FilterDropdown
+              label="Status"
+              options={[
+                { value: 'true',  label: 'Active' },
+                { value: 'false', label: 'Inactive' },
+              ]}
+              value={statusFilter}
+              onChange={(v) => { setStatusFilter(v); setPage(1); }}
+            />
           </>
         }
         onRefetch={() => void refetchProducts()}
@@ -323,86 +348,16 @@ export default function ProductsPage() {
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+        extraRowActions={(row) => [
+          {
+            label: row.isActive === false ? 'Set Active' : 'Set Inactive',
+            icon: row.isActive === false
+              ? <Eye size={14} />
+              : <EyeOff size={14} />,
+            onSelect: () => setToggleActiveTarget(row),
+          },
+        ]}
       />
-
-      <ViewDrawer
-        open={viewRow != null}
-        title="View Product"
-        data={viewRow
-          ? ({
-              ...viewRow,
-              organizationId: viewRow.organizationId ? (orgName.get(viewRow.organizationId) ?? viewRow.organizationId) : undefined,
-              categoryId: viewRow.categoryId ? (categoryName.get(viewRow.categoryId) ?? viewRow.categoryId) : undefined,
-            } as Record<string, unknown>)
-          : null
-        }
-        onClose={() => setViewRow(null)}
-      >
-        <FormSection title="Images" className="space-y-3">
-          {viewImagesLoading ? (
-            <p className="text-sm text-muted-foreground">Loading images…</p>
-          ) : !(viewImages ?? []).length ? (
-            <p className="text-sm text-muted-foreground">No images</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {(viewImages ?? []).map((img) =>
-                img.url ? (
-                  <button
-                    key={img.id}
-                    type="button"
-                    onClick={() => setPreviewSrc(img.url!)}
-                    className="group relative h-16 w-16 overflow-hidden rounded border border-border focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label={img.isPrimary ? 'View primary image' : 'View image'}
-                  >
-                    <img src={img.url} alt="" className="h-full w-full object-cover" />
-                    {img.isPrimary && (
-                      <span className="absolute bottom-0 inset-x-0 bg-black/60 px-0.5 py-0.5 text-[9px] text-white">
-                        Primary
-                      </span>
-                    )}
-                  </button>
-                ) : (
-                  <div
-                    key={img.id}
-                    className="flex h-16 w-16 items-center justify-center rounded border border-border bg-muted text-[10px] text-muted-foreground"
-                    title={img.storageKey}
-                  >
-                    No URL
-                  </div>
-                ),
-              )}
-            </div>
-          )}
-        </FormSection>
-
-        <FormSection title="Suppliers" className="space-y-2">
-          {viewSuppliersLoading ? (
-            <p className="text-sm text-muted-foreground">Loading suppliers…</p>
-          ) : !(viewSuppliers ?? []).length ? (
-            <p className="text-sm text-muted-foreground">No suppliers linked</p>
-          ) : (
-            (viewSuppliers ?? []).map((link) => {
-              const supplier = allSuppliers?.find((s) => s.id === link.supplierId);
-              return (
-                <div key={link.id} className="rounded-md border border-border p-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{supplier?.name ?? link.supplierId}</span>
-                    {link.isDefault && (
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">Default</span>
-                    )}
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {link.unitCost != null && `Cost $${link.unitCost}`}
-                    {link.leadTimeDays != null && ` · Lead ${link.leadTimeDays}d`}
-                    {link.minOrderQty != null && ` · MOQ ${link.minOrderQty}`}
-                    {link.unitCost == null && link.leadTimeDays == null && link.minOrderQty == null && '—'}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </FormSection>
-      </ViewDrawer>
 
       <FormDrawer
         open={drawerOpen}
@@ -575,6 +530,28 @@ export default function ProductsPage() {
         onConfirm={() =>
           deleteTarget && removeMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })
         }
+      />
+
+      <ConfirmDialog
+        open={!!toggleActiveTarget}
+        onOpenChange={(open) => !open && setToggleActiveTarget(null)}
+        title={toggleActiveTarget?.isActive === false ? 'Set Product Active' : 'Set Product Inactive'}
+        description={
+          toggleActiveTarget?.isActive === false
+            ? `"${toggleActiveTarget?.name}" will be marked active and visible again.`
+            : `"${toggleActiveTarget?.name}" will be marked inactive and hidden from active listings.`
+        }
+        confirmLabel={toggleActiveTarget?.isActive === false ? 'Set Active' : 'Set Inactive'}
+        pendingLabel="Updating…"
+        confirmVariant={toggleActiveTarget?.isActive === false ? 'default' : 'destructive'}
+        isPending={updateMutation.isPending}
+        onConfirm={() => {
+          if (!toggleActiveTarget) return;
+          updateMutation.mutate(
+            { id: toggleActiveTarget.id, body: { isActive: toggleActiveTarget.isActive === false ? true : false } },
+            { onSuccess: () => setToggleActiveTarget(null) },
+          );
+        }}
       />
     </div>
   );

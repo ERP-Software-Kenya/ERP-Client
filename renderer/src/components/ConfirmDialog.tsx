@@ -8,6 +8,8 @@ interface ConfirmDialogProps {
   description: string;
   onConfirm: () => void;
   confirmLabel?: string;
+  pendingLabel?: string;
+  confirmVariant?: 'destructive' | 'default' | 'outline';
   isPending?: boolean;
 }
 
@@ -18,6 +20,8 @@ export function ConfirmDialog({
   description,
   onConfirm,
   confirmLabel = 'Delete',
+  pendingLabel,
+  confirmVariant = 'destructive',
   isPending,
 }: ConfirmDialogProps) {
   return (
@@ -28,11 +32,11 @@ export function ConfirmDialog({
         </DialogHeader>
         <p className="text-sm text-muted-foreground">{description}</p>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
             Cancel
           </Button>
-          <Button type="button" variant="destructive" onClick={onConfirm} disabled={isPending}>
-            {isPending ? 'Deleting…' : confirmLabel}
+          <Button type="button" variant={confirmVariant} onClick={onConfirm} disabled={isPending}>
+            {isPending ? (pendingLabel ?? 'Please wait…') : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>
