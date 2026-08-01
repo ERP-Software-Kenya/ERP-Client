@@ -1,163 +1,467 @@
-/**
- * Core ERP API Client
- *
- * Base URL and token are read from settings at runtime.
- * The API at https://core-apis-m03n.onrender.com is publicly accessible
- * for read operations on: organizations, categories, stores, and inventory.
- * Other endpoints require a Bearer token configured in Settings.
- *
- * Paginated response shape: { items, page, perPage, totalCount, totalPages }
- */
-
-import type { PaginatedResponse } from './types';
-
-// ── Configuration ─────────────────────────────────────────────────────────────
-
-let _baseUrl = 'https://core-apis-m03n.onrender.com';
-let _token: string | null = null;
-
-/** Call this after loading settings to update the API client at runtime. */
-export function configureApi(baseUrl: string, token: string | null): void {
-  _baseUrl = baseUrl.replace(/\/$/, ''); // strip trailing slash
-  _token = token ?? null;
-}
-
-// ── HTTP helpers ──────────────────────────────────────────────────────────────
-
-type QueryParams = Record<string, string | number | boolean | undefined>;
-
-function buildUrl(path: string, params?: QueryParams): string {
-  const url = new URL(`${_baseUrl}${path}`);
-  if (params) {
-    Object.entries(params).forEach(([k, v]) => {
-      if (v !== undefined && v !== '') url.searchParams.set(k, String(v));
-    });
-  }
-  return url.toString();
-}
-
-function headers(): Record<string, string> {
-  const h: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (_token) h['Authorization'] = `Bearer ${_token}`;
-  return h;
-}
-
-async function get<T>(path: string, params?: QueryParams): Promise<T> {
-  const resp = await fetch(buildUrl(path, params), { headers: headers() });
-  if (!resp.ok) {
-    throw new Error(`HTTP ${resp.status} — ${resp.statusText}`);
-  }
-  return resp.json() as Promise<T>;
-}
-
-// ── Search params ─────────────────────────────────────────────────────────────
-
-interface SearchParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-}
-
-function toQuery(p?: SearchParams): QueryParams {
-  return {
-    $page: p?.page ?? 1,
-    $perPage: p?.limit ?? 15,
-    ...(p?.search ? { name: p.search } : {}),
-  };
-}
-
-// ── Normalise response ─────────────────────────────────────────────────────────
-// The app's ERPDataTable expects either:
-//   - An array                         → for .list() calls
-//   - { data, total } or { items, totalCount } → for .search() calls
-//
-// We normalise everything so ERPDataTable can handle it generically.
-
-function normalisePaginated<T>(raw: PaginatedResponse<T> | T[]): { data: T[]; total: number } {
-  if (Array.isArray(raw)) return { data: raw, total: raw.length };
-  return { data: raw.items ?? [], total: raw.totalCount ?? 0 };
-}
-
-// ── Resource factories ────────────────────────────────────────────────────────
-
-function makeResource<T extends { id: string }>(basePath: string) {
-  return {
-    /** Paginated search — returns { data, total } */
-    async search(params?: SearchParams | Record<string, string>): Promise<{ data: T[]; total: number }> {
-      const raw = await get<PaginatedResponse<T> | T[]>(basePath, toQuery(params as SearchParams));
-      return normalisePaginated(raw);
-    },
-
-    /** Flat list — returns T[] (uses the /list endpoint if available) */
-    async list(): Promise<T[]> {
-      try {
-        const raw = await get<T[]>(`${basePath}/list`);
-        return Array.isArray(raw) ? raw : [];
-      } catch {
-        // Fallback: try the paginated endpoint and grab items
-        const paged = await get<PaginatedResponse<T> | T[]>(basePath, { $perPage: 100 });
-        if (Array.isArray(paged)) return paged;
-        return paged.items ?? [];
-      }
-    },
-
-    /** Get a single record by ID */
-    async getById(id: string): Promise<T> {
-      return await get<T>(`${basePath}/${id}`);
-    },
-  };
-}
-
-// ── Exported resource clients ─────────────────────────────────────────────────
-
+export { configureApi, get, post, put, patch, del } from './lib/http';
+import { get, post, put, patch, del, uploadForm } from './lib/http';
+import { createResource, createCreateOnlyResource } from './lib/resource';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import type {
-  Organization,
-  Store,
-  Category,
-  Product,
-  InventoryItem,
-  Supplier,
-  PurchaseOrder,
-  Bill,
-  PaymentTransaction,
-  Notification,
-  ItemReturn,
-  ReportGenerationLog,
-  StockMovement,
-  StockTransfer,
-  Order,
-  Invoice,
-  Customer,
-  Expense,
-  PurchaseItem,
-  ActivityLog,
-  Role,
-  UserRole,
-  PlatformConfiguration,
-  Vehicle,
+  Organization, Store, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
+  Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, Expense, PurchaseItem,
+  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
+  ProductImage, ProductImageUploadUrl, ProductSupplier,
+  InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
+  UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
+  BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
 } from './types';
 
-export const Organizations      = makeResource<Organization>('/api/v1/organizations');
-export const Stores             = makeResource<Store>('/api/v1/stores');
-export const Categories         = makeResource<Category>('/api/v1/categories');
-export const Products           = makeResource<Product>('/api/v1/products');
-export const Inventory          = makeResource<InventoryItem>('/api/v1/inventory');
-export const Suppliers          = makeResource<Supplier>('/api/v1/suppliers');
-export const PurchaseOrders     = makeResource<PurchaseOrder>('/api/v1/purchase-orders');
-export const Bills              = makeResource<Bill>('/api/v1/bills');
-export const PaymentTransactions = makeResource<PaymentTransaction>('/api/v1/payment-transactions');
-export const Notifications      = makeResource<Notification>('/api/v1/notifications');
-export const ItemReturns        = makeResource<ItemReturn>('/api/v1/item-returns');
-export const ReportGenerationLogs = makeResource<ReportGenerationLog>('/api/v1/report-generation-logs');
-export const StockMovements     = makeResource<StockMovement>('/api/v1/stock-movements');
-export const StockTransfers     = makeResource<StockTransfer>('/api/v1/stock-transfers');
-export const Orders             = makeResource<Order>('/api/v1/orders');
-export const Invoices           = makeResource<Invoice>('/api/v1/invoices');
-export const Customers          = makeResource<Customer>('/api/v1/customers');
-export const Expenses           = makeResource<Expense>('/api/v1/expenses');
-export const PurchaseItems      = makeResource<PurchaseItem>('/api/v1/purchase-items');
-export const ActivityLogs       = makeResource<ActivityLog>('/api/v1/activity-logs');
-export const Roles              = makeResource<Role>('/api/v1/roles');
-export const UserRoles          = makeResource<UserRole>('/api/v1/user-roles');
-export const PlatformConfigurations = makeResource<PlatformConfiguration>('/api/v1/platform-configurations');
-export const Vehicles           = makeResource<Vehicle>('/api/v1/vehicles');
+// ── New hook-based resources ───────────────────────────────────────────────────
+
+export const Organizations = createResource<Organization>('/api/v1/organizations', 'organizations', 'Organization');
+export const Stores = createResource<Store>('/api/v1/stores', 'stores', 'Store');
+export const Categories = createResource<Category>('/api/v1/categories', 'categories', 'Category');
+export const Products = createResource<Product>('/api/v1/products', 'products', 'Product');
+export const Suppliers = createResource<Supplier>('/api/v1/suppliers', 'suppliers', 'Supplier');
+export const PurchaseOrders = createResource<PurchaseOrder>('/api/v1/purchase-orders', 'purchase-orders', 'Purchase order');
+
+const billsBase = createResource<Bill>('/api/v1/bills', 'bills', 'Bill');
+
+/**
+ * Bills SearchBillsRequest uses @IsNumber() on $page/$perPage without @Type(() => Number).
+ * Sending those query params returns 400 on Render — omit them (handler defaults page 1 / 20).
+ */
+export const Bills = {
+  ...billsBase,
+  useSearch(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    filters?: Record<string, string>;
+    enabled?: boolean;
+  }) {
+    return billsBase.useSearch({ ...params, omitPagination: true });
+  },
+  useTransitionStatus() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({
+        id,
+        status,
+        paymentMethod,
+      }: {
+        id: string;
+        status: BillStatus;
+        paymentMethod?: PaymentMethod;
+      }) => patch<Bill>(`/api/v1/bills/${id}/status`, { status, paymentMethod }),
+      onSuccess: (_bill, vars) => {
+        toast.success(`Bill marked ${vars.status}`);
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to update bill status'),
+    });
+  },
+  useAddItem() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: CreateBillItemInput }) =>
+        post<Bill>(`/api/v1/bills/${id}/items`, body),
+      onSuccess: () => {
+        toast.success('Item added');
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to add item'),
+    });
+  },
+  useUpdateItem() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({
+        id,
+        itemId,
+        body,
+      }: {
+        id: string;
+        itemId: string;
+        body: Partial<CreateBillItemInput>;
+      }) => put<Bill>(`/api/v1/bills/${id}/items/${itemId}`, body),
+      onSuccess: () => {
+        toast.success('Item updated');
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to update item'),
+    });
+  },
+  useRemoveItem() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, itemId }: { id: string; itemId: string }) =>
+        del(`/api/v1/bills/${id}/items/${itemId}`).then(() => undefined),
+      onSuccess: () => {
+        toast.success('Item removed');
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to remove item'),
+    });
+  },
+  useUpdateHeader() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: UpdateBillInput }) =>
+        put<Bill>(`/api/v1/bills/${id}`, body),
+      onSuccess: () => {
+        toast.success('Bill updated');
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to update bill'),
+    });
+  },
+};
+
+export const PaymentTransactions = createResource<PaymentTransaction>('/api/v1/payment-transactions', 'payment-transactions', 'Payment');
+export const Notifications = createResource<Notification>('/api/v1/notifications', 'notifications', 'Notification');
+export const ItemReturns = createResource<ItemReturn>('/api/v1/item-returns', 'item-returns', 'Return');
+export const ReportGenerationLogs = createResource<ReportGenerationLog>('/api/v1/report-generation-logs', 'report-generation-logs', 'Report log');
+export const Orders = createCreateOnlyResource<Order>('/api/v1/orders', 'orders', 'Order');
+export const Invoices = createCreateOnlyResource<Invoice>('/api/v1/invoices', 'invoices', 'Invoice');
+
+const customersBase = createResource<Customer>('/api/v1/customers', 'customers', 'Customer');
+
+/**
+ * Customers SearchCustomersRequest: same $page/$perPage string→@IsNumber 400 as bills.
+ * Omit pagination; only send name/phone/filters. Handler defaults to page 1 / 20.
+ */
+export const Customers = {
+  ...customersBase,
+  useSearch(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    filters?: Record<string, string>;
+    enabled?: boolean;
+  }) {
+    return customersBase.useSearch({ ...params, omitPagination: true });
+  },
+  useUpdate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: Partial<Customer> }) =>
+        patch<Customer>(`/api/v1/customers/${id}`, body),
+      onSuccess: () => {
+        toast.success('Customer updated');
+        queryClient.invalidateQueries({ queryKey: ['customers'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to update customer'),
+    });
+  },
+};
+
+export const Expenses = createCreateOnlyResource<Expense>('/api/v1/expenses', 'expenses', 'Expense');
+export const PurchaseItems = createCreateOnlyResource<PurchaseItem>('/api/v1/purchase-items', 'purchase-items', 'Purchase item');
+export const ActivityLogs = createCreateOnlyResource<ActivityLog>('/api/v1/activity-logs', 'activity-logs', 'Activity log');
+export const Roles = createCreateOnlyResource<Role>('/api/v1/roles', 'roles', 'Role');
+export const UserRoles = createCreateOnlyResource<UserRole>('/api/v1/user-roles', 'user-roles', 'User role');
+export const PlatformConfigurations = createCreateOnlyResource<PlatformConfiguration>('/api/v1/platform-configurations', 'platform-configurations', 'Configuration');
+export const Users = createCreateOnlyResource<PlatformUser>('/api/v1/users', 'users', 'User');
+export const Locations = createResource<Location>('/api/v1/locations', 'locations', 'Location');
+// ── Inventory cluster (hook-based) ─────────────────────────────────────────────
+
+export const Inventory = createResource<InventoryItem>('/api/v1/inventory', 'inventory', 'Inventory item');
+
+export function useCategoryParents(enabled = true) {
+  return useQuery({
+    queryKey: ['categories', 'parents'],
+    queryFn: () => get<Category[]>('/api/v1/categories/parents'),
+    staleTime: 5 * 60 * 1000,
+    enabled,
+  });
+}
+
+/** Stock transfers have no list/search endpoint — only get-by-id + create (+ complete/cancel helpers below). */
+export const StockTransfers = {
+  useGet(id: string | undefined) {
+    return useQuery({
+      queryKey: ['stock-transfers', id],
+      queryFn: () => get<StockTransfer>(`/api/v1/stock-transfers/${id}`),
+      enabled: !!id,
+    });
+  },
+  useCreate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: Partial<StockTransfer>) => post<StockTransfer>('/api/v1/stock-transfers', body),
+      onSuccess: () => {
+        toast.success('Stock transfer created');
+        queryClient.invalidateQueries({ queryKey: ['stock-transfers'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to create stock transfer'),
+    });
+  },
+};
+
+export function useInventoryLowStock() {
+  return useQuery({
+    queryKey: ['inventory', 'low-stock'],
+    queryFn: () => get<InventoryItem[]>('/api/v1/inventory/low-stock'),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useInventoryValuation() {
+  return useQuery({
+    queryKey: ['inventory', 'valuation'],
+    queryFn: () => get<InventoryItem[]>('/api/v1/inventory/valuation'),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useStockMovement(id: string | undefined) {
+  return useQuery({
+    queryKey: ['stock-movements', id],
+    queryFn: () => get<StockMovement>(`/api/v1/stock-movements/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useStockMovementsByInventory(inventoryId: string | undefined) {
+  return useQuery({
+    queryKey: ['stock-movements', 'by-inventory', inventoryId],
+    queryFn: () => get<StockMovement[]>(`/api/v1/stock-movements/by-inventory/${inventoryId}`),
+    enabled: !!inventoryId,
+  });
+}
+
+export function useStockOperation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ op, body }: { op: StockMovementOp; body: StockOperationBody }) =>
+      post<unknown>(`/api/v1/stock-movements/${op}`, body).then(() => undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stock-movements'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}
+
+export function useCompleteStockTransfer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      items,
+    }: {
+      id: string;
+      items: Array<{
+        fromInventoryId: string;
+        toInventoryId: string;
+        productId: string;
+        fromLocationId: string;
+        toLocationId: string;
+        quantity: number;
+      }>;
+    }) => put<StockTransfer>(`/api/v1/stock-transfers/${id}/complete`, { items }),
+    onSuccess: () => {
+      toast.success('Stock transfer completed');
+      queryClient.invalidateQueries({ queryKey: ['stock-transfers'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-movements'] });
+    },
+    onError: (error: Error) => toast.error(error.message || 'Failed to complete transfer'),
+  });
+}
+
+export function useCancelStockTransfer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => put<StockTransfer>(`/api/v1/stock-transfers/${id}/cancel`, {}),
+    onSuccess: () => {
+      toast.success('Stock transfer cancelled');
+      queryClient.invalidateQueries({ queryKey: ['stock-transfers'] });
+    },
+    onError: (error: Error) => toast.error(error.message || 'Failed to cancel transfer'),
+  });
+}
+
+export function useUnpublishedStock(id: string | undefined) {
+  return useQuery({
+    queryKey: ['unpublished-stock', id],
+    queryFn: () => get<UnpublishedStock>(`/api/v1/unpublished-stock/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useUnpublishedStockMovements(unpublishedStockId: string | undefined) {
+  return useQuery({
+    queryKey: ['unpublished-stock', 'by-record', unpublishedStockId],
+    queryFn: () => get<UnpublishedStockMovement[]>(`/api/v1/unpublished-stock/by-record/${unpublishedStockId}`),
+    enabled: !!unpublishedStockId,
+  });
+}
+
+export function useAddUnpublishedStock() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { locationId: string; productId: string; quantity: number; unitCost?: number; notes?: string }) =>
+      post('/api/v1/unpublished-stock/add', body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['unpublished-stock'] }),
+  });
+}
+
+export function usePublishUnpublishedStock() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { unpublishedStockId: string; quantity: number; notes?: string }) =>
+      post('/api/v1/unpublished-stock/publish', body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['unpublished-stock'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}
+
+export function useProductLog(id: string | undefined) {
+  return useQuery({
+    queryKey: ['product-logs', id],
+    queryFn: () => get<ProductLog>(`/api/v1/product-logs/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useProductLogsByProduct(productId: string | undefined) {
+  return useQuery({
+    queryKey: ['product-logs', 'by-product', productId],
+    queryFn: async () => {
+      const paged = await get<PaginatedResponse<ProductLog>>(`/api/v1/product-logs/by-product/${productId}`, { perPage: 100 });
+      return paged.items ?? [];
+    },
+    enabled: !!productId,
+  });
+}
+
+export function useProductLogsByInventory(inventoryId: string | undefined) {
+  return useQuery({
+    queryKey: ['product-logs', 'by-inventory', inventoryId],
+    queryFn: () => get<ProductLog[]>(`/api/v1/product-logs/by-inventory/${inventoryId}`),
+    enabled: !!inventoryId,
+  });
+}
+// ── Product subresources (images, suppliers) ──────────────────────────────────
+
+export function useProductImages(productId: string | undefined) {
+  return useQuery({
+    queryKey: ['products', productId, 'images'],
+    queryFn: () => get<ProductImage[]>(`/api/v1/products/${productId}/images`),
+    enabled: !!productId,
+  });
+}
+
+export function useUploadProductImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ productId, file }: { productId: string; file: File }) => {
+      const form = new FormData();
+      form.append('file', file);
+      return uploadForm<ProductImage>(`/api/v1/products/${productId}/images`, form);
+    },
+    onSuccess: (_result, { productId }) => {
+      queryClient.invalidateQueries({ queryKey: ['products', productId, 'images'] });
+    },
+  });
+}
+
+const PRODUCT_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/bmp',
+  'image/tiff',
+  'image/svg+xml',
+]);
+
+/**
+ * Direct R2 upload via presigned URL. Does NOT create a product_images row —
+ * Core API has no confirm/imageKey endpoint yet. Do not invalidate gallery queries.
+ */
+export function useProductImagePresignedUpload() {
+  return useMutation({
+    mutationFn: async ({ productId, file }: { productId: string; file: File }) => {
+      const mimeType = file.type;
+      if (!PRODUCT_IMAGE_MIME_TYPES.has(mimeType)) {
+        throw new Error(`Unsupported image type: ${mimeType || 'unknown'}`);
+      }
+      const meta = await get<ProductImageUploadUrl>(`/api/v1/products/${productId}/image/presigned-url`, {
+        mimeType,
+      });
+      const resp = await fetch(meta.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': mimeType },
+        body: file,
+      });
+      if (!resp.ok) {
+        throw new Error(`R2 upload failed (HTTP ${resp.status})`);
+      }
+      return meta;
+    },
+  });
+}
+
+export function useProductSuppliers(productId: string | undefined) {
+  return useQuery({
+    queryKey: ['products', productId, 'suppliers'],
+    queryFn: () => get<ProductSupplier[]>(`/api/v1/products/${productId}/suppliers`),
+    enabled: !!productId,
+  });
+}
+
+interface ProductSupplierLinkBody {
+  supplierId: string;
+  isDefault?: boolean;
+  unitCost?: number;
+  leadTimeDays?: number;
+  minOrderQty?: number;
+}
+
+export function useLinkProductSupplier(productId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ProductSupplierLinkBody) => post<ProductSupplier>(`/api/v1/products/${productId}/suppliers`, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', productId, 'suppliers'] }),
+  });
+}
+
+export function useUpdateProductSupplier(productId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ supplierId, body }: { supplierId: string; body: Omit<ProductSupplierLinkBody, 'supplierId'> }) =>
+      put<ProductSupplier>(`/api/v1/products/${productId}/suppliers/${supplierId}`, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', productId, 'suppliers'] }),
+  });
+}
+
+export function useUnlinkProductSupplier(productId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (supplierId: string) => del(`/api/v1/products/${productId}/suppliers/${supplierId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', productId, 'suppliers'] }),
+  });
+}
+
+// ── Location image (single image; upload replaces) ────────────────────────────
+
+export function useUploadLocationImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ locationId, file }: { locationId: string; file: File }) => {
+      const form = new FormData();
+      form.append('file', file);
+      return uploadForm<Location>(`/api/v1/locations/${locationId}/image`, form);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['locations'] }),
+  });
+}
+
+export function useRemoveLocationImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (locationId: string) => del(`/api/v1/locations/${locationId}/image`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['locations'] }),
+  });
+}
