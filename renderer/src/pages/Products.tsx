@@ -12,7 +12,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Categories, Products, Suppliers, useCategoryParents, useUploadProductImage, useProductImagePresignedUpload, useProductImages, useProductSuppliers } from '../api';
+import { Categories, Organizations, Products, Suppliers, useCategoryParents, useUploadProductImage, useProductImagePresignedUpload, useProductImages, useProductSuppliers } from '../api';
 import { usePagination } from '../hooks/usePagination';
 import { formatEntityLabel } from '../lib/entityLabel';
 import type { Product, ProductUnit } from '../types';
@@ -96,6 +96,12 @@ export default function ProductsPage() {
     }
     return m;
   }, [categories]);
+  const { data: orgs } = Organizations.useList();
+  const orgName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of orgs ?? []) m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
+    return m;
+  }, [orgs]);
 
   const uploadProductImageMutation = useUploadProductImage();
   const presignedUploadMutation = useProductImagePresignedUpload();
@@ -322,7 +328,14 @@ export default function ProductsPage() {
       <ViewDrawer
         open={viewRow != null}
         title="View Product"
-        data={viewRow as Record<string, unknown> | null}
+        data={viewRow
+          ? ({
+              ...viewRow,
+              organizationId: viewRow.organizationId ? (orgName.get(viewRow.organizationId) ?? viewRow.organizationId) : undefined,
+              categoryId: viewRow.categoryId ? (categoryName.get(viewRow.categoryId) ?? viewRow.categoryId) : undefined,
+            } as Record<string, unknown>)
+          : null
+        }
         onClose={() => setViewRow(null)}
       >
         <FormSection title="Images" className="space-y-3">

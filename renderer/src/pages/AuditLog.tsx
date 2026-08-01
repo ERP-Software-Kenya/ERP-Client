@@ -6,7 +6,7 @@ import { AdvancedIdLookup } from '../components/AdvancedIdLookup';
 import { RecentRecords } from '../components/RecentRecords';
 import { Button } from '../components/ui/button';
 import { FormSection } from '../components/FormDrawer';
-import { ActivityLogs, get } from '../api';
+import { ActivityLogs, Organizations, get } from '../api';
 import { formatEntityLabel } from '../lib/entityLabel';
 import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
 import type { ActivityLog } from '../types';
@@ -37,6 +37,12 @@ export default function AuditLog() {
   const [activeId, setActiveId] = useState<string | undefined>();
 
   const { data: lookedUp, isLoading, error } = ActivityLogs.useGet(activeId);
+  const { data: orgs } = Organizations.useList();
+  const orgName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of orgs ?? []) m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
+    return m;
+  }, [orgs]);
 
   const recentQueries = useQueries({
     queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
@@ -178,12 +184,12 @@ export default function AuditLog() {
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
                 {(
                   [
-                    ['Organization', lookedUp.organizationId],
+                    ['Organization', lookedUp.organizationId ? (orgName.get(lookedUp.organizationId) ?? lookedUp.organizationId) : undefined],
                     ['User', lookedUp.userId],
                     ['Action', lookedUp.action],
                     ['Entity', lookedUp.entityName],
                     ['Entity ID', lookedUp.entityId],
-                    ['Created', lookedUp.createdAt],
+                    ['Created', lookedUp.createdAt ? new Date(lookedUp.createdAt).toLocaleString() : undefined],
                   ] as const
                 ).map(([label, value]) => (
                   <div key={label}>

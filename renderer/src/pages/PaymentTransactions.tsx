@@ -5,8 +5,9 @@ import { FormDrawer, Field } from '../components/FormDrawer';
 import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { PaymentTransactions } from '../api';
+import { PaymentTransactions, Organizations } from '../api';
 import { usePagination } from '../hooks/usePagination';
+import { formatEntityLabel } from '../lib/entityLabel';
 import type { PaymentTransaction } from '../types';
 
 const STATUS_FILTERS = ['ALL', 'PENDING', 'COMPLETED', 'FAILED'] as const;
@@ -55,6 +56,13 @@ export default function PaymentTransactionsPage() {
     ? `Unable to load payments.${error instanceof Error && error.message ? ` (${error.message})` : ''}`
     : null;
 
+  const { data: orgs } = Organizations.useList();
+  const orgName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of orgs ?? []) m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
+    return m;
+  }, [orgs]);
+
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
@@ -101,6 +109,13 @@ export default function PaymentTransactionsPage() {
     },
     { key: 'status', label: 'Status' },
   ];
+
+  const viewData = viewRow
+    ? ({
+        ...viewRow,
+        organizationId: (viewRow.organizationId || viewRow.orgId) ? (orgName.get(viewRow.organizationId ?? viewRow.orgId ?? '') ?? viewRow.organizationId ?? viewRow.orgId) : undefined,
+      } as Record<string, unknown>)
+    : null;
 
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
@@ -154,7 +169,7 @@ export default function PaymentTransactionsPage() {
       <ViewDrawer
         open={viewRow != null}
         title="View Payment"
-        data={viewRow as Record<string, unknown> | null}
+        data={viewData}
         onClose={() => setViewRow(null)}
       />
 

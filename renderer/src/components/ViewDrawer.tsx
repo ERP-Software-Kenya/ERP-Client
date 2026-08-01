@@ -21,9 +21,15 @@ function isImageUrl(key: string, value: unknown): value is string {
   return /\.(png|jpe?g|gif|webp|svg|bmp)(\?|$)/i.test(value);
 }
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
 function formatScalar(value: unknown): string {
   if (value == null) return '—';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'string' && ISO_DATE_RE.test(value)) {
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) return d.toLocaleString();
+  }
   return String(value);
 }
 

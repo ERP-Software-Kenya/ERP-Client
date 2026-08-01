@@ -86,7 +86,7 @@ export default function PurchaseOrdersPage() {
     {
       key: "createdAt",
       label: "Created",
-      render: (row) => row.createdAt || row.created_at || "—",
+      render: (row) => (row.createdAt || row.created_at) ? new Date(row.createdAt || row.created_at!).toLocaleString() : "—",
     },
   ];
 

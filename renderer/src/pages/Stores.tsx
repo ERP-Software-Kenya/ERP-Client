@@ -51,6 +51,11 @@ export default function StoresPage() {
   const [orgFilter, setOrgFilter] = useState('');
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
   const { data: organizations = [] } = Organizations.useList();
+  const orgName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of organizations) m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
+    return m;
+  }, [organizations]);
   const filters = useMemo(() => {
     const next: Record<string, string> = {};
     if (orgFilter) next.organizationId = orgFilter;
@@ -117,6 +122,13 @@ export default function StoresPage() {
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
+  const viewData = viewRow
+    ? ({
+        ...viewRow,
+        organization_id: viewRow.organization_id ? (orgName.get(viewRow.organization_id) ?? viewRow.organization_id) : undefined,
+      } as Record<string, unknown>)
+    : null;
+
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
@@ -162,7 +174,7 @@ export default function StoresPage() {
       <ViewDrawer
         open={viewRow != null}
         title="View Store"
-        data={viewRow as Record<string, unknown> | null}
+        data={viewData}
         onClose={() => setViewRow(null)}
       />
 

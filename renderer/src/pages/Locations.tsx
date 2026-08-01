@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
@@ -9,8 +9,9 @@ import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Locations, useUploadLocationImage, useRemoveLocationImage } from '../api';
+import { Locations, Organizations, useUploadLocationImage, useRemoveLocationImage } from '../api';
 import { usePagination } from '../hooks/usePagination';
+import { formatEntityLabel } from '../lib/entityLabel';
 import type { Location, LocationType } from '../types';
 
 const TYPE_OPTIONS: LocationType[] = ['store', 'warehouse'];
@@ -198,8 +199,22 @@ export default function LocationsPage() {
     },
   ];
 
+  const { data: orgs } = Organizations.useList();
+  const orgName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const o of orgs ?? []) m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
+    return m;
+  }, [orgs]);
+
   const isSaving =
     createMutation.isPending || updateMutation.isPending || uploading || uploadImageMutation.isPending || removeImageMutation.isPending;
+
+  const viewData = viewRow
+    ? ({
+        ...viewRow,
+        organizationId: viewRow.organizationId ? (orgName.get(viewRow.organizationId) ?? viewRow.organizationId) : undefined,
+      } as Record<string, unknown>)
+    : null;
 
   const pageTitle = warehouseOnly ? 'Warehouses' : 'Locations';
   const pageDescription = warehouseOnly
@@ -232,7 +247,7 @@ export default function LocationsPage() {
       <ViewDrawer
         open={viewRow != null}
         title={`View ${entityLabel}`}
-        data={viewRow as Record<string, unknown> | null}
+        data={viewData}
         onClose={() => setViewRow(null)}
       >
         <FormSection title="Image">
