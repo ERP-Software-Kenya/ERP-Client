@@ -294,6 +294,18 @@
   opacity: 0.5;
 }
 
+/* Product onboarding wizard step transitions */
+@keyframes step-in-right {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes step-in-left {
+  from { opacity: 0; transform: translateX(-28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-step-in-right { animation: step-in-right 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+.animate-step-in-left  { animation: step-in-left  0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards; }
+
 /* POS: print only the receipt sheet */
 .pos-print-root {
   display: none;
