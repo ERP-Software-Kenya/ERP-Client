@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
+import { useAuth } from './context/AuthContext';
 
 const Login = lazy(() => import('./pages/Login'));
 const SSOCallback = lazy(() => import('./pages/SSOCallback'));
@@ -57,6 +58,14 @@ function RouteFallback() {
   );
 }
 
+// Requires a valid Clerk session but not an org — used for the onboarding flow.
+function SessionRoute({ children }: { children: React.ReactNode }) {
+  const { user, syncing } = useAuth();
+  if (syncing && !user) return <RouteFallback />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <HashRouter>
@@ -65,7 +74,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/sso-callback" element={<SSOCallback />} />
           <Route path="/sso-continue" element={<SSOContinue />} />
-          <Route path="/onboarding/create-org" element={<CreateOrganization />} />
+          <Route path="/onboarding/create-org" element={<SessionRoute><CreateOrganization /></SessionRoute>} />
 
           <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
