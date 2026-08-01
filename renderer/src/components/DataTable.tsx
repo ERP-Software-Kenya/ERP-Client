@@ -26,6 +26,7 @@ interface DataTableProps<T extends { id: string }> {
   toolbar?: React.ReactNode;
   onRefetch?: () => void;
   onAdd?: () => void;
+  addLabel?: string;
   onView?: (row: T) => void;
   onEdit?: (row: T) => void;
   onDelete?: (row: T) => void;
@@ -59,6 +60,7 @@ export function DataTable<T extends { id: string }>({
   toolbar,
   onRefetch,
   onAdd,
+  addLabel = 'Add',
   onView,
   onEdit,
   onDelete,
@@ -111,7 +113,7 @@ export function DataTable<T extends { id: string }>({
           )}
           {onAdd && isAdmin && (
             <Button size="sm" onClick={onAdd}>
-              <Plus size={15} /> Add
+              <Plus size={15} /> {addLabel}
             </Button>
           )}
         </div>
