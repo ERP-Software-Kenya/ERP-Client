@@ -11,6 +11,7 @@ import type {
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
+  Country, State, City,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -441,6 +442,56 @@ export function useUnlinkProductSupplier(productId: string | undefined) {
   return useMutation({
     mutationFn: (supplierId: string) => del(`/api/v1/products/${productId}/suppliers/${supplierId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products', productId, 'suppliers'] }),
+  });
+}
+
+// ── Common Utility — Countries / States / Cities ─────────────────────────────
+
+export function useListCountries() {
+  return useQuery<Country[]>({
+    queryKey: ['countries'],
+    queryFn:  () => get<Country[]>('/api/v1/common-utility/countries/list'),
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+
+export function useListStates(countryId: number | null) {
+  return useQuery<State[]>({
+    queryKey: ['states', countryId],
+    queryFn:  () => get<State[]>(`/api/v1/common-utility/states/list?countryId=${countryId}`),
+    enabled:  countryId !== null,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+
+export function useListCities(stateId: number | null) {
+  return useQuery<City[]>({
+    queryKey: ['cities', stateId],
+    queryFn:  () => get<City[]>(`/api/v1/common-utility/cities/list?stateId=${stateId}`),
+    enabled:  stateId !== null,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+
+// ── Store image (single image; upload replaces) ───────────────────────────────
+
+export function useUploadStoreImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ storeId, file }: { storeId: string; file: File }) => {
+      const form = new FormData();
+      form.append('file', file);
+      return uploadForm<Store>(`/api/v1/stores/${storeId}/image`, form);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stores'] }),
+  });
+}
+
+export function useRemoveStoreImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (storeId: string) => del(`/api/v1/stores/${storeId}/image`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stores'] }),
   });
 }
 

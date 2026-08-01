@@ -1,17 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Trash2 } from 'lucide-react';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
+import { FormDrawer, Field } from '../components/FormDrawer';
 import { ViewDrawer } from '../components/ViewDrawer';
+import { FilterDropdown } from '../components/FilterDropdown';
+import { SingleImageUploader } from '../components/SingleImageUploader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Locations, Organizations, useUploadLocationImage, useRemoveLocationImage } from '../api';
+import {
+  Locations,
+  useUploadLocationImage,
+  useRemoveLocationImage,
+  useListCountries,
+  useListStates,
+  useListCities,
+} from '../api';
 import { usePagination } from '../hooks/usePagination';
-import { formatEntityLabel } from '../lib/entityLabel';
 import type { Location, LocationType } from '../types';
 
 const TYPE_OPTIONS: LocationType[] = ['store', 'warehouse'];
@@ -20,114 +27,121 @@ interface FormState {
   name: string;
   type: LocationType | '';
   address: string;
-  city: string;
-  country: string;
+  countryName: string;
+  countryId: number | null;
+  stateName: string;
+  stateId: number | null;
+  cityName: string;
   phone: string;
 }
 
-interface PendingImage {
-  file: File;
-  previewUrl: string;
-}
+interface PendingImage { file: File; previewUrl: string }
 
-const EMPTY_FORM: FormState = { name: '', type: '', address: '', city: '', country: '', phone: '' };
+const EMPTY_FORM: FormState = {
+  name: '', type: '',
+  address: '',
+  countryName: '', countryId: null,
+  stateName: '', stateId: null,
+  cityName: '',
+  phone: '',
+};
 
 export default function LocationsPage() {
   const { pathname } = useLocation();
   const warehouseOnly = pathname.startsWith('/warehouse');
   const emptyForm: FormState = warehouseOnly ? { ...EMPTY_FORM, type: 'warehouse' } : EMPTY_FORM;
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editing, setEditing] = useState<Location | null>(null);
-  const [form, setForm] = useState<FormState>(emptyForm);
-  const [deleteTarget, setDeleteTarget] = useState<Location | null>(null);
-  const [viewRow, setViewRow] = useState<Location | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
-  const [hasServerImage, setHasServerImage] = useState(false);
-
-  const createMutation = Locations.useCreate();
-  const updateMutation = Locations.useUpdate();
-  const removeMutation = Locations.useDelete();
-  const uploadImageMutation = useUploadLocationImage();
-  const removeImageMutation = useRemoveLocationImage();
-  const { page, setPage, setSearch, debouncedSearch } = usePagination();
-  const { data, isLoading, error, refetch } = Locations.useSearch({
-    page,
-    search: debouncedSearch,
-    filters: warehouseOnly ? { type: 'warehouse' } : undefined,
-  });
-
+  const [drawerOpen, setDrawerOpen]       = useState(false);
+  const [editing, setEditing]             = useState<Location | null>(null);
+  const [form, setForm]                   = useState<FormState>(emptyForm);
+  const [deleteTarget, setDeleteTarget]   = useState<Location | null>(null);
+  const [viewRow, setViewRow]             = useState<Location | null>(null);
+  const [pendingImage, setPendingImage]   = useState<PendingImage | null>(null);
+  const [serverImage, setServerImage]     = useState(false);
+  const [uploading, setUploading]         = useState(false);
+  const [statusFilter, setStatusFilter]   = useState<string | null>(null);
   const pendingRef = useRef<PendingImage | null>(null);
   pendingRef.current = pendingImage;
 
   useEffect(() => {
-    return () => {
-      if (pendingRef.current) URL.revokeObjectURL(pendingRef.current.previewUrl);
-    };
+    return () => { if (pendingRef.current) URL.revokeObjectURL(pendingRef.current.previewUrl); };
   }, []);
 
+  const createMutation      = Locations.useCreate();
+  const updateMutation      = Locations.useUpdate();
+  const removeMutation      = Locations.useDelete();
+  const uploadImageMutation = useUploadLocationImage();
+  const removeImageMutation = useRemoveLocationImage();
+
+  const { page, setPage, setSearch, debouncedSearch } = usePagination();
+
+  const filters = useMemo(() => {
+    const next: Record<string, string> = {};
+    if (warehouseOnly) next.type = 'warehouse';
+    if (statusFilter)  next.isActive = statusFilter;
+    return Object.keys(next).length ? next : undefined;
+  }, [warehouseOnly, statusFilter]);
+
+  const { data, isLoading, error, refetch } = Locations.useSearch({ page, search: debouncedSearch, filters });
+
+  const { data: countries = [] } = useListCountries();
+  const { data: states = [] }    = useListStates(form.countryId);
+  const { data: cities = [] }    = useListCities(form.stateId);
+
   const clearPending = () => {
-    setPendingImage((prev) => {
-      if (prev) URL.revokeObjectURL(prev.previewUrl);
-      return null;
-    });
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    setPendingImage((prev) => { if (prev) URL.revokeObjectURL(prev.previewUrl); return null; });
   };
 
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
-    setHasServerImage(false);
+    setServerImage(false);
     clearPending();
     setDrawerOpen(true);
   };
 
   const openEdit = (row: Location) => {
     setEditing(row);
+    const country = countries.find((c) => c.name === row.country) ?? null;
     setForm({
-      name: row.name ?? '',
-      type: row.type ?? '',
-      address: row.address ?? '',
-      city: row.city ?? '',
-      country: row.country ?? '',
-      phone: row.phone ?? '',
+      name:        row.name        ?? '',
+      type:        row.type        ?? '',
+      address:     row.address     ?? '',
+      countryName: row.country     ?? '',
+      countryId:   country?.id     ?? null,
+      stateName:   row.state       ?? '',
+      stateId:     null,
+      cityName:    row.city        ?? '',
+      phone:       row.phone       ?? '',
     });
-    setHasServerImage(!!row.imageKey);
+    setServerImage(!!row.imageKey);
     clearPending();
     setDrawerOpen(true);
   };
 
-  const closeDrawer = () => {
-    clearPending();
-    setDrawerOpen(false);
-  };
+  const closeDrawer = () => { clearPending(); setDrawerOpen(false); };
 
   const uploadFor = async (locationId: string, file: File) => {
     setUploading(true);
     try {
-      const updated = await uploadImageMutation.mutateAsync({ locationId, file });
-      toast.success('Location image uploaded');
-      setHasServerImage(!!updated.imageKey);
-      setEditing((prev) => (prev && prev.id === locationId ? { ...prev, ...updated } : prev));
+      await uploadImageMutation.mutateAsync({ locationId, file });
+      toast.success('Image uploaded');
+      setServerImage(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to upload image');
       throw err;
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleRemoveImage = async () => {
+  const handleRemoveServer = async () => {
     if (!editing) return;
     setUploading(true);
     try {
       await removeImageMutation.mutateAsync(editing.id);
-      toast.success('Location image removed');
-      setHasServerImage(false);
-      setEditing((prev) => (prev ? { ...prev, imageKey: undefined } : prev));
+      toast.success('Image removed');
+      setServerImage(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove image');
     } finally {
@@ -135,34 +149,16 @@ export default function LocationsPage() {
     }
   };
 
-  const handleFilePick = async (fileList: FileList | null) => {
-    const file = fileList?.[0];
-    if (!file) return;
-
-    if (editing) {
-      try {
-        await uploadFor(editing.id, file);
-      } catch {
-        // toasted
-      }
-      return;
-    }
-
-    setPendingImage((prev) => {
-      if (prev) URL.revokeObjectURL(prev.previewUrl);
-      return { file, previewUrl: URL.createObjectURL(file) };
-    });
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const body: Partial<Location> = {
-      name: form.name,
-      type: form.type || undefined,
+      name:    form.name,
+      type:    form.type   || undefined,
       address: form.address || undefined,
-      city: form.city || undefined,
-      country: form.country || undefined,
-      phone: form.phone || undefined,
+      city:    form.cityName   || undefined,
+      state:   form.stateName  || undefined,
+      country: form.countryName || undefined,
+      phone:   form.phone  || undefined,
     };
     if (editing) {
       updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
@@ -170,11 +166,7 @@ export default function LocationsPage() {
       const queued = pendingImage?.file;
       createMutation.mutate(body, {
         onSuccess: async (created) => {
-          try {
-            if (queued) await uploadFor(created.id, queued);
-          } catch {
-            // location created; image failure already toasted
-          }
+          try { if (queued) await uploadFor(created.id, queued); } catch { /* toasted */ }
           clearPending();
           setDrawerOpen(false);
         },
@@ -183,50 +175,35 @@ export default function LocationsPage() {
   };
 
   const columns: Column<Location>[] = [
-    { key: 'name', label: 'Name' },
-    { key: 'type', label: 'Type' },
-    { key: 'city', label: 'City' },
-    { key: 'country', label: 'Country' },
-    {
-      key: 'imageKey',
-      label: 'Image',
-      render: (row) => (row.imageKey ? 'Set' : '—'),
-    },
+    { key: 'name',    label: 'Name' },
+    { key: 'type',    label: 'Type' },
+    { key: 'city',    label: 'City',    render: (r) => r.city    || '—' },
+    { key: 'state',   label: 'State',   render: (r) => r.state   || '—' },
+    { key: 'country', label: 'Country', render: (r) => r.country || '—' },
     {
       key: 'isActive',
       label: 'Status',
-      render: (row) => (row.isActive === false ? 'Inactive' : 'Active'),
+      render: (r) => (
+        <span className="inline-flex items-center gap-1.5">
+          <span className={`h-2 w-2 rounded-full ${r.isActive === false ? 'bg-red-500' : 'bg-green-500'}`} />
+          {r.isActive === false ? 'Inactive' : 'Active'}
+        </span>
+      ),
     },
   ];
 
-  const { data: orgs } = Organizations.useList();
-  const orgName = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const o of orgs ?? []) m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
-    return m;
-  }, [orgs]);
-
-  const isSaving =
-    createMutation.isPending || updateMutation.isPending || uploading || uploadImageMutation.isPending || removeImageMutation.isPending;
-
-  const viewData = viewRow
-    ? ({
-        ...viewRow,
-        organizationId: viewRow.organizationId ? (orgName.get(viewRow.organizationId) ?? viewRow.organizationId) : undefined,
-      } as Record<string, unknown>)
-    : null;
-
-  const pageTitle = warehouseOnly ? 'Warehouses' : 'Locations';
-  const pageDescription = warehouseOnly
-    ? 'Manage warehouse places used by inventory and stock.'
-    : 'Manage store and warehouse locations.';
-  const entityLabel = warehouseOnly ? 'Warehouse' : 'Location';
+  const isSaving = createMutation.isPending || updateMutation.isPending || uploading;
+  const pageTitle    = warehouseOnly ? 'Warehouses' : 'Locations';
+  const entityLabel  = warehouseOnly ? 'Warehouse'  : 'Location';
+  const pageDesc     = warehouseOnly
+    ? 'Manage warehouse locations for your organization.'
+    : 'Manage store and warehouse locations for your organization.';
 
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
       <DataTable
         title={pageTitle}
-        description={pageDescription}
+        description={pageDesc}
         columns={columns}
         rows={data?.items ?? []}
         total={data?.total ?? 0}
@@ -236,6 +213,17 @@ export default function LocationsPage() {
         onPageChange={setPage}
         onSearchChange={setSearch}
         onRefetch={() => void refetch()}
+        toolbar={
+          <FilterDropdown
+            label="Status"
+            options={[
+              { value: 'true',  label: 'Active' },
+              { value: 'false', label: 'Inactive' },
+            ]}
+            value={statusFilter}
+            onChange={(v) => { setStatusFilter(v); setPage(1); }}
+          />
+        }
         searchPlaceholder={warehouseOnly ? 'Search warehouses…' : 'Search locations…'}
         isAdmin={true}
         onAdd={openCreate}
@@ -247,25 +235,9 @@ export default function LocationsPage() {
       <ViewDrawer
         open={viewRow != null}
         title={`View ${entityLabel}`}
-        data={viewData}
+        data={viewRow as Record<string, unknown> | null}
         onClose={() => setViewRow(null)}
-      >
-        <FormSection title="Image">
-          {viewRow?.imageKey ? (
-            <div className="space-y-1 text-sm">
-              <span className="inline-block rounded-md border border-border px-2 py-1 text-xs">Image set</span>
-              <p className="text-xs text-muted-foreground break-all">
-                Key: <span className="font-mono">{viewRow.imageKey}</span>
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Remote preview is unavailable — the API returns an object key only.
-              </p>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No image</p>
-          )}
-        </FormSection>
-      </ViewDrawer>
+      />
 
       <FormDrawer
         open={drawerOpen}
@@ -274,7 +246,7 @@ export default function LocationsPage() {
         footer={
           <>
             <Button type="submit" form="location-form" disabled={isSaving}>
-              {uploading ? 'Uploading…' : isSaving ? 'Saving…' : 'Save'}
+              {isSaving ? 'Saving…' : 'Save'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer} disabled={uploading}>
               Cancel
@@ -284,82 +256,107 @@ export default function LocationsPage() {
       >
         <form id="location-form" onSubmit={handleSubmit} className="space-y-4">
           <Field label="Name" required>
-            <Input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-              autoFocus
-            />
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus />
           </Field>
-          <Field label="Type" required>
-            <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as LocationType })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select type…" />
-              </SelectTrigger>
-              <SelectContent>
-                {TYPE_OPTIONS.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+
+          {!warehouseOnly && (
+            <Field label="Type" required>
+              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as LocationType })}>
+                <SelectTrigger><SelectValue placeholder="Select type…" /></SelectTrigger>
+                <SelectContent>
+                  {TYPE_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
           <Field label="Address">
             <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="City">
-              <Input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-            </Field>
-            <Field label="Country">
-              <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
-            </Field>
-          </div>
+
+          <Field label="Country">
+            <Select
+              value={form.countryId?.toString() ?? ''}
+              onValueChange={(v) => {
+                const country = countries.find((c) => c.id === Number(v));
+                setForm({ ...form, countryId: Number(v), countryName: country?.name ?? '', stateId: null, stateName: '', cityName: '' });
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Select country…" /></SelectTrigger>
+              <SelectContent>
+                {countries.map((c) => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field label="State">
+            <Select
+              value={form.stateId?.toString() ?? ''}
+              onValueChange={(v) => {
+                const state = states.find((s) => s.id === Number(v));
+                setForm({ ...form, stateId: Number(v), stateName: state?.name ?? '', cityName: '' });
+              }}
+              disabled={!form.countryId}
+            >
+              <SelectTrigger><SelectValue placeholder={form.countryId ? 'Select state…' : 'Select country first'} /></SelectTrigger>
+              <SelectContent>
+                {states.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field label="City">
+            <Select
+              value={form.cityName}
+              onValueChange={(v) => setForm({ ...form, cityName: v })}
+              disabled={!form.stateId}
+            >
+              <SelectTrigger><SelectValue placeholder={form.stateId ? 'Select city…' : 'Select state first'} /></SelectTrigger>
+              <SelectContent>
+                {cities.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+
           <Field label="Phone">
             <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </Field>
 
-          <FormSection title="Image">
-            <p className="text-xs text-muted-foreground mb-2">
-              One image per location (upload replaces). Existing images return only an object key from
-              the API, so we show status instead of a remote preview.
-            </p>
-            {pendingImage && (
-              <div className="mb-3 relative inline-block">
-                <img
-                  src={pendingImage.previewUrl}
-                  alt="Pending location"
-                  className="h-24 w-24 object-cover rounded-md border border-border"
-                />
-                <button
-                  type="button"
-                  className="absolute -top-2 -right-2 rounded-full bg-destructive text-destructive-foreground p-1"
-                  onClick={clearPending}
-                  aria-label="Remove pending image"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            )}
-            {!pendingImage && hasServerImage && (
-              <div className="mb-3 flex items-center gap-2 text-sm">
-                <span className="rounded-md border border-border px-2 py-1 text-xs">Image set</span>
-                {editing && (
-                  <Button type="button" variant="outline" size="sm" disabled={uploading} onClick={handleRemoveImage}>
-                    Remove
-                  </Button>
-                )}
-              </div>
-            )}
-            <Input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              disabled={uploading}
-              onChange={(e) => handleFilePick(e.target.files)}
+          {editing && (
+            <Field label="Status">
+              <Select
+                value={editing.isActive === false ? 'false' : 'true'}
+                onValueChange={(v) => setEditing({ ...editing, isActive: v === 'true' })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Active</SelectItem>
+                  <SelectItem value="false">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
+
+          <Field label="Image">
+            <SingleImageUploader
+              serverImageKey={serverImage ? (editing?.imageKey ?? 'set') : undefined}
+              pendingPreviewUrl={pendingImage?.previewUrl}
+              pendingFile={pendingImage?.file}
+              uploading={uploading}
+              editing={!!editing}
+              onFilePick={(file) => {
+                if (editing) {
+                  void uploadFor(editing.id, file);
+                } else {
+                  clearPending();
+                  const previewUrl = URL.createObjectURL(file);
+                  setPendingImage({ file, previewUrl });
+                }
+              }}
+              onClearPending={clearPending}
+              onRemoveServer={handleRemoveServer}
             />
-          </FormSection>
+          </Field>
         </form>
       </FormDrawer>
 
