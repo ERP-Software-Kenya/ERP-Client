@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { EyeOff, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable, Column } from '../components/DataTable';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { FilterDropdown } from '../components/FilterDropdown';
 import { ResourceSelect } from '../components/ResourceSelect';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { ImageLightbox } from '../components/ImageLightbox';
@@ -64,11 +66,13 @@ export default function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [toggleActiveTarget, setToggleActiveTarget] = useState<Product | null>(null);
   const [viewRow, setViewRow] = useState<Product | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   const createMutation = Products.useCreate();
   const updateMutation = Products.useUpdate();
@@ -78,8 +82,9 @@ export default function ProductsPage() {
   const filters = useMemo(() => {
     const next: Record<string, string> = {};
     if (categoryFilter) next.categoryId = categoryFilter;
+    if (statusFilter) next.isActive = statusFilter;
     return Object.keys(next).length ? next : undefined;
-  }, [categoryFilter]);
+  }, [categoryFilter, statusFilter]);
 
   const { data: productsData, isLoading: productsLoading, error: productsError, refetch: refetchProducts } =
     Products.useSearch({ page, search: debouncedSearch, filters });
@@ -314,22 +319,26 @@ export default function ProductsPage() {
         onSearchChange={setSearch}
         toolbar={
           <>
-            <span className="text-xs text-muted-foreground">Category:</span>
-            <select
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-              value={categoryFilter}
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">All categories</option>
-              {(categories ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name || c.id}
-                </option>
-              ))}
-            </select>
+            <FilterDropdown
+              label="Category"
+              options={(categories ?? []).map((c) => ({
+                value: c.id,
+                label: c.name || c.id,
+              }))}
+              value={categoryFilter || null}
+              onChange={(v) => { setCategoryFilter(v ?? ''); setPage(1); }}
+              searchable={(categories ?? []).length > 6}
+              searchPlaceholder="Search categories…"
+            />
+            <FilterDropdown
+              label="Status"
+              options={[
+                { value: 'true',  label: 'Active' },
+                { value: 'false', label: 'Inactive' },
+              ]}
+              value={statusFilter}
+              onChange={(v) => { setStatusFilter(v); setPage(1); }}
+            />
           </>
         }
         onRefetch={() => void refetchProducts()}
@@ -339,6 +348,15 @@ export default function ProductsPage() {
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
+        extraRowActions={(row) => [
+          {
+            label: row.isActive === false ? 'Set Active' : 'Set Inactive',
+            icon: row.isActive === false
+              ? <Eye size={14} />
+              : <EyeOff size={14} />,
+            onSelect: () => setToggleActiveTarget(row),
+          },
+        ]}
       />
 
       <FormDrawer
@@ -512,6 +530,28 @@ export default function ProductsPage() {
         onConfirm={() =>
           deleteTarget && removeMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })
         }
+      />
+
+      <ConfirmDialog
+        open={!!toggleActiveTarget}
+        onOpenChange={(open) => !open && setToggleActiveTarget(null)}
+        title={toggleActiveTarget?.isActive === false ? 'Set Product Active' : 'Set Product Inactive'}
+        description={
+          toggleActiveTarget?.isActive === false
+            ? `"${toggleActiveTarget?.name}" will be marked active and visible again.`
+            : `"${toggleActiveTarget?.name}" will be marked inactive and hidden from active listings.`
+        }
+        confirmLabel={toggleActiveTarget?.isActive === false ? 'Set Active' : 'Set Inactive'}
+        pendingLabel="Updating…"
+        confirmVariant={toggleActiveTarget?.isActive === false ? 'default' : 'destructive'}
+        isPending={updateMutation.isPending}
+        onConfirm={() => {
+          if (!toggleActiveTarget) return;
+          updateMutation.mutate(
+            { id: toggleActiveTarget.id, body: { isActive: toggleActiveTarget.isActive === false ? true : false } },
+            { onSuccess: () => setToggleActiveTarget(null) },
+          );
+        }}
       />
     </div>
   );

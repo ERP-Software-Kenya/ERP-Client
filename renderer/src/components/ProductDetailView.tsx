@@ -113,6 +113,7 @@ interface Props {
 
 export function ProductDetailView({ productId, categoryName, allSuppliers, onClose, onEdit }: Props) {
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [activityFilter, setActivityFilter] = useState<string[]>([]);
 
   const { data: product, isLoading: productLoading } = Products.useGet(productId);
   const { data: images = [], isLoading: imagesLoading } = useProductImages(productId);

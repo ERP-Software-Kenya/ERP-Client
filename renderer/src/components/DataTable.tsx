@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { RefreshCw, Search, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { RowActionsMenu } from './RowActionsMenu';
+import { RowActionsMenu, type ExtraAction } from './RowActionsMenu';
 
 export interface Column<T> {
   key: keyof T | string;
@@ -31,6 +31,8 @@ interface DataTableProps<T extends { id: string }> {
   onDelete?: (row: T) => void;
   /** When set, Delete menu item is shown only if this returns true for the row. */
   canDelete?: (row: T) => boolean;
+  /** Per-row extra actions injected into the 3-dot menu before Delete. */
+  extraRowActions?: (row: T) => ExtraAction[];
   isAdmin?: boolean;
   searchPlaceholder?: string;
   limit?: number;
@@ -61,6 +63,7 @@ export function DataTable<T extends { id: string }>({
   onEdit,
   onDelete,
   canDelete,
+  extraRowActions,
   isAdmin,
   searchPlaceholder = 'Search…',
   limit = 15,
@@ -68,17 +71,24 @@ export function DataTable<T extends { id: string }>({
 }: DataTableProps<T>) {
   const [searchInput, setSearchInput] = useState('');
   const totalPages = Math.max(1, Math.ceil(total / limit));
-  const showAdminActions = Boolean(isAdmin && (onEdit || onDelete));
+  const showAdminActions = Boolean(isAdmin && (onEdit || onDelete || extraRowActions));
   const showActions = Boolean(onView || showAdminActions);
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold">{title}</h2>
           {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {toolbar && (
+            <>
+              <span className="text-xs font-medium text-muted-foreground">Filters:</span>
+              {toolbar}
+              <div className="h-5 w-px bg-border" />
+            </>
+          )}
           {!hideSearch && (
             <div className="relative">
               <Search size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -106,10 +116,6 @@ export function DataTable<T extends { id: string }>({
           )}
         </div>
       </div>
-
-      {toolbar ? (
-        <div className="flex flex-wrap items-center gap-2">{toolbar}</div>
-      ) : null}
 
       <div className="flex-1 overflow-auto rounded-lg border border-border bg-card custom-scrollbar">
         {error && (
@@ -171,6 +177,7 @@ export function DataTable<T extends { id: string }>({
                       <RowActionsMenu
                         onView={onView ? () => onView(row) : undefined}
                         onEdit={showAdminActions && onEdit ? () => onEdit(row) : undefined}
+                        extraActions={showAdminActions && extraRowActions ? extraRowActions(row) : undefined}
                         onDelete={
                           showAdminActions &&
                           onDelete &&
