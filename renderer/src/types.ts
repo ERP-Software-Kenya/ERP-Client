@@ -30,13 +30,34 @@ export interface Store {
   code?: string;
   address?: string;
   city?: string;
+  state?: string;
   country?: string;
   phone?: string;
   email?: string;
-  organization_id?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
+  imageKey?: string;
+  isActive?: boolean;
+  organizationId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Country {
+  id: number;
+  name: string;
+  iso2: string;
+  iso3: string;
+}
+
+export interface State {
+  id: number;
+  name: string;
+  countryId: number;
+}
+
+export interface City {
+  id: number;
+  name: string;
+  stateId: number;
 }
 
 // ── Addresses ─────────────────────────────────────────────────────────────────
@@ -51,6 +72,7 @@ export interface Location {
   imageKey?: string;
   address?: string;
   city?: string;
+  state?: string;
   country?: string;
   phone?: string;
   isActive?: boolean;

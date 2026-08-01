@@ -138,7 +138,7 @@ export const MODULES: ModuleGroup[] = [
     ],
   },
   {
-    label: 'Warehouse',
+    label: 'Locations',
     icon: Warehouse,
     items: [
       { key: 'warehouses', title: 'Warehouses', path: '/warehouse', icon: Building },
