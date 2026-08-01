@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQueries } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { AdvancedIdLookup } from '../components/AdvancedIdLookup';
-import { RecentRecords } from '../components/RecentRecords';
-import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { ResourceSelect } from '../components/ResourceSelect';
-import { PurchaseItems, Products, get } from '../api';
-import { formatEntityLabel } from '../lib/entityLabel';
-import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
-import type { PurchaseItem } from '../types';
+import { useEffect, useMemo, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { AdvancedIdLookup } from "../components/AdvancedIdLookup";
+import { RecentRecords } from "../components/RecentRecords";
+import { FormDrawer, Field, FormSection } from "../components/FormDrawer";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { ResourceSelect } from "../components/ResourceSelect";
+import { PurchaseItems, Products, get } from "../api";
+import { formatEntityLabel } from "../lib/entityLabel";
+import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from "../lib/recentIds";
+import type { PurchaseItem } from "../types";
 
 interface FormState {
   purchaseOrderId: string;
@@ -19,18 +19,27 @@ interface FormState {
   unitPrice: string;
 }
 
-const EMPTY_FORM: FormState = { purchaseOrderId: '', productId: '', quantity: '', unitPrice: '' };
+const EMPTY_FORM: FormState = {
+  purchaseOrderId: "",
+  productId: "",
+  quantity: "",
+  unitPrice: "",
+};
 
 function copyId(id: string) {
   void navigator.clipboard.writeText(id).then(
-    () => toast.success('ID copied'),
-    () => toast.error('Could not copy ID'),
+    () => toast.success("ID copied"),
+    () => toast.error("Could not copy ID"),
   );
 }
 
-function purchaseItemLabel(item: PurchaseItem, productName: Map<string, string>) {
+function purchaseItemLabel(
+  item: PurchaseItem,
+  productName: Map<string, string>,
+) {
   const prod = item.productId
-    ? productName.get(item.productId) ?? formatEntityLabel({ id: item.productId })
+    ? (productName.get(item.productId) ??
+      formatEntityLabel({ id: item.productId }))
     : undefined;
   const qty = item.quantity != null ? String(item.quantity) : undefined;
   if (prod && qty) return `${prod} × ${qty}`;
@@ -43,11 +52,15 @@ export default function PurchaseItemsPage() {
   const recent = useRecentIds(RECENT_NS.purchaseItems);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form] = useState<FormState>(EMPTY_FORM);
-  const [lookupId, setLookupId] = useState('');
+  const [lookupId, setLookupId] = useState("");
   const [activeId, setActiveId] = useState<string | undefined>();
 
   const closeDrawer = () => setDrawerOpen(false);
-  const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = PurchaseItems.useGet(activeId);
+  const {
+    data: lookedUp,
+    isLoading: lookupLoading,
+    error: lookupError,
+  } = PurchaseItems.useGet(activeId);
   const { data: products } = Products.useList();
 
   const productName = useMemo(() => {
@@ -60,7 +73,7 @@ export default function PurchaseItemsPage() {
 
   const recentQueries = useQueries({
     queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
-      queryKey: ['purchase-items', e.id] as const,
+      queryKey: ["purchase-items", e.id] as const,
       queryFn: () => get<PurchaseItem>(`/api/v1/purchase-items/${e.id}`),
       staleTime: 60_000,
       retry: false,
@@ -95,7 +108,7 @@ export default function PurchaseItemsPage() {
   const loadById = (id: string) => {
     const trimmed = id.trim();
     if (!trimmed) {
-      toast.error('Enter a purchase item ID');
+      toast.error("Enter a purchase item ID");
       return;
     }
     setActiveId(trimmed);
@@ -110,12 +123,12 @@ export default function PurchaseItemsPage() {
   };
 
   const productLabelFor = (productId: string | undefined) => {
-    if (!productId) return '—';
+    if (!productId) return "—";
     return productName.get(productId) ?? formatEntityLabel({ id: productId });
   };
 
   const poLabelFor = (purchaseOrderId: string | undefined) => {
-    if (!purchaseOrderId) return '—';
+    if (!purchaseOrderId) return "—";
     return formatEntityLabel({ id: purchaseOrderId });
   };
 
@@ -125,8 +138,8 @@ export default function PurchaseItemsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Purchase Items</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Look up purchase items by ID and reopen recent items saved in this browser. Create blocked by Core
-            API column mismatch (#0b).
+            Look up purchase items by ID and reopen recent items saved in this
+            browser. Create blocked by Core API column mismatch (#0b).
           </p>
         </div>
         <Button onClick={() => setDrawerOpen(true)} variant="outline" disabled>
@@ -134,12 +147,12 @@ export default function PurchaseItemsPage() {
         </Button>
       </div>
 
-      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-500">
+      {/* <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-500">
         Verified: request/command use <code className="text-xs">quantity</code> /{' '}
         <code className="text-xs">unitPrice</code>; entity requires{' '}
         <code className="text-xs">quantityOrdered</code> / <code className="text-xs">unitCost</code>. Client
         cannot rename through the wire.
-      </div>
+      </div> */}
 
       <RecentRecords
         title="Recent purchase items"
@@ -147,41 +160,61 @@ export default function PurchaseItemsPage() {
         rows={listRows}
         columns={[
           {
-            key: 'product',
-            header: 'Product',
+            key: "product",
+            header: "Product",
             render: (r) => {
-              if (r.loading) return '…';
-              if (r.failed) return r.label?.trim() || 'unavailable';
+              if (r.loading) return "…";
+              if (r.failed) return r.label?.trim() || "unavailable";
               if (r.productId) return productLabelFor(r.productId);
-              return r.label || '—';
+              return r.label || "—";
             },
           },
           {
-            key: 'qty',
-            header: 'Qty',
+            key: "qty",
+            header: "Qty",
             render: (r) =>
-              r.loading ? '…' : r.failed ? 'unavailable' : r.quantity != null ? r.quantity : '—',
+              r.loading
+                ? "…"
+                : r.failed
+                  ? "unavailable"
+                  : r.quantity != null
+                    ? r.quantity
+                    : "—",
           },
           {
-            key: 'po',
-            header: 'Purchase order',
+            key: "po",
+            header: "Purchase order",
             render: (r) =>
-              r.loading ? '…' : r.failed ? 'unavailable' : poLabelFor(r.purchaseOrderId),
+              r.loading
+                ? "…"
+                : r.failed
+                  ? "unavailable"
+                  : poLabelFor(r.purchaseOrderId),
           },
           {
-            key: 'saved',
-            header: 'Saved',
+            key: "saved",
+            header: "Saved",
             render: (r) => new Date(r.savedAt).toLocaleString(),
           },
           {
-            key: 'actions',
-            header: '',
+            key: "actions",
+            header: "",
             render: (r) => (
               <div className="flex gap-2">
-                <Button type="button" size="sm" variant="outline" onClick={() => loadById(r.id)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => loadById(r.id)}
+                >
                   Open
                 </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => recent.remove(r.id)}
+                >
                   Remove
                 </Button>
               </div>
@@ -206,30 +239,38 @@ export default function PurchaseItemsPage() {
           ) : lookupError || !lookedUp ? (
             <p className="text-sm text-destructive">
               Purchase item not found
-              {lookupError instanceof Error && lookupError.message ? `: ${lookupError.message}` : '.'}
+              {lookupError instanceof Error && lookupError.message
+                ? `: ${lookupError.message}`
+                : "."}
             </p>
           ) : (
             <div className="grid gap-2 text-sm sm:grid-cols-2">
               <p className="flex flex-wrap items-center gap-2">
                 <span className="text-muted-foreground">ID:</span> {lookedUp.id}
-                <Button type="button" variant="outline" size="sm" onClick={() => copyId(lookedUp.id)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyId(lookedUp.id)}
+                >
                   Copy
                 </Button>
               </p>
               <p>
-                <span className="text-muted-foreground">Purchase order:</span>{' '}
+                <span className="text-muted-foreground">Purchase order:</span>{" "}
                 {poLabelFor(lookedUp.purchaseOrderId)}
               </p>
               <p>
-                <span className="text-muted-foreground">Product:</span> {productLabelFor(lookedUp.productId)}
+                <span className="text-muted-foreground">Product:</span>{" "}
+                {productLabelFor(lookedUp.productId)}
               </p>
               <p>
-                <span className="text-muted-foreground">Quantity:</span>{' '}
-                {lookedUp.quantity != null ? lookedUp.quantity : '—'}
+                <span className="text-muted-foreground">Quantity:</span>{" "}
+                {lookedUp.quantity != null ? lookedUp.quantity : "—"}
               </p>
               <p>
-                <span className="text-muted-foreground">Unit price:</span>{' '}
-                {lookedUp.unitPrice != null ? lookedUp.unitPrice : '—'}
+                <span className="text-muted-foreground">Unit price:</span>{" "}
+                {lookedUp.unitPrice != null ? lookedUp.unitPrice : "—"}
               </p>
             </div>
           )}
@@ -251,9 +292,17 @@ export default function PurchaseItemsPage() {
           </>
         }
       >
-        <form id="purchase-item-form" onSubmit={handleSubmit} className="space-y-4">
+        <form
+          id="purchase-item-form"
+          onSubmit={handleSubmit}
+          className="space-y-4"
+        >
           <Field label="Purchase Order ID">
-            <Input value={form.purchaseOrderId} disabled onChange={() => undefined} />
+            <Input
+              value={form.purchaseOrderId}
+              disabled
+              onChange={() => undefined}
+            />
           </Field>
           <Field label="Product">
             <ResourceSelect
@@ -265,10 +314,20 @@ export default function PurchaseItemsPage() {
             />
           </Field>
           <Field label="Quantity">
-            <Input type="number" value={form.quantity} disabled onChange={() => undefined} />
+            <Input
+              type="number"
+              value={form.quantity}
+              disabled
+              onChange={() => undefined}
+            />
           </Field>
           <Field label="Unit Price">
-            <Input type="number" value={form.unitPrice} disabled onChange={() => undefined} />
+            <Input
+              type="number"
+              value={form.unitPrice}
+              disabled
+              onChange={() => undefined}
+            />
           </Field>
         </form>
       </FormDrawer>

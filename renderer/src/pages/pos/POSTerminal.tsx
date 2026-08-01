@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   Banknote,
@@ -18,23 +18,30 @@ import {
   Trash2,
   User,
   X,
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Customers, Inventory, Locations, Products, Stores, Suppliers } from '../../api';
-import type { Customer, Location, Product, Store, Supplier } from '../../types';
-import { useDebounce } from '../../hooks/useDebounce';
-import { formatEntityLabel } from '../../lib/entityLabel';
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  Customers,
+  Inventory,
+  Locations,
+  Products,
+  Stores,
+  Suppliers,
+} from "../../api";
+import type { Customer, Location, Product, Store, Supplier } from "../../types";
+import { useDebounce } from "../../hooks/useDebounce";
+import { formatEntityLabel } from "../../lib/entityLabel";
 import {
   runPurchaseCheckout,
   runSalesCheckout,
   type CheckoutResult,
   type CheckoutStep,
   type PosReceipt,
-} from './checkout';
-import { ReceiptDocument } from './ReceiptDocument';
+} from "./checkout";
+import { ReceiptDocument } from "./ReceiptDocument";
 
-type Mode = 'sales' | 'purchase';
-type PayMethod = 'cash' | 'card';
+type Mode = "sales" | "purchase";
+type PayMethod = "cash" | "card";
 
 interface BillLine {
   id: number;
@@ -54,16 +61,16 @@ interface ExtraCharge {
 }
 
 const QUICK_CHARGES = [
-  { label: 'Delivery Fee', amount: 200 },
-  { label: 'Packaging', amount: 50 },
-  { label: 'Store Credit', amount: -100 },
-  { label: 'Discount', amount: -50 },
+  { label: "Delivery Fee", amount: 200 },
+  { label: "Packaging", amount: 50 },
+  { label: "Store Credit", amount: -100 },
+  { label: "Discount", amount: -50 },
 ];
 
 const TAXES_LIST = [
-  { name: 'VAT 16%', pct: 16 },
-  { name: 'VAT 8%', pct: 8 },
-  { name: 'None', pct: 0 },
+  { name: "VAT 16%", pct: 16 },
+  { name: "VAT 8%", pct: 8 },
+  { name: "None", pct: 0 },
 ];
 
 let lineIdSeq = 100;
@@ -86,18 +93,27 @@ function storeOrgId(store: Store | undefined): string | undefined {
 }
 
 function productRate(p: Product, mode: Mode): number {
-  if (mode === 'purchase') return Number(p.costPrice ?? p.wholesalePrice ?? p.retailPrice ?? 0);
+  if (mode === "purchase")
+    return Number(p.costPrice ?? p.wholesalePrice ?? p.retailPrice ?? 0);
   return Number(p.retailPrice ?? p.wholesalePrice ?? p.costPrice ?? 0);
 }
 
-function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
+function ModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: Mode;
+  onChange: (m: Mode) => void;
+}) {
   return (
     <div className="flex items-center bg-muted rounded-lg p-1 gap-1">
       <button
         type="button"
-        onClick={() => onChange('sales')}
+        onClick={() => onChange("sales")}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
-          mode === 'sales' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          mode === "sales"
+            ? "bg-primary text-primary-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
         }`}
       >
         <ShoppingCart size={14} />
@@ -105,9 +121,11 @@ function ModeToggle({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => voi
       </button>
       <button
         type="button"
-        onClick={() => onChange('purchase')}
+        onClick={() => onChange("purchase")}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
-          mode === 'purchase' ? 'bg-orange-500 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          mode === "purchase"
+            ? "bg-orange-500 text-white shadow-sm"
+            : "text-muted-foreground hover:text-foreground"
         }`}
       >
         <PackagePlus size={14} />
@@ -128,11 +146,11 @@ function StepList({ steps }: { steps: CheckoutStep[] }) {
           <div className="flex items-center gap-2">
             <span
               className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                s.status === 'ok'
-                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                  : s.status === 'failed'
-                    ? 'bg-red-500/15 text-red-600 dark:text-red-400'
-                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                s.status === "ok"
+                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  : s.status === "failed"
+                    ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                    : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
               }`}
             >
               {s.status}
@@ -140,7 +158,9 @@ function StepList({ steps }: { steps: CheckoutStep[] }) {
             <span className="font-medium text-foreground">{s.name}</span>
           </div>
           {s.message && (
-            <p className="mt-1 break-words text-muted-foreground leading-relaxed">{s.message}</p>
+            <p className="mt-1 break-words text-muted-foreground leading-relaxed">
+              {s.message}
+            </p>
           )}
         </li>
       ))}
@@ -161,12 +181,17 @@ function BillSuccessModal({
   steps: CheckoutStep[];
   onClose: () => void;
 }) {
-  const hasGaps = steps.some((s) => s.status === 'failed' || s.status === 'skipped');
-  const failed = steps.some((s) => s.status === 'failed');
+  const hasGaps = steps.some(
+    (s) => s.status === "failed" || s.status === "skipped",
+  );
+  const failed = steps.some((s) => s.status === "failed");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pos-no-print">
-      <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div
         role="dialog"
         aria-labelledby="pos-success-title"
@@ -177,17 +202,24 @@ function BillSuccessModal({
             <div
               className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ${
                 receipt.synced && !failed
-                  ? 'bg-emerald-500/15 text-emerald-500'
-                  : 'bg-amber-500/15 text-amber-500'
+                  ? "bg-emerald-500/15 text-emerald-500"
+                  : "bg-amber-500/15 text-amber-500"
               }`}
             >
               <Check size={22} strokeWidth={2.5} />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 id="pos-success-title" className="text-lg font-semibold tracking-tight text-foreground">
-                {receipt.mode === 'sales' ? 'Sale complete' : 'Receiving complete'}
+              <h2
+                id="pos-success-title"
+                className="text-lg font-semibold tracking-tight text-foreground"
+              >
+                {receipt.mode === "sales"
+                  ? "Sale complete"
+                  : "Receiving complete"}
               </h2>
-              <p className="mt-0.5 font-mono text-xs text-muted-foreground truncate">{receipt.ref}</p>
+              <p className="mt-0.5 font-mono text-xs text-muted-foreground truncate">
+                {receipt.ref}
+              </p>
               <div className="mt-2">
                 {receipt.synced && !failed ? (
                   <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
@@ -201,9 +233,15 @@ function BillSuccessModal({
               </div>
             </div>
             <div className="flex-shrink-0 text-right">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total</p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Total
+              </p>
               <p className="text-lg font-bold tabular-nums text-foreground">
-                ${receipt.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                $
+                {receipt.totalAmount.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </p>
             </div>
           </div>
@@ -243,7 +281,7 @@ function BillSuccessModal({
             onClick={onClose}
             className="flex-[1.4] rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
           >
-            {receipt.mode === 'sales' ? 'New sale' : 'New receiving'}
+            {receipt.mode === "sales" ? "New sale" : "New receiving"}
           </button>
         </div>
       </div>
@@ -252,26 +290,31 @@ function BillSuccessModal({
 }
 
 export default function POSTerminal() {
-  const [mode, setMode] = useState<Mode>('sales');
-  const [storeId, setStoreId] = useState('');
+  const [mode, setMode] = useState<Mode>("sales");
+  const [storeId, setStoreId] = useState("");
   /** Stock ops use Locations (not Stores). */
-  const [locationId, setLocationId] = useState('');
+  const [locationId, setLocationId] = useState("");
   const [lines, setLines] = useState<BillLine[]>([]);
-  const [searchVal, setSearchVal] = useState('');
+  const [searchVal, setSearchVal] = useState("");
   const [qty, setQty] = useState(1);
-  const [payMethod, setPayMethod] = useState<PayMethod>('cash');
-  const [cashTendered, setCashTendered] = useState('');
-  const [customerInfo, setCustomerInfo] = useState('');
-  const [customerId, setCustomerId] = useState('');
-  const [supplierId, setSupplierId] = useState('');
-  const [supplierRef, setSupplierRef] = useState('');
+  const [payMethod, setPayMethod] = useState<PayMethod>("cash");
+  const [cashTendered, setCashTendered] = useState("");
+  const [customerInfo, setCustomerInfo] = useState("");
+  const [customerId, setCustomerId] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+  const [supplierRef, setSupplierRef] = useState("");
   const [extraCharges, setExtraCharges] = useState<ExtraCharge[]>([]);
   const [overrideLine, setOverrideLine] = useState<number | null>(null);
-  const [overridePrice, setOverridePrice] = useState('');
-  const [overrideTax, setOverrideTax] = useState('');
-  const [success, setSuccess] = useState<{ receipt: PosReceipt; steps: CheckoutStep[] } | null>(null);
+  const [overridePrice, setOverridePrice] = useState("");
+  const [overrideTax, setOverrideTax] = useState("");
+  const [success, setSuccess] = useState<{
+    receipt: PosReceipt;
+    steps: CheckoutStep[];
+  } | null>(null);
   const [lastReceipt, setLastReceipt] = useState<PosReceipt | null>(null);
-  const [checkoutResult, setCheckoutResult] = useState<CheckoutResult | null>(null);
+  const [checkoutResult, setCheckoutResult] = useState<CheckoutResult | null>(
+    null,
+  );
   const [checkingOut, setCheckingOut] = useState(false);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -279,9 +322,10 @@ export default function POSTerminal() {
   const debouncedCustomerInfo = useDebounce(customerInfo, 300);
 
   const { data: stores = [], isLoading: storesLoading } = Stores.useList();
-  const { data: locations = [], isLoading: locationsLoading } = Locations.useList();
+  const { data: locations = [], isLoading: locationsLoading } =
+    Locations.useList();
   const { data: inventory = [] } = Inventory.useList();
-  const { data: suppliers = [] } = Suppliers.useList(mode === 'purchase');
+  const { data: suppliers = [] } = Suppliers.useList(mode === "purchase");
   const { data: productSearch } = Products.useSearch({
     page: 1,
     limit: 20,
@@ -291,10 +335,15 @@ export default function POSTerminal() {
     page: 1,
     limit: 8,
     search:
-      mode === 'sales' && debouncedCustomerInfo.trim().length >= 2 && !customerId
+      mode === "sales" &&
+      debouncedCustomerInfo.trim().length >= 2 &&
+      !customerId
         ? debouncedCustomerInfo.trim()
         : undefined,
-    enabled: mode === 'sales' && debouncedCustomerInfo.trim().length >= 2 && !customerId,
+    enabled:
+      mode === "sales" &&
+      debouncedCustomerInfo.trim().length >= 2 &&
+      !customerId,
   });
 
   useEffect(() => {
@@ -305,14 +354,20 @@ export default function POSTerminal() {
     if (!storeId && stores.length > 0) setStoreId(stores[0].id);
   }, [stores, storeId]);
 
-  const store = useMemo(() => stores.find((s) => s.id === storeId), [stores, storeId]);
+  const store = useMemo(
+    () => stores.find((s) => s.id === storeId),
+    [stores, storeId],
+  );
   const orgId = storeOrgId(store);
 
   // Prefer a Location whose name matches the selected Store; else first location.
   useEffect(() => {
     if (locations.length === 0) return;
     const match = store
-      ? locations.find((l) => l.name.trim().toLowerCase() === store.name.trim().toLowerCase())
+      ? locations.find(
+          (l) =>
+            l.name.trim().toLowerCase() === store.name.trim().toLowerCase(),
+        )
       : undefined;
     const next = match?.id ?? locations[0].id;
     setLocationId((prev) => {
@@ -333,9 +388,9 @@ export default function POSTerminal() {
     return items
       .filter(
         (p) =>
-          (p.name ?? '').toLowerCase().includes(q) ||
-          (p.sku ?? '').toLowerCase().includes(q) ||
-          (p.barcode ?? '').toLowerCase().includes(q),
+          (p.name ?? "").toLowerCase().includes(q) ||
+          (p.sku ?? "").toLowerCase().includes(q) ||
+          (p.barcode ?? "").toLowerCase().includes(q),
       )
       .slice(0, 6);
   }, [productSearch, searchVal]);
@@ -344,7 +399,9 @@ export default function POSTerminal() {
     const sku = formatEntityLabel({ sku: p.sku, id: p.id });
     const existing = lines.find((l) => l.productId === p.id);
     if (existing) {
-      setLines((ls) => ls.map((l) => (l.productId === p.id ? { ...l, qty: l.qty + qty } : l)));
+      setLines((ls) =>
+        ls.map((l) => (l.productId === p.id ? { ...l, qty: l.qty + qty } : l)),
+      );
     } else {
       setLines((ls) => [
         ...ls,
@@ -352,15 +409,15 @@ export default function POSTerminal() {
           id: ++lineIdSeq,
           productId: p.id,
           sku,
-          name: p.name || 'Unnamed product',
+          name: p.name || "Unnamed product",
           qty,
           rate: productRate(p, mode),
           taxPct: 0,
-          unitLabel: p.unit || 'pcs',
+          unitLabel: p.unit || "pcs",
         },
       ]);
     }
-    setSearchVal('');
+    setSearchVal("");
     setQty(1);
     searchRef.current?.focus();
   };
@@ -371,31 +428,42 @@ export default function POSTerminal() {
   };
 
   const updateQty = (id: number, delta: number) => {
-    setLines((ls) => ls.map((l) => (l.id === id ? { ...l, qty: Math.max(1, l.qty + delta) } : l)));
+    setLines((ls) =>
+      ls.map((l) =>
+        l.id === id ? { ...l, qty: Math.max(1, l.qty + delta) } : l,
+      ),
+    );
   };
 
-  const removeLine = (id: number) => setLines((ls) => ls.filter((l) => l.id !== id));
+  const removeLine = (id: number) =>
+    setLines((ls) => ls.filter((l) => l.id !== id));
 
   const applyOverride = (id: number) => {
     setLines((ls) =>
       ls.map((l) => {
         if (l.id !== id) return l;
         const parsedRate = parseFloat(overridePrice);
-        const rate = overridePrice !== '' && !isNaN(parsedRate) ? parsedRate : l.rate;
+        const rate =
+          overridePrice !== "" && !isNaN(parsedRate) ? parsedRate : l.rate;
         const parsedTax = parseFloat(overrideTax);
-        const taxPct = overrideTax !== '' && !isNaN(parsedTax) ? parsedTax : l.taxPct;
+        const taxPct =
+          overrideTax !== "" && !isNaN(parsedTax) ? parsedTax : l.taxPct;
         return { ...l, rate, taxPct };
       }),
     );
     setOverrideLine(null);
-    setOverridePrice('');
-    setOverrideTax('');
+    setOverridePrice("");
+    setOverrideTax("");
   };
 
   const addQuickCharge = (c: (typeof QUICK_CHARGES)[0]) => {
-    setExtraCharges((ec) => [...ec, { id: Date.now(), label: c.label, amount: c.amount }]);
+    setExtraCharges((ec) => [
+      ...ec,
+      { id: Date.now(), label: c.label, amount: c.amount },
+    ]);
   };
-  const removeCharge = (id: number) => setExtraCharges((ec) => ec.filter((c) => c.id !== id));
+  const removeCharge = (id: number) =>
+    setExtraCharges((ec) => ec.filter((c) => c.id !== id));
 
   const subtotal = lines.reduce((s, l) => s + l.qty * l.rate, 0);
   const totalTax = lines.reduce((s, l) => s + lineTax(l), 0);
@@ -405,12 +473,12 @@ export default function POSTerminal() {
   const voidBill = () => {
     setLines([]);
     setExtraCharges([]);
-    setCustomerInfo('');
-    setCustomerId('');
-    setSupplierRef('');
-    setSearchVal('');
+    setCustomerInfo("");
+    setCustomerId("");
+    setSupplierRef("");
+    setSearchVal("");
     setQty(1);
-    setCashTendered('');
+    setCashTendered("");
     setCheckoutResult(null);
   };
 
@@ -421,10 +489,12 @@ export default function POSTerminal() {
   };
 
   const cashShort =
-    mode === 'sales' &&
-    payMethod === 'cash' &&
+    mode === "sales" &&
+    payMethod === "cash" &&
     grandTotal > 0 &&
-    (cashTendered === '' || isNaN(Number(cashTendered)) || Number(cashTendered) < grandTotal);
+    (cashTendered === "" ||
+      isNaN(Number(cashTendered)) ||
+      Number(cashTendered) < grandTotal);
 
   const generateBill = async () => {
     if (lines.length === 0 || checkingOut || cashShort) return;
@@ -443,7 +513,7 @@ export default function POSTerminal() {
       const supplier = suppliers.find((s) => s.id === supplierId);
 
       const result =
-        mode === 'sales'
+        mode === "sales"
           ? await runSalesCheckout({
               storeId,
               storeName: store?.name,
@@ -488,16 +558,16 @@ export default function POSTerminal() {
   };
 
   const accentCls =
-    mode === 'sales'
+    mode === "sales"
       ? {
-          btn: 'bg-primary hover:bg-primary/90',
-          light: 'bg-primary/10 text-primary border-primary/30',
-          badge: 'bg-primary/15 text-primary',
+          btn: "bg-primary hover:bg-primary/90",
+          light: "bg-primary/10 text-primary border-primary/30",
+          badge: "bg-primary/15 text-primary",
         }
       : {
-          btn: 'bg-orange-500 hover:bg-orange-600',
-          light: 'bg-orange-50 text-orange-700 border-orange-200',
-          badge: 'bg-orange-100 text-orange-700',
+          btn: "bg-orange-500 hover:bg-orange-600",
+          light: "bg-orange-50 text-orange-700 border-orange-200",
+          badge: "bg-orange-100 text-orange-700",
         };
 
   return (
@@ -508,7 +578,7 @@ export default function POSTerminal() {
           onChange={(m) => {
             setMode(m);
             voidBill();
-            setSupplierId('');
+            setSupplierId("");
           }}
         />
 
@@ -523,7 +593,9 @@ export default function POSTerminal() {
             className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-card text-foreground font-medium focus:outline-none focus:border-primary max-w-[180px]"
           >
             {storesLoading && <option value="">Loading stores…</option>}
-            {!storesLoading && stores.length === 0 && <option value="">No stores</option>}
+            {!storesLoading && stores.length === 0 && (
+              <option value="">No stores</option>
+            )}
             {stores.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -541,7 +613,9 @@ export default function POSTerminal() {
             className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-card text-foreground font-medium focus:outline-none focus:border-primary max-w-[200px]"
           >
             {locationsLoading && <option value="">Loading locations…</option>}
-            {!locationsLoading && locations.length === 0 && <option value="">No locations</option>}
+            {!locationsLoading && locations.length === 0 && (
+              <option value="">No locations</option>
+            )}
             {locations.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.type ? `${l.name} (${l.type})` : l.name}
@@ -551,37 +625,42 @@ export default function POSTerminal() {
         </div>
 
         <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
-          <span className={`px-2 py-1 rounded-md font-medium ${accentCls.badge}`}>
-            {mode === 'sales' ? 'SALES MODE' : 'PURCHASE MODE'}
+          <span
+            className={`px-2 py-1 rounded-md font-medium ${accentCls.badge}`}
+          >
+            {mode === "sales" ? "SALES MODE" : "PURCHASE MODE"}
           </span>
         </div>
       </div>
 
-      <div className="px-5 py-2 bg-amber-500/10 border-b border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 flex-shrink-0">
-        Stock uses Locations (header right of Store). Sales create a bill then DRAFT → COMPLETED (stock
-        deducted on the server). Walk-in needs a name; or pick a customer from search.
-      </div>
+      {/* // <div className="px-5 py-2 bg-amber-500/10 border-b border-amber-500/30 text-xs text-amber-700 dark:text-amber-400 flex-shrink-0">
+      //   Stock uses Locations (header right of Store). Sales create a bill then DRAFT → COMPLETED (stock
+      //   deducted on the server). Walk-in needs a name; or pick a customer from search.
+      // </div> */}
 
       <div className="flex flex-1 gap-0 overflow-hidden">
         <div className="w-64 flex-shrink-0 bg-card border-r border-border flex flex-col">
           <div className="p-4 border-b border-border">
             <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-              {mode === 'sales' ? 'Add Product' : 'Receive Product'}
+              {mode === "sales" ? "Add Product" : "Receive Product"}
             </p>
             <div className="relative">
-              <Scan size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Scan
+                size={14}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
               <input
                 ref={searchRef}
                 value={searchVal}
                 onChange={(e) => setSearchVal(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddBtn()}
+                onKeyDown={(e) => e.key === "Enter" && handleAddBtn()}
                 placeholder="SKU or product name..."
                 className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-ring/20"
               />
               {searchVal && (
                 <button
                   type="button"
-                  onClick={() => setSearchVal('')}
+                  onClick={() => setSearchVal("")}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground"
                 >
                   <X size={13} />
@@ -602,11 +681,15 @@ export default function POSTerminal() {
                       <Package size={13} className="text-muted-foreground" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-foreground truncate">{p.name}</p>
+                      <p className="text-xs font-semibold text-foreground truncate">
+                        {p.name}
+                      </p>
                       <p className="text-[10px] text-muted-foreground font-mono">
                         {formatEntityLabel({ sku: p.sku, id: p.id })}
                       </p>
-                      <span className="text-[10px] font-semibold text-primary">{fmt(productRate(p, mode))}</span>
+                      <span className="text-[10px] font-semibold text-primary">
+                        {fmt(productRate(p, mode))}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -626,7 +709,9 @@ export default function POSTerminal() {
                   type="number"
                   value={qty}
                   min={1}
-                  onChange={(e) => setQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  onChange={(e) =>
+                    setQty(Math.max(1, parseInt(e.target.value, 10) || 1))
+                  }
                   className="w-12 text-center text-sm font-semibold border-x border-border py-2 outline-none"
                 />
                 <button
@@ -647,9 +732,11 @@ export default function POSTerminal() {
             </div>
           </div>
 
-          {mode === 'sales' && (
+          {mode === "sales" && (
             <div className="p-4 border-b border-border">
-              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Quick Charges</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                Quick Charges
+              </p>
               <div className="grid grid-cols-2 gap-1.5">
                 {QUICK_CHARGES.map((c) => (
                   <button
@@ -658,13 +745,15 @@ export default function POSTerminal() {
                     onClick={() => addQuickCharge(c)}
                     className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition text-left ${
                       c.amount < 0
-                        ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
-                        : 'border-border bg-muted text-foreground hover:bg-muted'
+                        ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                        : "border-border bg-muted text-foreground hover:bg-muted"
                     }`}
                   >
                     {c.label}
-                    <span className={`block text-[10px] font-mono ${c.amount < 0 ? 'text-red-500' : 'text-muted-foreground'}`}>
-                      {c.amount < 0 ? '-' : '+'}${Math.abs(c.amount)}
+                    <span
+                      className={`block text-[10px] font-mono ${c.amount < 0 ? "text-red-500" : "text-muted-foreground"}`}
+                    >
+                      {c.amount < 0 ? "-" : "+"}${Math.abs(c.amount)}
                     </span>
                   </button>
                 ))}
@@ -672,9 +761,11 @@ export default function POSTerminal() {
             </div>
           )}
 
-          {mode === 'purchase' && (
+          {mode === "purchase" && (
             <div className="p-4 border-b border-border">
-              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Supplier</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                Supplier
+              </p>
               <select
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
@@ -696,7 +787,7 @@ export default function POSTerminal() {
               className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition"
             >
               <Receipt size={14} />
-              {mode === 'sales' ? 'Bill History' : 'Bills'}
+              {mode === "sales" ? "Bill History" : "Bills"}
             </Link>
           </div>
         </div>
@@ -704,17 +795,19 @@ export default function POSTerminal() {
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <div className="flex items-center justify-between px-5 py-3 bg-card border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2">
-              {mode === 'sales' ? (
+              {mode === "sales" ? (
                 <ShoppingCart size={16} className="text-primary" />
               ) : (
                 <PackagePlus size={16} className="text-orange-500" />
               )}
               <span className="font-semibold text-foreground">
-                {mode === 'sales' ? 'Current Sale' : 'Receiving List'}
+                {mode === "sales" ? "Current Sale" : "Receiving List"}
               </span>
               {lines.length > 0 && (
-                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${accentCls.badge}`}>
-                  {lines.length} item{lines.length !== 1 ? 's' : ''}
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-semibold ${accentCls.badge}`}
+                >
+                  {lines.length} item{lines.length !== 1 ? "s" : ""}
                 </span>
               )}
             </div>
@@ -740,23 +833,35 @@ export default function POSTerminal() {
           <div className="flex-1 overflow-y-auto">
             {lines.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-3">
-                {mode === 'sales' ? (
+                {mode === "sales" ? (
                   <ShoppingCart size={40} strokeWidth={1.2} />
                 ) : (
                   <PackagePlus size={40} strokeWidth={1.2} />
                 )}
                 <p className="text-sm font-medium text-muted-foreground">
-                  {mode === 'sales'
-                    ? 'Search or scan a product to start a sale'
-                    : 'Search a product to add to the receiving list'}
+                  {mode === "sales"
+                    ? "Search or scan a product to start a sale"
+                    : "Search a product to add to the receiving list"}
                 </p>
               </div>
             ) : (
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted border-b border-border z-10">
                   <tr>
-                    {['#', 'SKU', 'Description', 'Qty', 'Rate', 'Tax', 'Total', ''].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">
+                    {[
+                      "#",
+                      "SKU",
+                      "Description",
+                      "Qty",
+                      "Rate",
+                      "Tax",
+                      "Total",
+                      "",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
+                      >
                         {h}
                       </th>
                     ))}
@@ -765,10 +870,16 @@ export default function POSTerminal() {
                 <tbody className="divide-y divide-border">
                   {lines.map((line, idx) => (
                     <tr key={line.id} className="hover:bg-muted/60 group">
-                      <td className="px-3 py-3 text-muted-foreground text-xs">{idx + 1}</td>
-                      <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{line.sku}</td>
+                      <td className="px-3 py-3 text-muted-foreground text-xs">
+                        {idx + 1}
+                      </td>
+                      <td className="px-3 py-3 font-mono text-xs text-muted-foreground">
+                        {line.sku}
+                      </td>
                       <td className="px-3 py-3">
-                        <p className="text-foreground font-medium text-sm">{line.name}</p>
+                        <p className="text-foreground font-medium text-sm">
+                          {line.name}
+                        </p>
                         {overrideLine === line.id ? (
                           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             <input
@@ -783,7 +894,9 @@ export default function POSTerminal() {
                               onChange={(e) => setOverrideTax(e.target.value)}
                               className="text-xs px-2 py-1 border border-amber-300 rounded outline-none bg-amber-50"
                             >
-                              <option value="">Tax as-is ({line.taxPct}%)</option>
+                              <option value="">
+                                Tax as-is ({line.taxPct}%)
+                              </option>
                               {TAXES_LIST.map((t) => (
                                 <option key={t.pct} value={t.pct}>
                                   {t.name}
@@ -797,7 +910,11 @@ export default function POSTerminal() {
                             >
                               Apply
                             </button>
-                            <button type="button" onClick={() => setOverrideLine(null)} className="text-muted-foreground hover:text-muted-foreground">
+                            <button
+                              type="button"
+                              onClick={() => setOverrideLine(null)}
+                              className="text-muted-foreground hover:text-muted-foreground"
+                            >
                               <X size={12} />
                             </button>
                           </div>
@@ -824,7 +941,9 @@ export default function POSTerminal() {
                           >
                             <Minus size={11} />
                           </button>
-                          <span className="w-8 text-center font-semibold text-foreground">{line.qty}</span>
+                          <span className="w-8 text-center font-semibold text-foreground">
+                            {line.qty}
+                          </span>
                           <button
                             type="button"
                             onClick={() => updateQty(line.id, 1)}
@@ -833,19 +952,28 @@ export default function POSTerminal() {
                             <Plus size={11} />
                           </button>
                         </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5 pl-0.5">{line.unitLabel}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 pl-0.5">
+                          {line.unitLabel}
+                        </p>
                       </td>
-                      <td className="px-3 py-3 text-foreground">{fmt(line.rate)}</td>
+                      <td className="px-3 py-3 text-foreground">
+                        {fmt(line.rate)}
+                      </td>
                       <td className="px-3 py-3 text-muted-foreground text-xs">
                         {line.taxPct > 0 ? (
                           <span>
-                            {line.taxPct}% <span className="text-muted-foreground">({fmt(lineTax(line))})</span>
+                            {line.taxPct}%{" "}
+                            <span className="text-muted-foreground">
+                              ({fmt(lineTax(line))})
+                            </span>
                           </span>
                         ) : (
                           <span className="text-muted-foreground/50">—</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 font-semibold text-foreground">{fmt(lineTotal(line))}</td>
+                      <td className="px-3 py-3 font-semibold text-foreground">
+                        {fmt(lineTotal(line))}
+                      </td>
                       <td className="px-3 py-3">
                         <button
                           type="button"
@@ -861,12 +989,16 @@ export default function POSTerminal() {
                     <tr key={ec.id} className="bg-muted/40">
                       <td />
                       <td />
-                      <td className="px-3 py-2 text-xs text-muted-foreground italic">{ec.label}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground italic">
+                        {ec.label}
+                      </td>
                       <td />
                       <td />
                       <td />
-                      <td className={`px-3 py-2 text-sm font-semibold ${ec.amount < 0 ? 'text-red-600' : 'text-foreground'}`}>
-                        {ec.amount < 0 ? '-' : '+'}
+                      <td
+                        className={`px-3 py-2 text-sm font-semibold ${ec.amount < 0 ? "text-red-600" : "text-foreground"}`}
+                      >
+                        {ec.amount < 0 ? "-" : "+"}
                         {fmt(Math.abs(ec.amount))}
                       </td>
                       <td className="px-3 py-2">
@@ -888,8 +1020,13 @@ export default function POSTerminal() {
           {checkoutResult && !success && (
             <div className="border-t border-amber-200 bg-amber-50 px-5 py-3 flex-shrink-0">
               <div className="flex items-start gap-2 mb-2">
-                <AlertCircle size={14} className="text-amber-700 mt-0.5 flex-shrink-0" />
-                <p className="text-xs font-semibold text-amber-800">Checkout did not complete — cart kept. Fix the failed steps:</p>
+                <AlertCircle
+                  size={14}
+                  className="text-amber-700 mt-0.5 flex-shrink-0"
+                />
+                <p className="text-xs font-semibold text-amber-800">
+                  Checkout did not complete — cart kept. Fix the failed steps:
+                </p>
               </div>
               <StepList steps={checkoutResult.steps} />
             </div>
@@ -899,7 +1036,7 @@ export default function POSTerminal() {
         <div className="w-72 flex-shrink-0 bg-card border-l border-border flex flex-col">
           <div className="px-5 py-4 border-b border-border">
             <p className="text-xs font-semibold text-muted-foreground uppercase">
-              {mode === 'sales' ? 'Checkout' : 'Receiving Summary'}
+              {mode === "sales" ? "Checkout" : "Receiving Summary"}
             </p>
           </div>
 
@@ -907,21 +1044,29 @@ export default function POSTerminal() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Items</span>
-                <span className="font-medium text-foreground">{lines.length}</span>
+                <span className="font-medium text-foreground">
+                  {lines.length}
+                </span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
-                <span className="font-medium text-foreground">{fmt(subtotal)}</span>
+                <span className="font-medium text-foreground">
+                  {fmt(subtotal)}
+                </span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Tax</span>
-                <span className="font-medium text-foreground">{fmt(totalTax)}</span>
+                <span className="font-medium text-foreground">
+                  {fmt(totalTax)}
+                </span>
               </div>
               {extraCharges.length > 0 && (
                 <div className="flex justify-between text-muted-foreground">
                   <span>Extra Charges</span>
-                  <span className={`font-medium ${extraTotal < 0 ? 'text-red-600' : 'text-foreground'}`}>
-                    {extraTotal < 0 ? '-' : '+'}
+                  <span
+                    className={`font-medium ${extraTotal < 0 ? "text-red-600" : "text-foreground"}`}
+                  >
+                    {extraTotal < 0 ? "-" : "+"}
                     {fmt(Math.abs(extraTotal))}
                   </span>
                 </div>
@@ -932,31 +1077,39 @@ export default function POSTerminal() {
               </div>
             </div>
 
-            {mode === 'sales' && (
+            {mode === "sales" && (
               <>
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">Payment Method</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                    Payment Method
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
-                    {(['cash', 'card'] as PayMethod[]).map((m) => (
+                    {(["cash", "card"] as PayMethod[]).map((m) => (
                       <button
                         key={m}
                         type="button"
                         onClick={() => setPayMethod(m)}
                         className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-semibold transition ${
                           payMethod === m
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'border-border text-muted-foreground hover:border-border'
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:border-border"
                         }`}
                       >
-                        {m === 'cash' ? <Banknote size={16} /> : <CreditCard size={16} />}
+                        {m === "cash" ? (
+                          <Banknote size={16} />
+                        ) : (
+                          <CreditCard size={16} />
+                        )}
                         {m.charAt(0).toUpperCase() + m.slice(1)}
                       </button>
                     ))}
                   </div>
-                  {payMethod === 'cash' && grandTotal > 0 && (
+                  {payMethod === "cash" && grandTotal > 0 && (
                     <div className="mt-3 space-y-2">
                       <div className="text-xs text-muted-foreground">
-                        <label className="block mb-1 font-medium">Cash Tendered</label>
+                        <label className="block mb-1 font-medium">
+                          Cash Tendered
+                        </label>
                         <input
                           type="number"
                           value={cashTendered}
@@ -965,8 +1118,10 @@ export default function POSTerminal() {
                           className="w-full px-3 py-2 border border-border rounded-lg text-sm outline-none focus:border-primary"
                         />
                       </div>
-                      {cashTendered !== '' && !isNaN(Number(cashTendered)) && (
-                        <div className={`text-xs font-medium ${Number(cashTendered) < grandTotal ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {cashTendered !== "" && !isNaN(Number(cashTendered)) && (
+                        <div
+                          className={`text-xs font-medium ${Number(cashTendered) < grandTotal ? "text-destructive" : "text-muted-foreground"}`}
+                        >
                           {Number(cashTendered) < grandTotal
                             ? `Short by ${fmt(grandTotal - Number(cashTendered))}`
                             : `Change due: ${fmt(Number(cashTendered) - grandTotal)}`}
@@ -980,28 +1135,35 @@ export default function POSTerminal() {
 
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                {mode === 'sales' ? 'Customer' : 'Supplier Ref. / Notes'}
+                {mode === "sales" ? "Customer" : "Supplier Ref. / Notes"}
               </p>
               <div className="relative">
-                <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                <User
+                  size={13}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50"
+                />
                 <input
-                  value={mode === 'sales' ? customerInfo : supplierRef}
+                  value={mode === "sales" ? customerInfo : supplierRef}
                   onChange={(e) => {
-                    if (mode === 'sales') {
+                    if (mode === "sales") {
                       setCustomerInfo(e.target.value);
-                      setCustomerId('');
+                      setCustomerId("");
                       setShowCustomerSuggestions(true);
                     } else {
                       setSupplierRef(e.target.value);
                     }
                   }}
-                  onFocus={() => mode === 'sales' && setShowCustomerSuggestions(true)}
+                  onFocus={() =>
+                    mode === "sales" && setShowCustomerSuggestions(true)
+                  }
                   placeholder={
-                    mode === 'sales' ? 'Walk-in name or search customer…' : 'Supplier invoice / LPO no.'
+                    mode === "sales"
+                      ? "Walk-in name or search customer…"
+                      : "Supplier invoice / LPO no."
                   }
                   className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-primary"
                 />
-                {mode === 'sales' &&
+                {mode === "sales" &&
                   showCustomerSuggestions &&
                   !customerId &&
                   (customerSearch?.items?.length ?? 0) > 0 && (
@@ -1013,30 +1175,41 @@ export default function POSTerminal() {
                           className="block w-full px-3 py-2 text-left text-sm hover:bg-muted border-b border-border last:border-0"
                           onClick={() => {
                             setCustomerId(c.id);
-                            setCustomerInfo(formatEntityLabel({ name: c.name, phone: c.phone, id: c.id }));
+                            setCustomerInfo(
+                              formatEntityLabel({
+                                name: c.name,
+                                phone: c.phone,
+                                id: c.id,
+                              }),
+                            );
                             setShowCustomerSuggestions(false);
                           }}
                         >
-                          <span className="font-medium">{c.name || 'Unnamed'}</span>
+                          <span className="font-medium">
+                            {c.name || "Unnamed"}
+                          </span>
                           {c.phone ? (
-                            <span className="text-xs text-muted-foreground ml-2">{c.phone}</span>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {c.phone}
+                            </span>
                           ) : null}
                         </button>
                       ))}
                     </div>
                   )}
               </div>
-              {mode === 'sales' && customerId && (
+              {mode === "sales" && customerId && (
                 <div className="mt-1.5 flex items-center justify-between gap-2">
                   <p className="text-[10px] text-muted-foreground truncate">
-                    Linked: {formatEntityLabel({ name: customerInfo, id: customerId })}
+                    Linked:{" "}
+                    {formatEntityLabel({ name: customerInfo, id: customerId })}
                   </p>
                   <button
                     type="button"
                     className="text-[10px] text-muted-foreground underline"
                     onClick={() => {
-                      setCustomerId('');
-                      setCustomerInfo('');
+                      setCustomerId("");
+                      setCustomerInfo("");
                     }}
                   >
                     Clear
@@ -1048,11 +1221,11 @@ export default function POSTerminal() {
             <div className={`rounded-xl p-3 border text-xs ${accentCls.light}`}>
               <div className="flex items-center gap-1.5 font-semibold mb-0.5">
                 <StoreIcon size={12} />
-                {mode === 'sales' ? 'Bill stock location' : 'Stock added to'}
+                {mode === "sales" ? "Bill stock location" : "Stock added to"}
               </div>
               <p className="text-muted-foreground ml-4">
-                {stockLocation?.name ?? 'Select a stock location'}
-                {store?.name ? ` · store: ${store.name}` : ''}
+                {stockLocation?.name ?? "Select a stock location"}
+                {store?.name ? ` · store: ${store.name}` : ""}
               </p>
             </div>
           </div>
@@ -1065,16 +1238,20 @@ export default function POSTerminal() {
                 lines.length === 0 ||
                 checkingOut ||
                 cashShort ||
-                (mode === 'sales' && !locationId)
+                (mode === "sales" && !locationId)
               }
               className={`w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed ${accentCls.btn}`}
             >
-              {mode === 'sales' ? <Receipt size={16} /> : <PackagePlus size={16} />}
+              {mode === "sales" ? (
+                <Receipt size={16} />
+              ) : (
+                <PackagePlus size={16} />
+              )}
               {checkingOut
-                ? 'Processing…'
-                : mode === 'sales'
-                  ? 'Complete Sale'
-                  : 'Confirm Bill'}
+                ? "Processing…"
+                : mode === "sales"
+                  ? "Complete Sale"
+                  : "Confirm Bill"}
             </button>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -1083,10 +1260,10 @@ export default function POSTerminal() {
                 disabled={!lastReceipt && !success}
                 title={
                   lastReceipt || success
-                    ? 'Print last receipt'
-                    : mode === 'sales'
-                      ? 'Generate an invoice first'
-                      : 'Confirm a bill first'
+                    ? "Print last receipt"
+                    : mode === "sales"
+                      ? "Generate an invoice first"
+                      : "Confirm a bill first"
                 }
                 className="flex items-center justify-center gap-1.5 py-2 border border-border rounded-xl text-xs text-muted-foreground hover:bg-muted transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -1106,7 +1283,11 @@ export default function POSTerminal() {
       </div>
 
       {success && (
-        <BillSuccessModal receipt={success.receipt} steps={success.steps} onClose={closeSuccess} />
+        <BillSuccessModal
+          receipt={success.receipt}
+          steps={success.steps}
+          onClose={closeSuccess}
+        />
       )}
 
       {(success?.receipt || lastReceipt) && (
