@@ -240,6 +240,7 @@ export default function InventoryPage() {
         onRefetch={() => void refetch()}
         isAdmin
         onAdd={openCreate}
+        addLabel="Log Inventory"
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}

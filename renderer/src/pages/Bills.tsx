@@ -254,6 +254,7 @@ export default function BillsPage() {
         onRefetch={() => void refetch()}
         isAdmin={true}
         onAdd={openCreate}
+        addLabel="Generate Bill"
         onView={(row) => setViewRow(row)}
         onEdit={(row) => navigate(`/bills/${row.id}`)}
         canDelete={canDelete}

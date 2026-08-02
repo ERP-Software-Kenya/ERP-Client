@@ -197,23 +197,23 @@ export const MODULES: ModuleGroup[] = [
   //     { key: 'expenses', title: 'Expenses', path: '/expenses', icon: Wallet },
   //   ],
   // },
-  // {
-  //   label: 'Settings',
-  //   icon: Settings,
-  //   items: [
-  //     { key: 'settings-general', title: 'General', path: '/platform-configurations', icon: Settings },
-  //     { key: 'settings-app-updates', title: 'App updates', path: '/settings/app', icon: ArrowUpCircle },
-  //     { key: 'settings-tax', title: 'Tax', path: '/settings/tax', icon: Percent, disabled: true },
-  //     { key: 'settings-uom', title: 'Unit of Measure', path: '/settings/uom', icon: Ruler, disabled: true },
-  //     { key: 'settings-pricelists', title: 'Price Lists', path: '/settings/pricelists', icon: Tags, disabled: true },
-  //     { key: 'settings-currency', title: 'Currency', path: '/settings/currency', icon: DollarSign, disabled: true },
-  //     { key: 'settings-sequences', title: 'Sequences', path: '/settings/sequences', icon: Hash, disabled: true },
-  //     { key: 'settings-templates', title: 'Templates', path: '/settings/templates', icon: Printer, disabled: true },
-  //     { key: 'settings-notifications', title: 'Notifications', path: '/notifications', icon: Bell },
-  //     { key: 'settings-integrations', title: 'Integrations', path: '/settings/integrations', icon: Plug, disabled: true },
-  //     { key: 'settings-backup', title: 'Backup', path: '/settings/backup', icon: Database, disabled: true },
-  //   ],
-  // },
+  {
+    label: 'Settings',
+    icon: Settings,
+    items: [
+      //     { key: 'settings-general', title: 'General', path: '/platform-configurations', icon: Settings },
+      { key: 'settings-app-updates', title: 'App updates', path: '/settings/app', icon: ArrowUpCircle },
+      //     { key: 'settings-tax', title: 'Tax', path: '/settings/tax', icon: Percent, disabled: true },
+      //     { key: 'settings-uom', title: 'Unit of Measure', path: '/settings/uom', icon: Ruler, disabled: true },
+      //     { key: 'settings-pricelists', title: 'Price Lists', path: '/settings/pricelists', icon: Tags, disabled: true },
+      //     { key: 'settings-currency', title: 'Currency', path: '/settings/currency', icon: DollarSign, disabled: true },
+      //     { key: 'settings-sequences', title: 'Sequences', path: '/settings/sequences', icon: Hash, disabled: true },
+      //     { key: 'settings-templates', title: 'Templates', path: '/settings/templates', icon: Printer, disabled: true },
+      //     { key: 'settings-notifications', title: 'Notifications', path: '/notifications', icon: Bell },
+      //     { key: 'settings-integrations', title: 'Integrations', path: '/settings/integrations', icon: Plug, disabled: true },
+      //     { key: 'settings-backup', title: 'Backup', path: '/settings/backup', icon: Database, disabled: true },
+    ],
+  },
 ];
 
 export const ALL_ITEMS: ModuleItem[] = MODULES.flatMap((g) => g.items);

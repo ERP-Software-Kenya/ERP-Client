@@ -227,6 +227,7 @@ export default function LocationsPage() {
         searchPlaceholder={warehouseOnly ? 'Search warehouses…' : 'Search locations…'}
         isAdmin={true}
         onAdd={openCreate}
+        addLabel={warehouseOnly ? 'Configure Warehouse' : 'Configure Location'}
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}

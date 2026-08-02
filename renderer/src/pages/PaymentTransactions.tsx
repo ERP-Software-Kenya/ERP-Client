@@ -161,6 +161,7 @@ export default function PaymentTransactionsPage() {
         onRefetch={() => void refetch()}
         isAdmin={true}
         onAdd={openCreate}
+        addLabel="Record Payment"
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}

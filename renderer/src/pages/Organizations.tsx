@@ -111,6 +111,7 @@ export default function OrganizationsPage() {
         searchPlaceholder="Search organizations…"
         isAdmin={true}
         onAdd={openCreate}
+        addLabel="Setup Organization"
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
