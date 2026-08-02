@@ -49,7 +49,12 @@ const EMPTY_FORM: FormState = {
 export default function LocationsPage() {
   const { pathname } = useLocation();
   const warehouseOnly = pathname.startsWith('/warehouse');
-  const emptyForm: FormState = warehouseOnly ? { ...EMPTY_FORM, type: 'warehouse' } : EMPTY_FORM;
+  const storeOnly     = pathname.startsWith('/stores');
+  const emptyForm: FormState = warehouseOnly
+    ? { ...EMPTY_FORM, type: 'warehouse' }
+    : storeOnly
+      ? { ...EMPTY_FORM, type: 'store' }
+      : EMPTY_FORM;
 
   const [drawerOpen, setDrawerOpen]       = useState(false);
   const [editing, setEditing]             = useState<Location | null>(null);
@@ -78,9 +83,10 @@ export default function LocationsPage() {
   const filters = useMemo(() => {
     const next: Record<string, string> = {};
     if (warehouseOnly) next.type = 'warehouse';
+    else if (storeOnly) next.type = 'store';
     if (statusFilter)  next.isActive = statusFilter;
     return Object.keys(next).length ? next : undefined;
-  }, [warehouseOnly, statusFilter]);
+  }, [warehouseOnly, storeOnly, statusFilter]);
 
   const { data, isLoading, error, refetch } = Locations.useSearch({ page, search: debouncedSearch, filters });
 
@@ -193,11 +199,13 @@ export default function LocationsPage() {
   ];
 
   const isSaving = createMutation.isPending || updateMutation.isPending || uploading;
-  const pageTitle    = warehouseOnly ? 'Warehouses' : 'Locations';
-  const entityLabel  = warehouseOnly ? 'Warehouse'  : 'Location';
-  const pageDesc     = warehouseOnly
+  const pageTitle   = warehouseOnly ? 'Warehouses' : storeOnly ? 'Stores'     : 'Locations';
+  const entityLabel = warehouseOnly ? 'Warehouse'  : storeOnly ? 'Store'      : 'Location';
+  const pageDesc    = warehouseOnly
     ? 'Manage warehouse locations for your organization.'
-    : 'Manage store and warehouse locations for your organization.';
+    : storeOnly
+      ? 'Manage store locations for your organization.'
+      : 'Manage store and warehouse locations for your organization.';
 
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
@@ -224,7 +232,7 @@ export default function LocationsPage() {
             onChange={(v) => { setStatusFilter(v); setPage(1); }}
           />
         }
-        searchPlaceholder={warehouseOnly ? 'Search warehouses…' : 'Search locations…'}
+        searchPlaceholder={warehouseOnly ? 'Search warehouses…' : storeOnly ? 'Search stores…' : 'Search locations…'}
         isAdmin={true}
         onAdd={openCreate}
         addLabel={warehouseOnly ? 'Configure Warehouse' : 'Configure Location'}
@@ -260,7 +268,7 @@ export default function LocationsPage() {
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus />
           </Field>
 
-          {!warehouseOnly && (
+          {!warehouseOnly && !storeOnly && (
             <Field label="Type" required>
               <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as LocationType })}>
                 <SelectTrigger><SelectValue placeholder="Select type…" /></SelectTrigger>
