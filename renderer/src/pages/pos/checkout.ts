@@ -49,7 +49,6 @@ export interface CheckoutResult {
 }
 
 export interface SalesCheckoutInput {
-  storeId: string;
   storeName?: string;
   /** Locations UUID — bill.locationId and stock source. */
   locationId?: string;
@@ -68,9 +67,8 @@ export interface SalesCheckoutInput {
 }
 
 export interface PurchaseCheckoutInput {
-  storeId: string;
+  locationId: string;
   storeName?: string;
-  locationId?: string;
   locationName?: string;
   inventory?: InventoryItem[];
   orgId?: string;
@@ -353,16 +351,16 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
 }
 
 /**
- * Purchase receiving: stock add only.
- * Do not POST /bills — that API is sales-only (locationId + items, INITIATED…).
+ * Purchase: POST /api/v1/purchase-orders — creates a Draft PO with all line items.
+ * Stock is added separately when the verifier receives the order.
  */
 export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise<CheckoutResult> {
   const steps: CheckoutStep[] = [];
   const extras = input.extraCharges ?? [];
   const receipt: PosReceipt = {
-    ref: localRef('GRN'),
+    ref: localRef('PO'),
     mode: 'purchase',
-    storeName: input.storeName ?? input.locationName,
+    storeName: input.storeName,
     partyLabel: input.supplierName || input.supplierRef || 'Supplier',
     lines: buildReceiptLines(input.lines),
     extraCharges: extras,
@@ -373,48 +371,52 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
     synced: false,
   };
 
-  if (!input.storeId) {
-    steps.push({ name: 'Validate store', status: 'failed', message: 'Select a store' });
+  if (!input.locationId) {
+    steps.push({ name: 'Validate location', status: 'failed', message: 'Select a location from the top bar' });
     return { receipt, steps, primaryOk: false };
   }
   if (!input.supplierId) {
-    steps.push({ name: 'Validate supplier', status: 'failed', message: 'Select a supplier' });
+    steps.push({ name: 'Validate supplier', status: 'failed', message: 'Select a supplier from the left panel' });
     return { receipt, steps, primaryOk: false };
   }
   if (input.lines.length === 0) {
-    steps.push({ name: 'Validate lines', status: 'failed', message: 'Receiving list is empty' });
+    steps.push({ name: 'Validate lines', status: 'failed', message: 'Add at least one product' });
     return { receipt, steps, primaryOk: false };
   }
 
+  steps.push({ name: 'Local receipt', status: 'ok', message: `Issued ${receipt.ref}` });
+
+  const createAttempt = await tryStep(
+    'Create purchase order',
+    () =>
+      post<{ id: string; poNumber?: string }>('/api/v1/purchase-orders', {
+        locationId: input.locationId,
+        supplierId: input.supplierId,
+        notes: input.supplierRef || undefined,
+        items: input.lines.map((l) => ({
+          productId: l.productId,
+          quantityOrdered: l.qty,
+          unitCost: l.unitPrice,
+        })),
+      }),
+    (po) => po.id,
+  );
+  steps.push(createAttempt.step);
+
+  if (!createAttempt.result?.id) {
+    return { receipt, steps, primaryOk: false };
+  }
+
+  if (createAttempt.result.poNumber) {
+    receipt.ref = createAttempt.result.poNumber;
+  }
+
+  receipt.synced = true;
   steps.push({
-    name: 'Local receipt',
+    name: 'Draft PO saved',
     status: 'ok',
-    message: `Issued ${receipt.ref} — ready to print`,
+    message: `PO ${receipt.ref} created with Draft status. Open Purchase Orders to verify and receive stock.`,
   });
 
-  steps.push(skipped('Create GRN', 'No goods-receipt API yet'));
-  steps.push(
-    skipped(
-      'Create bill',
-      'Skipped — /api/v1/bills is sales-only (not purchase payables). Use PO/GRN when available.',
-    ),
-  );
-
-  const stockSteps = await runStockLines(
-    'add',
-    input.lines,
-    input.locationId,
-    input.inventory,
-    receipt.ref,
-  );
-  steps.push(...stockSteps);
-  steps.push(
-    skipped('Link supplier', `Supplier ${input.supplierId} recorded on local receipt only`),
-  );
-
-  const stockFailed = stockSteps.some((s) => s.status === 'failed');
-  const stockOk = stockSteps.some((s) => s.status === 'ok');
-  receipt.synced = stockOk && !stockFailed;
-
-  return { receipt, steps, primaryOk: stockOk && !stockFailed };
+  return { receipt, steps, primaryOk: true };
 }
