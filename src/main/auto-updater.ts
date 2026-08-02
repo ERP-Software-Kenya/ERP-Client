@@ -16,7 +16,6 @@ const PACKAGED_ONLY_ERROR = 'Updates only work in packaged builds.';
 // State & Helpers
 // --------------------------------------------------------
 let targetWindow: BrowserWindow | null = null;
-let ipcRegistered = false;
 let scheduleStarted = false;
 let cachedState = { status: 'idle', version: '', releaseDate: '' };
 
@@ -49,8 +48,7 @@ export function initAutoUpdater(win: BrowserWindow): void {
   targetWindow = win;
 
   // 1. Register IPC handlers only once
-  if (!ipcRegistered) {
-    ipcRegistered = true;
+  if (!ipcMain.eventNames().includes('app:check-update')) {
     
     // Events -> Renderer
     autoUpdater.on('checking-for-update', () => send('update:checking'));
