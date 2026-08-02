@@ -4,7 +4,7 @@ import { createResource, createCreateOnlyResource } from './lib/resource';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type {
-  Organization, Store, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
+  Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
   Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, Expense, PurchaseItem,
   ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
@@ -18,7 +18,6 @@ import type {
 // ── New hook-based resources ───────────────────────────────────────────────────
 
 export const Organizations = createResource<Organization>('/api/v1/organizations', 'organizations', 'Organization');
-export const Stores = createResource<Store>('/api/v1/stores', 'stores', 'Store');
 export const Categories = createResource<Category>('/api/v1/categories', 'categories', 'Category');
 export const Products = createResource<Product>('/api/v1/products', 'products', 'Product');
 export const Suppliers = createResource<Supplier>('/api/v1/suppliers', 'suppliers', 'Supplier');
@@ -507,28 +506,6 @@ export function useListCities(stateId: number | null) {
     queryFn:  () => get<City[]>(`/api/v1/common-utility/cities/list?stateId=${stateId}`),
     enabled:  stateId !== null,
     staleTime: 24 * 60 * 60 * 1000,
-  });
-}
-
-// ── Store image (single image; upload replaces) ───────────────────────────────
-
-export function useUploadStoreImage() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ storeId, file }: { storeId: string; file: File }) => {
-      const form = new FormData();
-      form.append('file', file);
-      return uploadForm<Store>(`/api/v1/stores/${storeId}/image`, form);
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stores'] }),
-  });
-}
-
-export function useRemoveStoreImage() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (storeId: string) => del(`/api/v1/stores/${storeId}/image`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['stores'] }),
   });
 }
 

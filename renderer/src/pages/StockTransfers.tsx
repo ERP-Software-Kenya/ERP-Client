@@ -11,7 +11,6 @@ import { Input } from '../components/ui/input';
 import {
   StockTransfers,
   Organizations,
-  Stores,
   Inventory,
   Products,
   Locations,
@@ -26,8 +25,8 @@ import type { InventoryItem, StockTransfer } from '../types';
 
 interface HeaderForm {
   organizationId: string;
-  fromStoreId: string;
-  toStoreId: string;
+  fromLocationId: string;
+  toLocationId: string;
 }
 
 /** Matches CompleteTransferItemRequest exactly. */
@@ -51,7 +50,7 @@ type CompleteItem = {
 };
 
 function emptyHeader(orgId: string): HeaderForm {
-  return { organizationId: orgId, fromStoreId: '', toStoreId: '' };
+  return { organizationId: orgId, fromLocationId: '', toLocationId: '' };
 }
 
 function newLine(): LineForm {
@@ -132,7 +131,6 @@ export default function StockTransfersPage() {
 
   const { data: transfer, isLoading, error, refetch } = StockTransfers.useGet(activeId);
   const { data: inventoryList } = Inventory.useList();
-  const { data: stores } = Stores.useList();
   const { data: orgs } = Organizations.useList();
   const { data: products } = Products.useList();
   const { data: locations } = Locations.useList();
@@ -145,14 +143,6 @@ export default function StockTransfersPage() {
     for (const i of inventoryList ?? []) m.set(i.id, i);
     return m;
   }, [inventoryList]);
-
-  const storeName = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const s of stores ?? []) {
-      m.set(s.id, formatEntityLabel({ name: s.name, code: s.code, id: s.id }));
-    }
-    return m;
-  }, [stores]);
 
   const orgName = useMemo(() => {
     const m = new Map<string, string>();
@@ -197,8 +187,8 @@ export default function StockTransfersPage() {
         savedAt: e.savedAt,
         transferNumber: data?.transferNumber,
         status: data?.status,
-        fromStoreId: data?.fromStoreId,
-        toStoreId: data?.toStoreId,
+        fromLocationId: data?.fromLocationId,
+        toLocationId: data?.toLocationId,
         loading: q?.isLoading ?? false,
         failed: !!q?.isError,
       };
@@ -258,8 +248,8 @@ export default function StockTransfersPage() {
     e.preventDefault();
     if (busy || createMutation.isPending || completeMutation.isPending) return;
     const organizationId = header.organizationId || sessionOrgId;
-    if (!organizationId || !header.fromStoreId || !header.toStoreId) {
-      toast.error('Organization, from store, and to store are required');
+    if (!organizationId || !header.fromLocationId || !header.toLocationId) {
+      toast.error('Organization, from location, and to location are required');
       return;
     }
     const lineError = validateLines(lines, inventoryList);
@@ -273,8 +263,8 @@ export default function StockTransfersPage() {
     createMutation.mutate(
       {
         organizationId,
-        fromStoreId: header.fromStoreId,
-        toStoreId: header.toStoreId,
+        fromLocationId: header.fromLocationId,
+        toLocationId: header.toLocationId,
       },
       {
         onSuccess: (created) => {
@@ -413,7 +403,7 @@ export default function StockTransfersPage() {
         <div>
           <h1 className="text-2xl font-semibold">Stock transfers</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Header uses Stores. Each line picks from/to inventory (on-hand shown). Submit runs create
+            Header uses Locations. Each line picks from/to inventory (on-hand shown). Submit runs create
             then complete. Recent list is this browser only.
           </p>
         </div>
@@ -439,13 +429,13 @@ export default function StockTransfersPage() {
             key: 'from',
             header: 'From',
             render: (r) =>
-              r.fromStoreId ? storeName.get(r.fromStoreId) ?? formatEntityLabel({ id: r.fromStoreId }) : '—',
+              r.fromLocationId ? locationName.get(r.fromLocationId) ?? formatEntityLabel({ id: r.fromLocationId }) : '—',
           },
           {
             key: 'to',
             header: 'To',
             render: (r) =>
-              r.toStoreId ? storeName.get(r.toStoreId) ?? formatEntityLabel({ id: r.toStoreId }) : '—',
+              r.toLocationId ? locationName.get(r.toLocationId) ?? formatEntityLabel({ id: r.toLocationId }) : '—',
           },
           {
             key: 'when',
@@ -510,13 +500,13 @@ export default function StockTransfersPage() {
                     formatEntityLabel({ id: transfer.organizationId })}
                 </p>
                 <p>
-                  <span className="text-muted-foreground">From store:</span>{' '}
-                  {storeName.get(transfer.fromStoreId) ??
-                    formatEntityLabel({ id: transfer.fromStoreId })}
+                  <span className="text-muted-foreground">From location:</span>{' '}
+                  {locationName.get(transfer.fromLocationId) ??
+                    formatEntityLabel({ id: transfer.fromLocationId })}
                 </p>
                 <p>
-                  <span className="text-muted-foreground">To store:</span>{' '}
-                  {storeName.get(transfer.toStoreId) ?? formatEntityLabel({ id: transfer.toStoreId })}
+                  <span className="text-muted-foreground">To location:</span>{' '}
+                  {locationName.get(transfer.toLocationId) ?? formatEntityLabel({ id: transfer.toLocationId })}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -548,7 +538,7 @@ export default function StockTransfersPage() {
         open={wizardOpen}
         onClose={() => !submitting && setWizardOpen(false)}
         title="New transfer"
-        subtitle="Stores for the header; inventory rows for stock lines (qty cannot exceed on hand)"
+        subtitle="Locations for the header; inventory rows for stock lines (qty cannot exceed on hand)"
         width={640}
         footer={
           <>
@@ -563,8 +553,8 @@ export default function StockTransfersPage() {
       >
         <form id="transfer-wizard-form" onSubmit={handleCreateAndComplete} className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            From/To store = sales Stores. Quantity is checked against the from inventory on-hand before
-            complete.
+            From/To location = warehouse or store Locations. Quantity is checked against the from
+            inventory on-hand before complete.
           </p>
           <Field label="Organization" required>
             <ResourceSelect
@@ -574,20 +564,20 @@ export default function StockTransfersPage() {
               onValueChange={(v) => setHeader({ ...header, organizationId: v })}
             />
           </Field>
-          <Field label="From store" required>
+          <Field label="From location" required>
             <ResourceSelect
-              resource={Stores}
+              resource={Locations}
               getLabel={(s) => s.name}
-              value={header.fromStoreId}
-              onValueChange={(v) => setHeader({ ...header, fromStoreId: v })}
+              value={header.fromLocationId}
+              onValueChange={(v) => setHeader({ ...header, fromLocationId: v })}
             />
           </Field>
-          <Field label="To store" required>
+          <Field label="To location" required>
             <ResourceSelect
-              resource={Stores}
+              resource={Locations}
               getLabel={(s) => s.name}
-              value={header.toStoreId}
-              onValueChange={(v) => setHeader({ ...header, toStoreId: v })}
+              value={header.toLocationId}
+              onValueChange={(v) => setHeader({ ...header, toLocationId: v })}
             />
           </Field>
           <div className="border-t border-border pt-3">

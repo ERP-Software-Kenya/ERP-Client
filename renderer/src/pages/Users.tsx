@@ -8,7 +8,7 @@ import { RecentRecords } from '../components/RecentRecords';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { Users, Organizations, Stores, get } from '../api';
+import { Users, Organizations, Locations, get } from '../api';
 import { AuthService } from '../services/auth.service';
 import { formatEntityLabel } from '../lib/entityLabel';
 import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
@@ -16,7 +16,7 @@ import type { PlatformUser } from '../types';
 
 interface FormState {
   organizationId: string;
-  storeId: string;
+  locationId: string;
   email: string;
   passwordHash: string;
   firstName: string;
@@ -38,7 +38,7 @@ interface InviteResult {
 
 const EMPTY_FORM: FormState = {
   organizationId: '',
-  storeId: '',
+  locationId: '',
   email: '',
   passwordHash: '',
   firstName: '',
@@ -155,7 +155,7 @@ export default function UsersPage() {
     createMutation.mutate(
       {
         organizationId: form.organizationId || undefined,
-        storeId: form.storeId || undefined,
+        locationId: form.locationId || undefined,
         email: form.email || undefined,
         passwordHash: form.passwordHash || undefined,
         firstName: form.firstName || undefined,
@@ -377,13 +377,13 @@ export default function UsersPage() {
               placeholder="Select organization…"
             />
           </Field>
-          <Field label="Store (optional)">
+          <Field label="Location (optional)">
             <ResourceSelect
-              resource={Stores}
+              resource={Locations}
               getLabel={(s) => s.name}
-              value={form.storeId}
-              onValueChange={(v) => setForm({ ...form, storeId: v })}
-              placeholder="Select store…"
+              value={form.locationId}
+              onValueChange={(v) => setForm({ ...form, locationId: v })}
+              placeholder="Select location…"
               allowNone
             />
           </Field>

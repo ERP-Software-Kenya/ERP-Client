@@ -11,7 +11,6 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import {
   ItemReturns,
-  Stores,
   Suppliers,
   Locations,
   Products,
@@ -27,7 +26,7 @@ const RETURN_TYPE_OPTIONS = ['sales', 'purchase'] as const;
 
 interface FormState {
   returnType: string;
-  storeId: string;
+  locationId: string;
   supplierId: string;
   orderId: string;
   totalAmount: string;
@@ -36,7 +35,7 @@ interface FormState {
 
 const EMPTY_FORM: FormState = {
   returnType: 'purchase',
-  storeId: '',
+  locationId: '',
   supplierId: '',
   orderId: '',
   totalAmount: '',
@@ -71,22 +70,21 @@ export default function ItemReturnsPage() {
 
   const filters = useMemo(() => {
     const next: Record<string, string> = {};
-    if (storeFilter) next.storeId = storeFilter;
+    if (storeFilter) next.locationId = storeFilter;
     if (statusFilter !== 'ALL') next.status = statusFilter;
     return Object.keys(next).length ? next : undefined;
   }, [storeFilter, statusFilter]);
 
   const { data, isLoading, error, refetch } = ItemReturns.useSearch({ page, filters });
 
-  const { data: stores } = Stores.useList();
   const { data: suppliers } = Suppliers.useList();
   const { data: products } = Products.useList();
   const { data: locations } = Locations.useList();
-  const storeName = useMemo(() => {
+  const locationLookup = useMemo(() => {
     const m = new Map<string, string>();
-    for (const s of stores ?? []) m.set(s.id, formatEntityLabel({ name: s.name, code: s.code, id: s.id }));
+    for (const l of locations ?? []) m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
     return m;
-  }, [stores]);
+  }, [locations]);
   const supplierName = useMemo(() => {
     const m = new Map<string, string>();
     for (const s of suppliers ?? []) m.set(s.id, formatEntityLabel({ name: s.name, id: s.id }));
@@ -97,13 +95,6 @@ export default function ItemReturnsPage() {
     for (const p of products ?? []) m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
     return m;
   }, [products]);
-  const locationName = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const l of locations ?? []) {
-      m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
-    }
-    return m;
-  }, [locations]);
   const orderLabel = useMemo(() => {
     const m = new Map<string, string>();
     for (const e of recentOrders.entries) {
@@ -170,7 +161,7 @@ export default function ItemReturnsPage() {
     setEditing(row);
     setForm({
       returnType: row.returnType ?? 'purchase',
-      storeId: row.storeId ?? '',
+      locationId: row.locationId ?? '',
       supplierId: row.supplierId ?? '',
       orderId: row.orderId ?? '',
       totalAmount: row.totalAmount != null ? String(row.totalAmount) : '',
@@ -185,13 +176,13 @@ export default function ItemReturnsPage() {
       toast.error('Create blocked — CreateItemReturnRequest has no @AutoMap in Core API (#0e)');
       return;
     }
-    if (!form.storeId) {
-      toast.error('Store is required');
+    if (!form.locationId) {
+      toast.error('Location is required');
       return;
     }
     const body: Partial<ItemReturn> = {
       returnType: form.returnType as ItemReturn['returnType'],
-      storeId: form.storeId || undefined,
+      locationId: form.locationId || undefined,
       supplierId: form.supplierId || undefined,
       orderId: form.returnType === 'sales' ? form.orderId || undefined : undefined,
       totalAmount: form.totalAmount ? Number(form.totalAmount) : undefined,
@@ -204,10 +195,10 @@ export default function ItemReturnsPage() {
     { key: 'id', label: 'ID', render: (row) => truncateId(row.id) },
     { key: 'returnType', label: 'Type' },
     {
-      key: 'storeId',
-      label: 'Store',
+      key: 'locationId',
+      label: 'Location',
       render: (row) =>
-        row.storeId ? storeName.get(row.storeId) ?? formatEntityLabel({ id: row.storeId }) : '—',
+        row.locationId ? locationLookup.get(row.locationId) ?? formatEntityLabel({ id: row.locationId }) : '—',
     },
     {
       key: 'supplierId',
@@ -239,8 +230,8 @@ export default function ItemReturnsPage() {
   const viewData = viewRow
     ? ({
         ...viewRow,
-        storeId: viewRow.storeId
-          ? storeName.get(viewRow.storeId) ?? formatEntityLabel({ id: viewRow.storeId })
+        locationId: viewRow.locationId
+          ? locationLookup.get(viewRow.locationId) ?? formatEntityLabel({ id: viewRow.locationId })
           : '—',
         supplierId: viewRow.supplierId
           ? supplierName.get(viewRow.supplierId) ?? formatEntityLabel({ id: viewRow.supplierId })
@@ -259,7 +250,7 @@ export default function ItemReturnsPage() {
         still available for existing rows.
       </div>
       <p className="text-xs text-muted-foreground">
-        API gap: returns have no free-text search — filter by store and status only.
+        API gap: returns have no free-text search — filter by location and status only.
       </p>
       <DataTable
         title="Returns"
@@ -289,7 +280,7 @@ export default function ItemReturnsPage() {
                 {s === 'ALL' ? 'All' : s}
               </Button>
             ))}
-            <span className="ml-2 text-xs text-muted-foreground">Store:</span>
+            <span className="ml-2 text-xs text-muted-foreground">Location:</span>
             <select
               className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
               value={storeFilter}
@@ -298,10 +289,10 @@ export default function ItemReturnsPage() {
                 setPage(1);
               }}
             >
-              <option value="">All stores</option>
-              {(stores ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {formatEntityLabel({ name: s.name, code: s.code, id: s.id })}
+              <option value="">All locations</option>
+              {(locations ?? []).map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id })}
                 </option>
               ))}
             </select>
@@ -352,13 +343,13 @@ export default function ItemReturnsPage() {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Store" required>
+          <Field label="Location" required>
             <ResourceSelect
-              resource={Stores}
-              getLabel={(s) => formatEntityLabel({ name: s.name, code: s.code, id: s.id })}
-              value={form.storeId}
-              onValueChange={(v) => setForm({ ...form, storeId: v })}
-              placeholder="Select store…"
+              resource={Locations}
+              getLabel={(l) => l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id })}
+              value={form.locationId}
+              onValueChange={(v) => setForm({ ...form, locationId: v })}
+              placeholder="Select location…"
             />
           </Field>
           {form.returnType === 'purchase' && (

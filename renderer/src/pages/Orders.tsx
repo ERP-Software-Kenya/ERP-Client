@@ -7,14 +7,14 @@ import { RecentRecords } from '../components/RecentRecords';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Customers, get, Orders, Stores } from '../api';
+import { Customers, get, Locations, Orders } from '../api';
 import { useDebounce } from '../hooks/useDebounce';
 import { formatEntityLabel } from '../lib/entityLabel';
 import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
 import type { Customer, Order } from '../types';
 
 interface FormState {
-  storeId: string;
+  locationId: string;
   customerId: string;
   customerLabel: string;
   status: string;
@@ -25,7 +25,7 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
-  storeId: '',
+  locationId: '',
   customerId: '',
   customerLabel: '',
   status: '',
@@ -56,7 +56,7 @@ export default function OrdersPage() {
 
   const createMutation = Orders.useCreate();
   const { data: lookedUp, isLoading, error } = Orders.useGet(activeId);
-  const { data: stores } = Stores.useList();
+  const { data: stores } = Locations.useList();
   const customerIdForLabel = lookedUp?.customerId ?? lastCreated?.customerId;
   const { data: linkedCustomer } = Customers.useGet(customerIdForLabel);
   const { data: customerSearch } = Customers.useSearch({
@@ -146,7 +146,7 @@ export default function OrdersPage() {
     e.preventDefault();
     createMutation.mutate(
       {
-        storeId: form.storeId || undefined,
+        locationId: form.locationId || undefined,
         customerId: form.customerId || undefined,
         status: form.status || undefined,
         subtotal: form.subtotal ? Number(form.subtotal) : undefined,
@@ -261,9 +261,9 @@ export default function OrdersPage() {
                 <span className="text-muted-foreground">Order #:</span> {lookedUp.orderNumber ?? '—'}
               </p>
               <p>
-                <span className="text-muted-foreground">Store:</span>{' '}
-                {lookedUp.storeId
-                  ? storeName.get(lookedUp.storeId) ?? formatEntityLabel({ id: lookedUp.storeId })
+                <span className="text-muted-foreground">Location:</span>{' '}
+                {lookedUp.locationId
+                  ? storeName.get(lookedUp.locationId) ?? formatEntityLabel({ id: lookedUp.locationId })
                   : '—'}
               </p>
               <p>
@@ -307,7 +307,7 @@ export default function OrdersPage() {
             <Button
               type="submit"
               form="order-form"
-              disabled={createMutation.isPending || !form.storeId || !form.customerId}
+              disabled={createMutation.isPending || !form.locationId || !form.customerId}
             >
               {createMutation.isPending ? 'Creating…' : 'Create'}
             </Button>
@@ -319,16 +319,16 @@ export default function OrdersPage() {
       >
         <form id="order-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            Live Swagger requires <code className="text-[10px]">storeId</code> +{' '}
+            Live Swagger requires <code className="text-[10px]">locationId</code> +{' '}
             <code className="text-[10px]">customerId</code>.
           </div>
-          <Field label="Store" required>
+          <Field label="Location" required>
             <ResourceSelect
-              resource={Stores}
-              getLabel={(s) => formatEntityLabel({ name: s.name, code: s.code, id: s.id })}
-              value={form.storeId}
-              onValueChange={(v) => setForm({ ...form, storeId: v })}
-              placeholder="Select store…"
+              resource={Locations}
+              getLabel={(s) => formatEntityLabel({ name: s.name, id: s.id })}
+              value={form.locationId}
+              onValueChange={(v) => setForm({ ...form, locationId: v })}
+              placeholder="Select location…"
             />
           </Field>
           <Field label="Customer (search)" required>
