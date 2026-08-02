@@ -1,6 +1,6 @@
 {
   "name": "core-erp-client",
-  "version": "0.1.0",
+  "version": "0.0.2",
   "description": "Core ERP Client — Electron desktop app for Core ERP APIs",
   "type": "module",
   "main": "dist/main/index.cjs",
@@ -79,7 +79,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "HitarthSM",
+        "owner": "ERP-Software-Kenya",
         "repo": "ERP-Client",
         "private": false
       }

@@ -3,146 +3,84 @@ import { autoUpdater } from 'electron-updater';
 import logger from './logger';
 import { loadSettings, saveSettings } from './settings-store';
 
+// --------------------------------------------------------
+// Configuration
+// --------------------------------------------------------
 autoUpdater.logger = logger;
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
-const DEFAULT_CHECK_INTERVAL_MINUTES = 1440;
 const PACKAGED_ONLY_ERROR = 'Updates only work in packaged builds.';
 
-type CachedUpdateState =
-  | { status: 'idle' }
-  | { status: 'available'; version: string; releaseDate: string }
-  | { status: 'downloaded'; version: string };
+// --------------------------------------------------------
+// State & Helpers
+// --------------------------------------------------------
+let targetWindow: BrowserWindow | null = null;
+let ipcRegistered = false;
+let scheduleStarted = false;
+let cachedState = { status: 'idle', version: '', releaseDate: '' };
 
-let cachedState: CachedUpdateState = { status: 'idle' };
+const send = (channel: string, ...args: unknown[]) => {
+  if (targetWindow && !targetWindow.isDestroyed()) {
+    targetWindow.webContents.send(channel, ...args);
+  }
+};
 
-function getCheckIntervalMs(): number {
-  const settings = loadSettings();
-  const minutes = Math.max(
-    settings.updateCheckIntervalMinutes ?? DEFAULT_CHECK_INTERVAL_MINUTES,
-    1,
-  );
-  return minutes * 60_000;
-}
-
-function getGithubToken(): string | null {
-  const settings = loadSettings();
-  return (
-    settings.githubToken ||
-    process.env.ERP_CLIENT_APP_UPDATE_KEY ||
-    process.env.GH_TOKEN ||
-    null
-  );
-}
-
-function configureAuth(): boolean {
-  // Public repo HitarthSM/ERP-Client — token optional. Token still helps with rate limits.
-  const token = getGithubToken();
+const configureAuth = () => {
+  const token = loadSettings().githubToken || process.env.ERP_CLIENT_APP_UPDATE_KEY || process.env.GH_TOKEN || null;
   autoUpdater.setFeedURL({
     provider: 'github',
-    owner: 'HitarthSM',
+    owner: 'ERP-Software-Kenya',
     repo: 'ERP-Client',
     private: false,
     ...(token ? { token } : {}),
   });
-  return true;
-}
+};
 
-function runCheck(): void {
-  configureAuth();
-  autoUpdater.checkForUpdates().catch((e: Error) =>
-    logger.warn(`[auto-updater] Scheduled check failed: ${e.message}`),
-  );
-  saveSettings({ lastUpdateCheckAt: Date.now() });
-}
+const getCheckIntervalMs = (): number => {
+  const minutes = Math.max(loadSettings().updateCheckIntervalMinutes ?? 1440, 1);
+  return minutes * 60_000;
+};
 
-function scheduleCheck(delayMs: number): void {
-  setTimeout(() => {
-    runCheck();
-    scheduleCheck(getCheckIntervalMs());
-  }, delayMs);
-}
-
-let ipcRegistered = false;
-let scheduleStarted = false;
-let targetWindow: BrowserWindow | null = null;
-
-function send(channel: string, ...args: unknown[]): void {
-  if (targetWindow && !targetWindow.isDestroyed()) {
-    targetWindow.webContents.send(channel, ...args);
-  }
-}
-
+// --------------------------------------------------------
+// Background Updates & IPC (Main App)
+// --------------------------------------------------------
 export function initAutoUpdater(win: BrowserWindow): void {
   targetWindow = win;
 
+  // 1. Register IPC handlers only once
   if (!ipcRegistered) {
     ipcRegistered = true;
-
-    autoUpdater.on('checking-for-update', () => {
-      logger.info('[auto-updater] Checking for update…');
-      send('update:checking');
-    });
-
+    
+    // Events -> Renderer
+    autoUpdater.on('checking-for-update', () => send('update:checking'));
     autoUpdater.on('update-available', (info) => {
-      logger.info(`[auto-updater] Update available: v${info.version}`);
-      cachedState = {
-        status: 'available',
-        version: info.version,
-        releaseDate: info.releaseDate ?? '',
-      };
-      send('update:available', {
-        version: info.version,
-        releaseDate: info.releaseDate,
-      });
+      cachedState = { status: 'available', version: info.version, releaseDate: info.releaseDate ?? '' };
+      send('update:available', cachedState);
     });
-
-    autoUpdater.on('update-not-available', () => {
-      logger.info('[auto-updater] App is up to date.');
-      send('update:not-available');
-    });
-
-    autoUpdater.on('download-progress', (progress) => {
-      send('update:progress', {
-        percent: progress.percent,
-        transferred: progress.transferred,
-        total: progress.total,
-        bytesPerSecond: progress.bytesPerSecond,
-      });
-    });
-
+    autoUpdater.on('update-not-available', () => send('update:not-available'));
+    autoUpdater.on('download-progress', (p) => send('update:progress', p));
     autoUpdater.on('update-downloaded', (info) => {
-      logger.info(`[auto-updater] Update downloaded: v${info.version}`);
-      cachedState = { status: 'downloaded', version: info.version };
+      cachedState = { status: 'downloaded', version: info.version, releaseDate: '' };
       send('update:downloaded', { version: info.version });
     });
+    autoUpdater.on('error', (err) => send('update:error', err.message));
 
-    autoUpdater.on('error', (err) => {
-      logger.error(`[auto-updater] Error: ${err.message}`);
-      send('update:error', err.message);
-    });
-
+    // Renderer -> Main
     ipcMain.handle('app:get-update-state', () => cachedState);
-
     ipcMain.handle('app:check-update', async () => {
-      if (!app.isPackaged) {
-        return { success: false, error: PACKAGED_ONLY_ERROR };
+      if (!app.isPackaged) return { success: false, error: PACKAGED_ONLY_ERROR };
+      configureAuth();
+      try {
+        await autoUpdater.checkForUpdates();
+        saveSettings({ lastUpdateCheckAt: Date.now() });
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : String(e) };
       }
-    configureAuth();
-    try {
-      await autoUpdater.checkForUpdates();
-      saveSettings({ lastUpdateCheckAt: Date.now() });
-      return { success: true };
-    } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : String(e) };
-    }
     });
-
     ipcMain.handle('app:download-update', async () => {
-      if (!app.isPackaged) {
-        return { success: false, error: PACKAGED_ONLY_ERROR };
-      }
+      if (!app.isPackaged) return { success: false, error: PACKAGED_ONLY_ERROR };
       try {
         await autoUpdater.downloadUpdate();
         return { success: true };
@@ -150,30 +88,27 @@ export function initAutoUpdater(win: BrowserWindow): void {
         return { success: false, error: e instanceof Error ? e.message : String(e) };
       }
     });
-
     ipcMain.handle('app:install-update', () => {
-      if (!app.isPackaged) {
-        return { success: false, error: PACKAGED_ONLY_ERROR };
-      }
+      if (!app.isPackaged) return { success: false, error: PACKAGED_ONLY_ERROR };
       autoUpdater.quitAndInstall(false, true);
       return { success: true };
     });
   }
 
+  // 2. Schedule background polling
   if (app.isPackaged && !scheduleStarted) {
     scheduleStarted = true;
-    const settings = loadSettings();
-    const lastCheck = settings.lastUpdateCheckAt ?? 0;
+    const runScheduledCheck = () => {
+      configureAuth();
+      autoUpdater.checkForUpdates().catch(() => {});
+      saveSettings({ lastUpdateCheckAt: Date.now() });
+      setTimeout(runScheduledCheck, getCheckIntervalMs());
+    };
+
+    const lastCheck = loadSettings().lastUpdateCheckAt ?? 0;
     const intervalMs = getCheckIntervalMs();
-    const msSinceLast = Date.now() - lastCheck;
-    const delayMs = msSinceLast >= intervalMs ? 15_000 : intervalMs - msSinceLast;
-
-    logger.info(
-      `[auto-updater] Next check in ${Math.round(delayMs / 60_000)} min ` +
-        `(interval: ${Math.round(intervalMs / 60_000)} min, ` +
-        `last check: ${lastCheck ? new Date(lastCheck).toISOString() : 'never'})`,
-    );
-
-    scheduleCheck(delayMs);
+    const delayMs = Math.max(15_000, intervalMs - (Date.now() - lastCheck));
+    
+    setTimeout(runScheduledCheck, delayMs);
   }
 }

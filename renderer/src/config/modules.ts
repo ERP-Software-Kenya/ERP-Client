@@ -75,17 +75,17 @@ export interface ModuleGroup {
 }
 
 export const MODULES: ModuleGroup[] = [
-  {
-    label: 'Dashboard',
-    icon: LayoutDashboard,
-    items: [
-      { key: 'dashboard', title: 'Main Dashboard', path: '/', icon: LayoutDashboard },
-      { key: 'dashboard-sales', title: 'Sales', path: '/dashboard/sales', icon: TrendingUp },
-      { key: 'dashboard-purchase', title: 'Purchase', path: '/dashboard/purchase', icon: ShoppingCart },
-      { key: 'dashboard-inventory', title: 'Inventory', path: '/dashboard/inventory', icon: Boxes },
-      { key: 'dashboard-warehouse', title: 'Warehouse', path: '/dashboard/warehouse', icon: Warehouse },
-    ],
-  },
+  // {
+  //   label: 'Dashboard',
+  //   icon: LayoutDashboard,
+  //   items: [
+  //     { key: 'dashboard', title: 'Main Dashboard', path: '/', icon: LayoutDashboard },
+  //     { key: 'dashboard-sales', title: 'Sales', path: '/dashboard/sales', icon: TrendingUp },
+  //     { key: 'dashboard-purchase', title: 'Purchase', path: '/dashboard/purchase', icon: ShoppingCart },
+  //     { key: 'dashboard-inventory', title: 'Inventory', path: '/dashboard/inventory', icon: Boxes },
+  //     { key: 'dashboard-warehouse', title: 'Warehouse', path: '/dashboard/warehouse', icon: Warehouse },
+  //   ],
+  // },
   {
     label: 'Sales',
     icon: ShoppingBag,

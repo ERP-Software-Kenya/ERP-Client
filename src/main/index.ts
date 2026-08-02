@@ -1,36 +1,15 @@
 import * as path from 'path';
-import { pathToFileURL } from 'url';
-import { app, BrowserWindow, Menu, net, protocol, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, Menu, ipcMain } from 'electron';
 import { version as APP_VERSION } from '../../package.json';
 import { initSettingsStore, loadSettings, saveSettings } from './settings-store';
 import { initAutoUpdater } from './auto-updater';
+import { startStaticServer, stopStaticServer, STATIC_SERVER_ORIGIN } from './static-server';
 
 // Keep dev and packaged on same AppData folder
 app.setName('Core ERP Client');
 
 let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development';
-
-// Stable origin for the packaged app (replaces file://, which has no origin Clerk/OAuth
-// can validate a redirect against and no working localStorage partition). Must be
-// registered before app 'ready'.
-const APP_SCHEME = 'app';
-protocol.registerSchemesAsPrivileged([
-  { scheme: APP_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } },
-]);
-
-function registerAppProtocol(): void {
-  const rendererDir = path.join(__dirname, '../renderer');
-  protocol.handle(APP_SCHEME, (request) => {
-    const { pathname } = new URL(request.url);
-    const filePath = path.join(rendererDir, decodeURIComponent(pathname));
-    const relative = path.relative(rendererDir, filePath);
-    if (relative.startsWith('..') || path.isAbsolute(relative)) {
-      return new Response('Forbidden', { status: 403 });
-    }
-    return net.fetch(pathToFileURL(filePath).toString());
-  });
-}
 
 // Single instance lock
 const gotLock = app.requestSingleInstanceLock();
@@ -114,7 +93,7 @@ async function createWindow(): Promise<void> {
     await mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    await mainWindow.loadURL(`${APP_SCHEME}://bundle/index.html`);
+    await mainWindow.loadURL(`${STATIC_SERVER_ORIGIN}/`);
   }
 
   mainWindow.on('closed', () => {
@@ -122,15 +101,26 @@ async function createWindow(): Promise<void> {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   initSettingsStore(app.getPath('userData'));
   registerAppIpc();
-  if (!isDev) registerAppProtocol();
+  if (!isDev) {
+    const rendererDir = path.join(__dirname, '../renderer');
+    try {
+      await startStaticServer(rendererDir);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      dialog.showErrorBox('Core ERP Client — Startup Error', message);
+      app.quit();
+      return;
+    }
+  }
   return createWindow();
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    stopStaticServer();
     app.quit();
   }
 });

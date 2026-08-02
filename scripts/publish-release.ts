@@ -1,12 +1,19 @@
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, rmSync } from 'fs';
 import { execSync } from 'child_process';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const envPath = resolve(root, '.env');
+const pkgPath = resolve(root, 'package.json');
 
-// Load .env manually — dotenv is a prod dep but this runs before build
+const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+
+console.log(`\n======================================================`);
+console.log(`🚀 Preparing to publish Core ERP Client v${pkg.version}`);
+console.log(`======================================================\n`);
+
+// 1. Manual dotenv parsing
 if (existsSync(envPath)) {
   for (const line of readFileSync(envPath, 'utf8').split('\n')) {
     const trimmed = line.trim();
@@ -19,29 +26,44 @@ if (existsSync(envPath)) {
   }
 }
 
+// 2. Validate GITHUB_DEPLOY_KEY
 const token = process.env.GITHUB_DEPLOY_KEY;
 if (!token) {
-  console.error('ERROR: GITHUB_DEPLOY_KEY not found in .env — cannot publish.');
+  console.error('❌ ERROR: GITHUB_DEPLOY_KEY not found in .env.');
+  console.error('   Please add GITHUB_DEPLOY_KEY=<your_github_pat> to your .env file.');
   process.exit(1);
 }
 
 if (token.includes('github_pat_key') || token === 'ghp_or_github_pat_here') {
-  console.error('ERROR: Replace the placeholder GITHUB_DEPLOY_KEY in .env with a real token.');
+  console.error('❌ ERROR: The GITHUB_DEPLOY_KEY in .env is a placeholder.');
+  console.error('   Please replace it with a real GitHub PAT (Personal Access Token) that has "Repo" scope.');
   process.exit(1);
 }
 
-// electron-builder reads GH_TOKEN for GitHub publishing
+// 3. Clean previous build artifacts
+console.log('🧹 Cleaning previous build artifacts (dist/, release/)');
+rmSync(resolve(root, 'dist'), { recursive: true, force: true });
+rmSync(resolve(root, 'release'), { recursive: true, force: true });
+
+// 4. Setup environment for electron-builder
 process.env.GH_TOKEN = token;
-// Skip code-signing discovery noise on unsigned builds
-process.env.CSC_IDENTITY_AUTO_DISCOVERY ??= 'false';
+process.env.CSC_IDENTITY_AUTO_DISCOVERY ??= 'false'; // Skip code signing auto-discovery on unsigned builds
 
-console.log('[publish] Using GITHUB_DEPLOY_KEY for GitHub Releases on HitarthSM/ERP-Client.');
-console.log('[publish] Building Windows NSIS only (no Snap Store).');
-console.log('[publish] Starting full build + publish pipeline…\n');
+console.log('✅ Token loaded. Starting build and package process...\n');
 
-// --win: Windows installer only. Without this, Linux hosts build .snap and try Snap Store.
-execSync('npm run build && electron-builder --win --x64 --publish always', {
-  stdio: 'inherit',
-  cwd: root,
-  env: process.env,
-});
+// 5. Execute build & publish
+try {
+  execSync('npm run build && electron-builder --win --x64 --publish always', {
+    stdio: 'inherit',
+    cwd: root,
+    env: process.env,
+  });
+  console.log(`\n🎉 Successfully published v${pkg.version} to GitHub Releases!`);
+  console.log(`   Don't forget to push your code and tags to the repository:`);
+  console.log(`   git commit -am "chore: release v${pkg.version}"`);
+  console.log(`   git tag v${pkg.version}`);
+  console.log(`   git push && git push --tags\n`);
+} catch (error) {
+  console.error('\n❌ Build or publish failed. Please check the logs above.');
+  process.exit(1);
+}
