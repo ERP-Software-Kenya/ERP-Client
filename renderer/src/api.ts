@@ -316,6 +316,13 @@ export function useCancelStockTransfer() {
   });
 }
 
+export function useUnpublishedStockList(params?: { locationId?: string; productId?: string }) {
+  return useQuery({
+    queryKey: ['unpublished-stock', 'list', params],
+    queryFn:  () => get<UnpublishedStock[]>('/api/v1/unpublished-stock', params),
+  });
+}
+
 export function useUnpublishedStock(id: string | undefined) {
   return useQuery({
     queryKey: ['unpublished-stock', id],
