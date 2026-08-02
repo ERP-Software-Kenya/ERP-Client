@@ -301,6 +301,7 @@ export default function ItemReturnsPage() {
         onRefetch={() => void refetch()}
         isAdmin={true}
         onAdd={openCreate}
+        addLabel="Process Return"
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}

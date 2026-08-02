@@ -138,6 +138,7 @@ export default function CategoriesPage() {
         searchPlaceholder="Search categories…"
         isAdmin={true}
         onAdd={openCreate}
+        addLabel="Define Category"
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}

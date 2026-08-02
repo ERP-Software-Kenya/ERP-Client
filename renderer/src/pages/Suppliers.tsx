@@ -117,6 +117,7 @@ export default function SuppliersPage() {
         searchPlaceholder="Search suppliers…"
         isAdmin={true}
         onAdd={openCreate}
+        addLabel="Register Supplier"
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}

@@ -134,6 +134,7 @@ export default function CustomersPage() {
         footerNote="Showing first page of results — refine filters/search; server pagination pending"
         isAdmin={true}
         onAdd={openCreate}
+        addLabel="Register Customer"
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
