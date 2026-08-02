@@ -30,7 +30,7 @@ const configureAuth = () => {
   const token = loadSettings().githubToken || process.env.ERP_CLIENT_APP_UPDATE_KEY || process.env.GH_TOKEN || null;
   autoUpdater.setFeedURL({
     provider: 'github',
-    owner: 'HitarthSM',
+    owner: 'ERP-Software-Kenya',
     repo: 'ERP-Client',
     private: false,
     ...(token ? { token } : {}),
