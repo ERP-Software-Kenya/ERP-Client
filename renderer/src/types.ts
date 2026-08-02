@@ -185,15 +185,47 @@ export interface Supplier {
   updated_at?: string;
 }
 
-// Verified 2026-07-31 (local core-apis): response/domain only id+name(+dates).
-// Entity has storeId/supplierId/poNumber/totalAmount but create persists `{ name }`
-// only and entity has no `name` column — create always fails. See #0.
+export type PurchaseOrderStatus = 'draft' | 'ordered' | 'partially_received' | 'received' | 'cancelled';
+
 export interface PurchaseOrder {
   id: string;
-  name?: string;
+  organizationId?: string;
+  locationId?: string;
+  supplierId?: string;
+  createdById?: string;
+  poNumber?: string;
+  status?: PurchaseOrderStatus;
+  expectedAt?: string;
+  receivedAt?: string;
+  totalAmount?: number;
+  notes?: string;
   createdAt?: string;
   updatedAt?: string;
-  created_at?: string;
+}
+
+export interface CreatePurchaseOrderItemInput {
+  productId: string;
+  quantityOrdered: number;
+  unitCost: number;
+}
+
+export interface CreatePurchaseOrderInput {
+  locationId: string;
+  supplierId: string;
+  expectedAt?: string;
+  notes?: string;
+  items: CreatePurchaseOrderItemInput[];
+}
+
+export interface ReceivePurchaseOrderItemInput {
+  purchaseItemId: string;
+  quantityReceived: number;
+}
+
+export interface ReceivePurchaseOrderInput {
+  locationId: string;
+  items: ReceivePurchaseOrderItemInput[];
+  notes?: string;
 }
 
 /** Sales bill lifecycle — matches core-apis EBillStatus. */
@@ -453,16 +485,16 @@ export interface Expense {
   createdAt?: string;
 }
 
-// Verified 2026-07-28 directly against core-apis source (purchase-item.entity.ts):
-// CreatePurchaseItemRequest sends quantity/unitPrice, but the entity's real NOT-NULL
-// columns are quantityOrdered/unitCost with no default — every create fails on the
-// backend with a NOT NULL violation. This is a real backend bug, not a client fix.
 export interface PurchaseItem {
   id: string;
   purchaseOrderId?: string;
   productId?: string;
-  quantity?: number;
-  unitPrice?: number;
+  quantityOrdered?: number;
+  quantityReceived?: number;
+  unitCost?: number;
+  totalCost?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export const ACTIVITY_LOG_ACTIONS = [

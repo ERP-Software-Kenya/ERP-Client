@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Banknote,
   Check,
+  ChevronDown,
   CreditCard,
   Mail,
   Minus,
@@ -14,21 +15,26 @@ import {
   Receipt,
   Scan,
   ShoppingCart,
-  Store as StoreIcon,
   Trash2,
   User,
   X,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Customers,
   Inventory,
   Locations,
   Products,
-  Stores,
   Suppliers,
 } from "../../api";
-import type { Customer, Location, Product, Store, Supplier } from "../../types";
+import type { Customer, Location, Product, Supplier } from "../../types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatEntityLabel } from "../../lib/entityLabel";
 import {
@@ -84,12 +90,6 @@ function lineTax(l: BillLine) {
 }
 function lineTotal(l: BillLine) {
   return l.qty * l.rate + lineTax(l);
-}
-
-function storeOrgId(store: Store | undefined): string | undefined {
-  if (!store) return undefined;
-  const s = store as Store & { organizationId?: string };
-  return s.organizationId ?? store.organization_id;
 }
 
 function productRate(p: Product, mode: Mode): number {
@@ -215,7 +215,7 @@ function BillSuccessModal({
               >
                 {receipt.mode === "sales"
                   ? "Sale complete"
-                  : "Receiving complete"}
+                  : "Purchase order created"}
               </h2>
               <p className="mt-0.5 font-mono text-xs text-muted-foreground truncate">
                 {receipt.ref}
@@ -281,7 +281,7 @@ function BillSuccessModal({
             onClick={onClose}
             className="flex-[1.4] rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
           >
-            {receipt.mode === "sales" ? "New sale" : "New receiving"}
+            {receipt.mode === "sales" ? "New sale" : "New purchase order"}
           </button>
         </div>
       </div>
@@ -290,9 +290,10 @@ function BillSuccessModal({
 }
 
 export default function POSTerminal() {
-  const [mode, setMode] = useState<Mode>("sales");
-  const [storeId, setStoreId] = useState("");
-  /** Stock ops use Locations (not Stores). */
+  const [searchParams] = useSearchParams();
+  const [mode, setMode] = useState<Mode>(
+    searchParams.get("mode") === "purchase" ? "purchase" : "sales",
+  );
   const [locationId, setLocationId] = useState("");
   const [lines, setLines] = useState<BillLine[]>([]);
   const [searchVal, setSearchVal] = useState("");
@@ -321,7 +322,6 @@ export default function POSTerminal() {
 
   const debouncedCustomerInfo = useDebounce(customerInfo, 300);
 
-  const { data: stores = [], isLoading: storesLoading } = Stores.useList();
   const { data: locations = [], isLoading: locationsLoading } =
     Locations.useList();
   const { data: inventory = [] } = Inventory.useList();
@@ -351,35 +351,15 @@ export default function POSTerminal() {
   }, [mode]);
 
   useEffect(() => {
-    if (!storeId && stores.length > 0) setStoreId(stores[0].id);
-  }, [stores, storeId]);
-
-  const store = useMemo(
-    () => stores.find((s) => s.id === storeId),
-    [stores, storeId],
-  );
-  const orgId = storeOrgId(store);
-
-  // Prefer a Location whose name matches the selected Store; else first location.
-  useEffect(() => {
-    if (locations.length === 0) return;
-    const match = store
-      ? locations.find(
-          (l) =>
-            l.name.trim().toLowerCase() === store.name.trim().toLowerCase(),
-        )
-      : undefined;
-    const next = match?.id ?? locations[0].id;
-    setLocationId((prev) => {
-      if (prev && locations.some((l) => l.id === prev) && !match) return prev;
-      return next;
-    });
-  }, [locations, store]);
+    if (locations.length === 0 || locationId) return;
+    setLocationId(locations[0].id);
+  }, [locations, locationId]);
 
   const stockLocation = useMemo(
     () => locations.find((l: Location) => l.id === locationId),
     [locations, locationId],
   );
+  const orgId = stockLocation?.organizationId;
 
   const suggestions: Product[] = useMemo(() => {
     if (!searchVal.trim()) return [];
@@ -425,14 +405,6 @@ export default function POSTerminal() {
   const handleAddBtn = () => {
     if (suggestions.length === 1) addProduct(suggestions[0]);
     else if (suggestions.length > 0) addProduct(suggestions[0]);
-  };
-
-  const updateQty = (id: number, delta: number) => {
-    setLines((ls) =>
-      ls.map((l) =>
-        l.id === id ? { ...l, qty: Math.max(1, l.qty + delta) } : l,
-      ),
-    );
   };
 
   const removeLine = (id: number) =>
@@ -515,8 +487,7 @@ export default function POSTerminal() {
       const result =
         mode === "sales"
           ? await runSalesCheckout({
-              storeId,
-              storeName: store?.name,
+              storeName: stockLocation?.name,
               locationId: locationId || undefined,
               locationName: stockLocation?.name,
               inventory,
@@ -532,9 +503,8 @@ export default function POSTerminal() {
               totalAmount: grandTotal,
             })
           : await runPurchaseCheckout({
-              storeId,
-              storeName: store?.name,
-              locationId: locationId || undefined,
+              locationId,
+              storeName: stockLocation?.name,
               locationName: stockLocation?.name,
               inventory,
               orgId,
@@ -584,45 +554,36 @@ export default function POSTerminal() {
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        <div className="flex items-center gap-2">
-          <StoreIcon size={15} className="text-muted-foreground" />
-          <select
-            value={storeId}
-            onChange={(e) => setStoreId(e.target.value)}
-            title="Store (orders / org)"
-            className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-card text-foreground font-medium focus:outline-none focus:border-primary max-w-[180px]"
-          >
-            {storesLoading && <option value="">Loading stores…</option>}
-            {!storesLoading && stores.length === 0 && (
-              <option value="">No stores</option>
-            )}
-            {stores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Package size={15} className="text-muted-foreground" />
-          <select
-            value={locationId}
-            onChange={(e) => setLocationId(e.target.value)}
-            title="Stock location (inventory)"
-            className="text-sm border border-border rounded-lg px-2.5 py-1.5 bg-card text-foreground font-medium focus:outline-none focus:border-primary max-w-[200px]"
-          >
-            {locationsLoading && <option value="">Loading locations…</option>}
-            {!locationsLoading && locations.length === 0 && (
-              <option value="">No locations</option>
-            )}
-            {locations.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.type ? `${l.name} (${l.type})` : l.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              disabled={locationsLoading}
+              className="flex items-center gap-2 text-sm border border-border rounded-lg px-2.5 py-1.5 bg-card text-foreground font-medium focus:outline-none focus:border-primary max-w-[220px] disabled:opacity-50"
+            >
+              <Package size={15} className="text-muted-foreground flex-shrink-0" />
+              <span className="truncate">
+                {locationsLoading
+                  ? "Loading…"
+                  : stockLocation
+                    ? `${stockLocation.name} (${stockLocation.type.charAt(0).toUpperCase() + stockLocation.type.slice(1)})`
+                    : locations.length === 0
+                      ? "No locations"
+                      : "Select location"}
+              </span>
+              <ChevronDown size={13} className="text-muted-foreground flex-shrink-0 ml-1" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+            <DropdownMenuRadioGroup value={locationId} onValueChange={setLocationId}>
+              {locations.map((l) => (
+                <DropdownMenuRadioItem key={l.id} value={l.id}>
+                  {l.name} ({l.type.charAt(0).toUpperCase() + l.type.slice(1)})
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
           <span
@@ -766,18 +727,30 @@ export default function POSTerminal() {
               <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
                 Supplier
               </p>
-              <select
-                value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:border-orange-400 bg-card"
-              >
-                <option value="">— Select Supplier —</option>
-                {suppliers.map((s: Supplier) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between gap-2 text-sm border border-border rounded-lg px-3 py-2 bg-card text-foreground font-medium focus:outline-none focus:border-orange-400"
+                  >
+                    <span className="truncate">
+                      {supplierId
+                        ? (suppliers.find((s: Supplier) => s.id === supplierId)?.name ?? "Select Supplier")
+                        : "— Select Supplier —"}
+                    </span>
+                    <ChevronDown size={13} className="text-muted-foreground flex-shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-full max-h-64 overflow-y-auto">
+                  <DropdownMenuRadioGroup value={supplierId} onValueChange={setSupplierId}>
+                    {suppliers.map((s: Supplier) => (
+                      <DropdownMenuRadioItem key={s.id} value={s.id}>
+                        {s.name}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
 
@@ -801,7 +774,7 @@ export default function POSTerminal() {
                 <PackagePlus size={16} className="text-orange-500" />
               )}
               <span className="font-semibold text-foreground">
-                {mode === "sales" ? "Current Sale" : "Receiving List"}
+                {mode === "sales" ? "Current Sale" : "Purchase Order Items"}
               </span>
               {lines.length > 0 && (
                 <span
@@ -841,7 +814,7 @@ export default function POSTerminal() {
                 <p className="text-sm font-medium text-muted-foreground">
                   {mode === "sales"
                     ? "Search or scan a product to start a sale"
-                    : "Search a product to add to the receiving list"}
+                    : "Search a product to add to the purchase order"}
                 </p>
               </div>
             ) : (
@@ -933,26 +906,8 @@ export default function POSTerminal() {
                         )}
                       </td>
                       <td className="px-3 py-3">
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => updateQty(line.id, -1)}
-                            className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted text-muted-foreground"
-                          >
-                            <Minus size={11} />
-                          </button>
-                          <span className="w-8 text-center font-semibold text-foreground">
-                            {line.qty}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateQty(line.id, 1)}
-                            className="w-6 h-6 rounded border border-border flex items-center justify-center hover:bg-muted text-muted-foreground"
-                          >
-                            <Plus size={11} />
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground mt-0.5 pl-0.5">
+                        <span className="font-semibold text-foreground">{line.qty}</span>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
                           {line.unitLabel}
                         </p>
                       </td>
@@ -1036,7 +991,7 @@ export default function POSTerminal() {
         <div className="w-72 flex-shrink-0 bg-card border-l border-border flex flex-col">
           <div className="px-5 py-4 border-b border-border">
             <p className="text-xs font-semibold text-muted-foreground uppercase">
-              {mode === "sales" ? "Checkout" : "Receiving Summary"}
+              {mode === "sales" ? "Checkout" : "Order Summary"}
             </p>
           </div>
 
@@ -1220,12 +1175,11 @@ export default function POSTerminal() {
 
             <div className={`rounded-xl p-3 border text-xs ${accentCls.light}`}>
               <div className="flex items-center gap-1.5 font-semibold mb-0.5">
-                <StoreIcon size={12} />
-                {mode === "sales" ? "Bill stock location" : "Stock added to"}
+                <Package size={12} />
+                {mode === "sales" ? "Bill stock location" : "Ordered for location"}
               </div>
               <p className="text-muted-foreground ml-4">
-                {stockLocation?.name ?? "Select a stock location"}
-                {store?.name ? ` · store: ${store.name}` : ""}
+                {stockLocation?.name ?? "Select a location from the top bar"}
               </p>
             </div>
           </div>
@@ -1238,7 +1192,8 @@ export default function POSTerminal() {
                 lines.length === 0 ||
                 checkingOut ||
                 cashShort ||
-                (mode === "sales" && !locationId)
+                (mode === "sales" && !locationId) ||
+                (mode === "purchase" && !supplierId)
               }
               className={`w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed ${accentCls.btn}`}
             >
@@ -1251,7 +1206,7 @@ export default function POSTerminal() {
                 ? "Processing…"
                 : mode === "sales"
                   ? "Complete Sale"
-                  : "Confirm Bill"}
+                  : "Create Purchase Order"}
             </button>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -1262,8 +1217,8 @@ export default function POSTerminal() {
                   lastReceipt || success
                     ? "Print last receipt"
                     : mode === "sales"
-                      ? "Generate an invoice first"
-                      : "Confirm a bill first"
+                      ? "Complete a sale first"
+                      : "Create a purchase order first"
                 }
                 className="flex items-center justify-center gap-1.5 py-2 border border-border rounded-xl text-xs text-muted-foreground hover:bg-muted transition disabled:opacity-40 disabled:cursor-not-allowed"
               >

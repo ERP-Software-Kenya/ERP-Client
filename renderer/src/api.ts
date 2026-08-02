@@ -12,6 +12,7 @@ import type {
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
   Country, State, City,
+  CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -21,7 +22,43 @@ export const Stores = createResource<Store>('/api/v1/stores', 'stores', 'Store')
 export const Categories = createResource<Category>('/api/v1/categories', 'categories', 'Category');
 export const Products = createResource<Product>('/api/v1/products', 'products', 'Product');
 export const Suppliers = createResource<Supplier>('/api/v1/suppliers', 'suppliers', 'Supplier');
-export const PurchaseOrders = createResource<PurchaseOrder>('/api/v1/purchase-orders', 'purchase-orders', 'Purchase order');
+const purchaseOrdersBase = createResource<PurchaseOrder>('/api/v1/purchase-orders', 'purchase-orders', 'Purchase order');
+
+export const PurchaseOrders = {
+  ...purchaseOrdersBase,
+  useCreatePO() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: CreatePurchaseOrderInput) =>
+        post<PurchaseOrder>('/api/v1/purchase-orders', body),
+      onSuccess: () => {
+        toast.success('Purchase order created');
+        queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to create purchase order'),
+    });
+  },
+  useGetItems(purchaseOrderId: string | undefined) {
+    return useQuery({
+      queryKey: ['purchase-items', 'by-order', purchaseOrderId],
+      queryFn: () => get<PurchaseItem[]>(`/api/v1/purchase-items/by-order/${purchaseOrderId as string}`),
+      enabled: !!purchaseOrderId,
+    });
+  },
+  useReceive() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: ReceivePurchaseOrderInput }) =>
+        post<PurchaseOrder>(`/api/v1/purchase-orders/${id}/receive`, body),
+      onSuccess: () => {
+        toast.success('Purchase order received');
+        queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to receive purchase order'),
+    });
+  },
+};
 
 const billsBase = createResource<Bill>('/api/v1/bills', 'bills', 'Bill');
 

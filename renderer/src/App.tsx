@@ -24,6 +24,7 @@ const Categories = lazy(() => import('./pages/Categories'));
 const Suppliers = lazy(() => import('./pages/Suppliers'));
 const PurchaseOrders = lazy(() => import('./pages/PurchaseOrders'));
 const PurchaseOrderDetail = lazy(() => import('./pages/PurchaseOrderDetail'));
+const PurchaseOrderReceive = lazy(() => import('./pages/PurchaseOrderReceive'));
 const Bills = lazy(() => import('./pages/Bills'));
 const BillDetail = lazy(() => import('./pages/BillDetail'));
 const PaymentTransactions = lazy(() => import('./pages/PaymentTransactions'));
@@ -89,6 +90,7 @@ function App() {
             <Route path="suppliers" element={<Suppliers />} />
             <Route path="purchase-orders" element={<PurchaseOrders />} />
             <Route path="purchase-orders/:id" element={<PurchaseOrderDetail />} />
+            <Route path="purchase-orders/:id/receive" element={<PurchaseOrderReceive />} />
             <Route path="dashboard/purchase" element={<PurchaseDashboard />} />
             <Route path="dashboard/inventory" element={<InventoryDashboard />} />
             <Route path="dashboard/warehouse" element={<WarehouseDashboard />} />
