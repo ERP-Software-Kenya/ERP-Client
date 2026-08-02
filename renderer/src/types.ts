@@ -331,7 +331,7 @@ export interface ItemReturn {
   status?: string;
   totalAmount?: number;
   returnType?: 'sales' | 'purchase';
-  storeId?: string;
+  locationId?: string;
   orderId?: string;
   supplierId?: string;
   createdAt?: string;
@@ -426,21 +426,21 @@ export interface ProductLog {
 export interface StockTransfer {
   id: string;
   organizationId: string;
-  fromStoreId: string;
-  toStoreId: string;
+  fromLocationId: string;
+  toLocationId: string;
   transferNumber: string;
   status?: string;
 }
 
 // Verified 2026-07-26 against core-apis's OrderResponse/CreateOrderRequest source
 // directly — camelCase, matches the entity well. OrderEntity has no organizationId
-// column (tenancy flows through storeId -> store -> org). The real blocker for
+// column (tenancy flows through locationId -> location -> org). The real blocker for
 // create is that customerId (required) has no valid value to test with, because
 // Customers create is broken separately (see Customer below). See Orders.tsx.
 export interface Order {
   id: string;
   orderNumber?: string;
-  storeId?: string;
+  locationId?: string;
   customerId?: string;
   status?: string;
   subtotal?: number;
@@ -477,7 +477,7 @@ export interface Customer {
 export interface Expense {
   id: string;
   organizationId?: string;
-  storeId?: string;
+  locationId?: string;
   category?: string;
   amount?: number;
   expenseDate?: string;
@@ -535,7 +535,7 @@ export interface UserRole {
   id: string;
   userId?: string;
   roleId?: string;
-  storeId?: string;
+  locationId?: string;
   createdAt?: string;
 }
 
@@ -552,7 +552,7 @@ export interface PlatformConfiguration {
 export interface PlatformUser {
   id: string;
   organizationId?: string;
-  storeId?: string;
+  locationId?: string;
   email?: string;
   passwordHash?: string;
   firstName?: string;

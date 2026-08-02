@@ -7,14 +7,14 @@ import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { Expenses, Organizations, Stores, get } from '../api';
+import { Expenses, Locations, Organizations, get } from '../api';
 import { formatEntityLabel } from '../lib/entityLabel';
 import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
 import type { Expense } from '../types';
 
 interface FormState {
   organizationId: string;
-  storeId: string;
+  locationId: string;
   category: string;
   amount: string;
   expenseDate: string;
@@ -23,7 +23,7 @@ interface FormState {
 
 const EMPTY_FORM: FormState = {
   organizationId: '',
-  storeId: '',
+  locationId: '',
   category: '',
   amount: '',
   expenseDate: '',
@@ -120,7 +120,7 @@ export default function ExpensesPage() {
     createMutation.mutate(
       {
         organizationId: form.organizationId || undefined,
-        storeId: form.storeId || undefined,
+        locationId: form.locationId || undefined,
         category: form.category || undefined,
         amount: form.amount ? Number(form.amount) : undefined,
         expenseDate: form.expenseDate ? new Date(form.expenseDate).toISOString() : undefined,
@@ -289,13 +289,13 @@ export default function ExpensesPage() {
               placeholder="Select organization…"
             />
           </Field>
-          <Field label="Store (optional)">
+          <Field label="Location (optional)">
             <ResourceSelect
-              resource={Stores}
+              resource={Locations}
               getLabel={(s) => s.name}
-              value={form.storeId}
-              onValueChange={(v) => setForm({ ...form, storeId: v })}
-              placeholder="Select store…"
+              value={form.locationId}
+              onValueChange={(v) => setForm({ ...form, locationId: v })}
+              placeholder="Select location…"
               allowNone
             />
           </Field>

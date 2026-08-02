@@ -45,7 +45,6 @@ import {
   ShoppingBag,
   ShoppingCart,
   SlidersHorizontal,
-  Store,
   Tag,
   Tags,
   TrendingUp,
@@ -142,7 +141,6 @@ export const MODULES: ModuleGroup[] = [
     icon: Warehouse,
     items: [
       { key: 'warehouses', title: 'Warehouses', path: '/warehouse', icon: Building },
-      { key: 'stores', title: 'Stores', path: '/stores', icon: Store },
       // { key: 'warehouse-grn', title: 'GRN', path: '/warehouse/grn', icon: PackagePlus, disabled: true },
       // { key: 'gin', title: 'GIN', path: '/warehouse/gin', icon: PackageMinus, disabled: true },
     ],
