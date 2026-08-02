@@ -1,29 +1,77 @@
 import { useMemo, useState } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
-import { AdvancedIdLookup } from '../components/AdvancedIdLookup';
-import { RecentRecords } from '../components/RecentRecords';
+import {
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Copy,
+  HelpCircle,
+  Loader2,
+  PackagePlus,
+  Send,
+  Sparkles,
+} from 'lucide-react';
+import { GuideModal, type GuideStep } from '../components/GuideModal';
 import { ResourceSelect } from '../components/ResourceSelect';
-import { SimpleTable } from '../components/SimpleTable';
+import { Field } from '../components/FormDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import {
   Locations,
   Products,
+  useUnpublishedStockList,
   useUnpublishedStock,
   useUnpublishedStockMovements,
   useAddUnpublishedStock,
   usePublishUnpublishedStock,
   get,
 } from '../api';
-import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
 import { formatEntityLabel } from '../lib/entityLabel';
-import type { UnpublishedStock, UnpublishedStockMovement } from '../types';
+import type { UnpublishedStock, UnpublishedStockMovement, PlatformUser } from '../types';
+
+const GUIDE_KEY = 'guide-unpublished-stock-v2';
+
+const GUIDE_STEPS: GuideStep[] = [
+  {
+    icon: <PackagePlus size={16} />,
+    title: 'Add staging stock',
+    description: 'Fill in the product, location, and quantity. The stock is staged for review — not yet live.',
+  },
+  {
+    icon: <ChevronRight size={16} />,
+    title: 'Select a record from the list',
+    description: 'All unpublished records for your organisation appear on the right. Click any row to select it.',
+  },
+  {
+    icon: <Send size={16} />,
+    title: 'Publish to live inventory',
+    description: 'Once selected, confirm the quantity and publish to make the stock available in main inventory.',
+  },
+];
+
+const MOVEMENT_COLORS: Record<string, string> = {
+  add: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  remove: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  publish: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  adjust: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+};
+
+function MovementBadge({ type }: { type: string }) {
+  const key = type.toLowerCase().replace(/-/g, '_');
+  const color = MOVEMENT_COLORS[key] ?? MOVEMENT_COLORS[type.toLowerCase()] ?? 'bg-muted text-muted-foreground';
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${color}`}>
+      {type}
+    </span>
+  );
+}
 
 interface AddForm {
-  locationId: string;
   productId: string;
+  locationId: string;
   quantity: string;
   unitCost: string;
   notes: string;
@@ -34,74 +82,51 @@ interface PublishForm {
   notes: string;
 }
 
-/** Local hint after add — API returns no id, so we remember what was staged. */
-interface PendingAdd {
-  locationId: string;
+interface LastAdded {
   productId: string;
+  locationId: string;
   quantity: number;
-  at: number;
 }
 
-const EMPTY_ADD: AddForm = { locationId: '', productId: '', quantity: '', unitCost: '', notes: '' };
+const EMPTY_ADD: AddForm = { productId: '', locationId: '', quantity: '', unitCost: '', notes: '' };
 const EMPTY_PUBLISH: PublishForm = { quantity: '', notes: '' };
 
 export default function UnpublishedStockPage() {
-  const recent = useRecentIds(RECENT_NS.unpublishedStock);
+  const [guideOpen, setGuideOpen] = useState(() => !localStorage.getItem(GUIDE_KEY));
+
+  const [addForm, setAddForm] = useState<AddForm>(EMPTY_ADD);
+  const [lastAdded, setLastAdded] = useState<LastAdded | null>(null);
+
+  const [filterLocationId, setFilterLocationId] = useState('');
+  const [filterProductId, setFilterProductId] = useState('');
 
   const [activeId, setActiveId] = useState<string | undefined>();
-  const [lookupId, setLookupId] = useState('');
-  const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState<AddForm>(EMPTY_ADD);
   const [publishForm, setPublishForm] = useState<PublishForm>(EMPTY_PUBLISH);
-  const [pending, setPending] = useState<PendingAdd | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
-  const { data: record, isLoading, error, refetch } = useUnpublishedStock(activeId);
+  const { data: stagingList, isLoading: listLoading } = useUnpublishedStockList({
+    locationId: filterLocationId || undefined,
+    productId: filterProductId || undefined,
+  });
+  const { data: record, isLoading: recordLoading } = useUnpublishedStock(activeId);
   const { data: movements, isLoading: movLoading } = useUnpublishedStockMovements(activeId);
   const addMutation = useAddUnpublishedStock();
   const publishMutation = usePublishUnpublishedStock();
 
   const { data: products } = Products.useList();
   const { data: locations } = Locations.useList();
-  const productLabel = useMemo(() => {
+
+  const productMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of products ?? []) {
-      m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
-    }
+    for (const p of products ?? []) m.set(p.id, p.name);
     return m;
   }, [products]);
-  const locationLabel = useMemo(() => {
+
+  const locationMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const l of locations ?? []) {
-      m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
-    }
+    for (const l of locations ?? []) m.set(l.id, l.name);
     return m;
   }, [locations]);
-
-  const recentQueries = useQueries({
-    queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
-      queryKey: ['unpublished-stock', e.id] as const,
-      queryFn: () => get<UnpublishedStock>(`/api/v1/unpublished-stock/${e.id}`),
-      staleTime: 60_000,
-      retry: false,
-    })),
-  });
-
-  const listRows = useMemo(() => {
-    return recent.entries.map((e, i) => {
-      const q = i < HYDRATE_LIMIT ? recentQueries[i] : undefined;
-      const data = q?.data;
-      return {
-        id: e.id,
-        label: e.label,
-        savedAt: e.savedAt,
-        productId: data?.productId,
-        locationId: data?.locationId,
-        quantityOnHand: data?.quantityOnHand,
-        loading: q?.isLoading ?? false,
-        failed: !!q?.isError,
-      };
-    });
-  }, [recent.entries, recentQueries]);
 
   const sortedMovements = useMemo(() => {
     const rows = [...(movements ?? [])];
@@ -113,76 +138,80 @@ export default function UnpublishedStockPage() {
     return rows;
   }, [movements]);
 
-  const step = !pending && !activeId ? 1 : pending && !activeId ? 2 : 3;
+  const uniqueUserIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const m of sortedMovements) if (m.performedById) ids.add(m.performedById);
+    return [...ids];
+  }, [sortedMovements]);
 
-  const loadById = (id: string) => {
-    const trimmed = id.trim();
-    if (!trimmed) {
-      toast.error('Enter an unpublished stock record ID');
-      return;
-    }
-    setActiveId(trimmed);
-    setLookupId(trimmed);
-    recent.push(trimmed);
-  };
+  const userQueries = useQueries({
+    queries: uniqueUserIds.map((id) => ({
+      queryKey: ['users', id] as const,
+      queryFn: () => get<PlatformUser>(`/api/v1/users/${id}`),
+      staleTime: 300_000,
+      retry: false,
+    })),
+  });
 
-  const submitAdd = (e: React.FormEvent) => {
+  const userMap = useMemo(() => {
+    const m = new Map<string, string>();
+    uniqueUserIds.forEach((id, idx) => {
+      const data = userQueries[idx]?.data;
+      if (data) {
+        const name = [data.firstName, data.lastName].filter(Boolean).join(' ') || data.email || id;
+        m.set(id, name);
+      }
+    });
+    return m;
+  }, [uniqueUserIds, userQueries]);
+
+  const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!addForm.locationId || !addForm.productId || !addForm.quantity) {
-      toast.error('Location, product, and quantity are required');
+    if (!addForm.productId || !addForm.locationId || !addForm.quantity) {
+      toast.error('Product, location, and quantity are required');
       return;
     }
     const qty = Number(addForm.quantity);
     addMutation.mutate(
       {
+        productId:  addForm.productId,
         locationId: addForm.locationId,
-        productId: addForm.productId,
-        quantity: qty,
-        unitCost: addForm.unitCost ? Number(addForm.unitCost) : undefined,
-        notes: addForm.notes || undefined,
+        quantity:   qty,
+        unitCost:   addForm.unitCost ? Number(addForm.unitCost) : undefined,
+        notes:      addForm.notes || undefined,
       },
       {
         onSuccess: () => {
-          setPending({
-            locationId: addForm.locationId,
-            productId: addForm.productId,
-            quantity: qty,
-            at: Date.now(),
-          });
+          setLastAdded({ productId: addForm.productId, locationId: addForm.locationId, quantity: qty });
           setPublishForm({ quantity: String(qty), notes: '' });
-          setAddOpen(false);
           setAddForm(EMPTY_ADD);
-          setActiveId(undefined);
-          toast.success('Staging stock added — load its record ID from Advanced to publish (API returns no ID)');
+          toast.success('Staging stock added — select it from the list on the right to publish');
         },
         onError: (err: Error) => toast.error(err.message || 'Failed to add staging stock'),
       },
     );
   };
 
-  const submitPublish = (e: React.FormEvent) => {
+  const handleSelectRecord = (item: UnpublishedStock) => {
+    setActiveId(item.id);
+    setPublishForm({ quantity: String(item.quantityOnHand), notes: '' });
+    setShowHistory(false);
+  };
+
+  const handlePublish = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!record) {
-      toast.error('Load a record first');
-      return;
-    }
+    if (!record) { toast.error('Select a record first'); return; }
     const qty = Number(publishForm.quantity || record.quantityOnHand);
-    if (!qty || Number.isNaN(qty)) {
-      toast.error('Quantity is required');
-      return;
-    }
+    if (!qty || Number.isNaN(qty)) { toast.error('Quantity is required'); return; }
     publishMutation.mutate(
-      {
-        unpublishedStockId: record.id,
-        quantity: qty,
-        notes: publishForm.notes || undefined,
-      },
+      { unpublishedStockId: record.id, quantity: qty, notes: publishForm.notes || undefined },
       {
         onSuccess: () => {
+          toast.success('Published to live inventory');
           setPublishForm(EMPTY_PUBLISH);
-          setPending(null);
-          void refetch();
-          toast.success('Published to inventory');
+          setLastAdded(null);
+          setActiveId(undefined);
+          setShowHistory(false);
         },
         onError: (err: Error) => toast.error(err.message || 'Failed to publish'),
       },
@@ -190,278 +219,380 @@ export default function UnpublishedStockPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <GuideModal
+        open={guideOpen}
+        onClose={() => { localStorage.setItem(GUIDE_KEY, '1'); setGuideOpen(false); }}
+        title="Welcome to Unpublished Stock"
+        description="Stage new stock for review before making it live. Follow the three steps below."
+        steps={GUIDE_STEPS}
+        tip="All staged records for your organisation are listed on the right. Click any row to select it and publish."
+      />
+
+      {/* Page header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Unpublished stock</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Unpublished Stock</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Stage → load record → publish. Core API add returns void and has no list; Recent is this
-            browser only.
+            Stage stock for review before publishing it to live inventory.
           </p>
         </div>
-        <Button onClick={() => setAddOpen(true)}>1. Add staging stock</Button>
+        <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)} className="gap-1.5">
+          <HelpCircle size={15} />
+          Guide
+        </Button>
       </div>
 
-      <div className="flex flex-wrap gap-2 text-xs">
-        {[
-          { n: 1, label: 'Add staging' },
-          { n: 2, label: 'Load record' },
-          { n: 3, label: 'Publish' },
-        ].map((s) => (
-          <span
-            key={s.n}
-            className={`rounded-md border px-2.5 py-1 ${
-              step === s.n
-                ? 'border-primary bg-primary/10 text-primary font-semibold'
-                : step > s.n
-                  ? 'border-border text-muted-foreground'
-                  : 'border-dashed border-border text-muted-foreground/70'
-            }`}
-          >
-            {s.n}. {s.label}
-          </span>
-        ))}
-      </div>
+      {/* Two-column layout */}
+      <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
 
-      {pending && !activeId && (
-        <FormSection title="2. Load the staged record to continue">
-          <p className="mb-3 text-sm text-muted-foreground">
-            Just staged{' '}
-            <span className="text-foreground font-medium">
-              {pending.quantity} ×{' '}
-              {productLabel.get(pending.productId) ?? formatEntityLabel({ id: pending.productId })}
-            </span>{' '}
-            at {locationLabel.get(pending.locationId) ?? formatEntityLabel({ id: pending.locationId })}. The API
-            did not return an ID, so load the record from Advanced when one is available.
-          </p>
-          <Button type="button" variant="ghost" size="sm" onClick={() => setPending(null)}>
-            Dismiss hint
-          </Button>
-        </FormSection>
-      )}
-
-      <RecentRecords
-        title="Recent records"
-        emptyHint="No recent records yet. Load a record from Advanced and it will appear here."
-        rows={listRows}
-        columns={[
-          {
-            key: 'product',
-            header: 'Product',
-            render: (r) =>
-              r.loading ? '…' : productLabel.get(r.productId ?? '') ?? formatEntityLabel({ id: r.productId }),
-          },
-          {
-            key: 'location',
-            header: 'Location',
-            render: (r) =>
-              r.loading ? '…' : locationLabel.get(r.locationId ?? '') ?? formatEntityLabel({ id: r.locationId }),
-          },
-          {
-            key: 'qty',
-            header: 'On hand',
-            render: (r) => (r.loading ? '…' : r.failed ? '—' : r.quantityOnHand ?? '—'),
-          },
-          {
-            key: 'when',
-            header: 'Saved',
-            render: (r) => new Date(r.savedAt).toLocaleString(),
-          },
-          {
-            key: 'actions',
-            header: '',
-            render: (r) => (
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    loadById(r.id);
-                    if (r.quantityOnHand != null) {
-                      setPublishForm((f) => ({
-                        ...f,
-                        quantity: f.quantity || String(r.quantityOnHand),
-                      }));
-                    }
-                  }}
-                >
-                  Open
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
-                  Remove
-                </Button>
+        {/* ─── Left: Add Staging Stock ─── */}
+        <div className="flex flex-col gap-4">
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="flex items-center gap-3 border-b border-border bg-gradient-to-r from-primary/10 to-transparent px-5 py-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <PackagePlus size={16} />
               </div>
-            ),
-          },
-        ]}
-        rowKey={(r) => r.id}
-        onClear={recent.clear}
-      />
-
-      <AdvancedIdLookup
-        entityLabel="unpublished stock record"
-        value={lookupId}
-        onChange={setLookupId}
-        onLoad={() => loadById(lookupId)}
-        defaultOpen={!!pending}
-      />
-
-      {activeId && (
-        <FormSection title="3. Record & publish">
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : error || !record ? (
-            <p className="text-sm text-destructive">
-              {error instanceof Error ? error.message : 'Record not found.'}
-            </p>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid gap-2 text-sm sm:grid-cols-2">
-                <p>
-                  <span className="text-muted-foreground">ID:</span> {record.id}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">On hand:</span> {record.quantityOnHand}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Product:</span>{' '}
-                  {productLabel.get(record.productId) ?? formatEntityLabel({ id: record.productId })}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Location:</span>{' '}
-                  {locationLabel.get(record.locationId) ?? formatEntityLabel({ id: record.locationId })}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Avg cost:</span> {record.averageCost ?? '—'}
-                </p>
-                <p>
-                  <span className="text-muted-foreground">Bin:</span> {record.binLocation ?? '—'}
-                </p>
-              </div>
-
-              <form
-                onSubmit={submitPublish}
-                className="space-y-3 rounded-lg border border-border p-4"
-              >
-                <p className="text-sm font-medium">Publish to live inventory</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Quantity" required>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={publishForm.quantity || String(record.quantityOnHand ?? '')}
-                      onChange={(e) => setPublishForm({ ...publishForm, quantity: e.target.value })}
-                    />
-                  </Field>
-                  <Field label="Notes">
-                    <Input
-                      value={publishForm.notes}
-                      onChange={(e) => setPublishForm({ ...publishForm, notes: e.target.value })}
-                    />
-                  </Field>
-                </div>
-                <Button type="submit" disabled={publishMutation.isPending}>
-                  {publishMutation.isPending ? 'Publishing…' : 'Publish to inventory'}
-                </Button>
-              </form>
-
               <div>
-                <h3 className="mb-2 text-sm font-medium">Movements (newest first)</h3>
-                {movLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading…</p>
-                ) : sortedMovements.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No movements.</p>
-                ) : (
-                  <SimpleTable
-                    columns={[
-                      {
-                        key: 'type',
-                        header: 'Type',
-                        render: (m: UnpublishedStockMovement) => m.movementType,
-                      },
-                      { key: 'qty', header: 'Qty', render: (m) => m.quantity },
-                      {
-                        key: 'change',
-                        header: 'Before → After',
-                        render: (m) => `${m.quantityBefore} → ${m.quantityAfter}`,
-                      },
-                      { key: 'notes', header: 'Notes', render: (m) => m.notes ?? '—' },
-                      {
-                        key: 'when',
-                        header: 'When',
-                        render: (m) => (m.createdAt ? new Date(m.createdAt).toLocaleString() : '—'),
-                      },
-                    ]}
-                    rows={sortedMovements}
-                    rowKey={(m) => m.id}
-                  />
-                )}
+                <p className="text-sm font-semibold text-foreground">Step 1 — Add Staging Stock</p>
+                <p className="text-xs text-muted-foreground">Stage new stock without making it live</p>
               </div>
             </div>
-          )}
-        </FormSection>
-      )}
 
-      <FormDrawer
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        title="1. Add unpublished stock"
-        footer={
-          <>
-            <Button type="submit" form="unpub-add-form" disabled={addMutation.isPending}>
-              {addMutation.isPending ? 'Adding…' : 'Add staging'}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
-              Cancel
-            </Button>
-          </>
-        }
-      >
-        <form id="unpub-add-form" onSubmit={submitAdd} className="space-y-4">
-          <p className="text-xs text-muted-foreground">
-            After save, load the staged record from Advanced — Core API returns an empty body.
-          </p>
-          <Field label="Location" required>
-            <ResourceSelect
-              resource={Locations}
-              getLabel={(l) => l.name}
-              value={addForm.locationId}
-              onValueChange={(locationId) => setAddForm({ ...addForm, locationId })}
-            />
-          </Field>
-          <Field label="Product" required>
-            <ResourceSelect
-              resource={Products}
-              getLabel={(p) => formatEntityLabel({ name: p.name, sku: p.sku, id: p.id })}
-              value={addForm.productId}
-              onValueChange={(productId) => setAddForm({ ...addForm, productId })}
-            />
-          </Field>
-          <Field label="Quantity" required>
-            <Input
-              type="number"
-              min="0"
-              step="any"
-              value={addForm.quantity}
-              onChange={(e) => setAddForm({ ...addForm, quantity: e.target.value })}
-            />
-          </Field>
-          <Field label="Unit cost">
-            <Input
-              type="number"
-              min="0"
-              step="any"
-              value={addForm.unitCost}
-              onChange={(e) => setAddForm({ ...addForm, unitCost: e.target.value })}
-            />
-          </Field>
-          <Field label="Notes">
-            <Input value={addForm.notes} onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })} />
-          </Field>
-        </form>
-      </FormDrawer>
+            <form onSubmit={handleAdd} className="space-y-4 p-5">
+              <Field label="Product" required>
+                <ResourceSelect
+                  resource={Products}
+                  getLabel={(p) => p.name}
+                  value={addForm.productId}
+                  onValueChange={(v) => setAddForm({ ...addForm, productId: v })}
+                />
+              </Field>
+              <Field label="Location" required>
+                <ResourceSelect
+                  resource={Locations}
+                  getLabel={(l) => l.name}
+                  value={addForm.locationId}
+                  onValueChange={(v) => setAddForm({ ...addForm, locationId: v })}
+                />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Quantity" required>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="0"
+                    value={addForm.quantity}
+                    onChange={(e) => setAddForm({ ...addForm, quantity: e.target.value })}
+                  />
+                </Field>
+                <Field label="Unit cost">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="0.00"
+                    value={addForm.unitCost}
+                    onChange={(e) => setAddForm({ ...addForm, unitCost: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <Field label="Notes">
+                <Input
+                  placeholder="e.g. Received from supplier"
+                  value={addForm.notes}
+                  onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })}
+                />
+              </Field>
+              <Button type="submit" disabled={addMutation.isPending} className="w-full gap-1.5">
+                {addMutation.isPending
+                  ? <><Loader2 size={14} className="animate-spin" />Adding…</>
+                  : <><PackagePlus size={14} />Add to staging</>}
+              </Button>
+            </form>
+          </div>
+
+          {/* Success hint after add */}
+          {lastAdded && (
+            <div className="flex items-start gap-3 rounded-xl border border-green-500/30 bg-green-500/8 p-4">
+              <CheckCircle2 size={16} className="mt-0.5 flex-shrink-0 text-green-600 dark:text-green-400" />
+              <div className="flex-1 text-sm">
+                <p className="font-medium text-foreground">
+                  Staged {lastAdded.quantity} ×{' '}
+                  {productMap.get(lastAdded.productId) ?? formatEntityLabel({ id: lastAdded.productId })}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  at {locationMap.get(lastAdded.locationId) ?? formatEntityLabel({ id: lastAdded.locationId })}
+                </p>
+                <p className="mt-2 text-xs text-green-700 dark:text-green-400">
+                  → Select it from the list on the right to publish.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLastAdded(null)}
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
+                ×
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ─── Right: Browse + Publish ─── */}
+        <div className="flex flex-col gap-4">
+
+          {/* Step 2 — Staging Records List */}
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            <div className="flex items-center justify-between gap-3 border-b border-border bg-gradient-to-r from-blue-500/10 to-transparent px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400">
+                  <ChevronRight size={16} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Step 2 — Select a Record</p>
+                  <p className="text-xs text-muted-foreground">Click any row to select it for publishing</p>
+                </div>
+              </div>
+              {stagingList && stagingList.length > 0 && (
+                <span className="rounded-full bg-blue-500/15 px-2.5 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
+                  {stagingList.length} record{stagingList.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            {/* Filters */}
+            <div className="flex gap-3 border-b border-border px-5 py-3">
+              <div className="flex-1">
+                <ResourceSelect
+                  resource={Products}
+                  getLabel={(p) => p.name}
+                  value={filterProductId}
+                  onValueChange={setFilterProductId}
+                  placeholder="Filter by product…"
+                />
+              </div>
+              <div className="flex-1">
+                <ResourceSelect
+                  resource={Locations}
+                  getLabel={(l) => l.name}
+                  value={filterLocationId}
+                  onValueChange={setFilterLocationId}
+                  placeholder="Filter by location…"
+                />
+              </div>
+              {(filterProductId || filterLocationId) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setFilterProductId(''); setFilterLocationId(''); }}
+                  className="shrink-0 text-xs"
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+
+            {/* List body */}
+            <div className="max-h-72 overflow-y-auto">
+              {listLoading ? (
+                <div className="space-y-2 p-4">
+                  {[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />)}
+                </div>
+              ) : !stagingList || stagingList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <p className="text-sm font-medium text-muted-foreground">No staging records found</p>
+                  <p className="mt-1 text-xs text-muted-foreground/70">Add stock on the left to get started</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {stagingList.map((item: UnpublishedStock) => {
+                    const isSelected = item.id === activeId;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleSelectRecord(item)}
+                        className={`flex w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/8 ring-1 ring-inset ring-primary/30' : ''}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {productMap.get(item.productId) ?? formatEntityLabel({ id: item.productId })}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {locationMap.get(item.locationId) ?? formatEntityLabel({ id: item.locationId })}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold tabular-nums text-foreground">{item.quantityOnHand}</p>
+                          <p className="text-xs text-muted-foreground">on hand</p>
+                        </div>
+                        <button
+                          type="button"
+                          title="Copy record ID"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void navigator.clipboard.writeText(item.id);
+                            toast.success('Record ID copied');
+                          }}
+                          className="shrink-0 rounded p-1 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                        >
+                          <Copy size={12} />
+                        </button>
+                        {isSelected && <CheckCircle2 size={14} className="shrink-0 text-primary" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Step 3 — Publish (shown when a record is selected) */}
+          {activeId && (
+            <div className="overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="flex items-center gap-3 border-b border-border bg-gradient-to-r from-green-500/10 to-transparent px-5 py-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/15 text-green-600 dark:text-green-400">
+                  <Send size={16} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Step 3 — Publish to Inventory</p>
+                  <p className="text-xs text-muted-foreground">Review and publish the staged stock</p>
+                </div>
+              </div>
+
+              {recordLoading ? (
+                <div className="space-y-2 p-5">
+                  {[1, 2].map((i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />)}
+                </div>
+              ) : record ? (
+                <div className="space-y-5 p-5">
+                  {/* Record info tiles */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-muted/50 px-3 py-3">
+                      <p className="text-xs text-muted-foreground">Product</p>
+                      <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
+                        {productMap.get(record.productId) ?? formatEntityLabel({ id: record.productId })}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-muted/50 px-3 py-3">
+                      <p className="text-xs text-muted-foreground">Location</p>
+                      <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
+                        {locationMap.get(record.locationId) ?? formatEntityLabel({ id: record.locationId })}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-muted/50 px-3 py-3">
+                      <p className="text-xs text-muted-foreground">On hand</p>
+                      <p className="mt-0.5 text-xl font-bold text-foreground">{record.quantityOnHand}</p>
+                    </div>
+                    <div className="rounded-xl bg-muted/50 px-3 py-3">
+                      <p className="text-xs text-muted-foreground">Avg cost</p>
+                      <p className="mt-0.5 text-xl font-bold text-foreground">{record.averageCost ?? '—'}</p>
+                    </div>
+                  </div>
+
+                  {/* Publish form */}
+                  <form onSubmit={handlePublish} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field label="Quantity to publish" required>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={publishForm.quantity || String(record.quantityOnHand ?? '')}
+                          onChange={(e) => setPublishForm({ ...publishForm, quantity: e.target.value })}
+                        />
+                      </Field>
+                      <Field label="Notes">
+                        <Input
+                          placeholder="Optional note…"
+                          value={publishForm.notes}
+                          onChange={(e) => setPublishForm({ ...publishForm, notes: e.target.value })}
+                        />
+                      </Field>
+                    </div>
+                    <Button type="submit" disabled={publishMutation.isPending} className="w-full gap-1.5">
+                      {publishMutation.isPending
+                        ? <><Loader2 size={14} className="animate-spin" />Publishing…</>
+                        : <><Sparkles size={14} />Publish to live inventory</>}
+                    </Button>
+                  </form>
+
+                  {/* Movement history — collapsible */}
+                  <div className="border-t border-border pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowHistory((v) => !v)}
+                      className="flex w-full items-center justify-between text-sm font-medium text-foreground"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <BookOpen size={14} className="text-muted-foreground" />
+                        Movement History
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                          {sortedMovements.length}
+                        </span>
+                      </span>
+                      {showHistory
+                        ? <ChevronUp size={14} className="text-muted-foreground" />
+                        : <ChevronDown size={14} className="text-muted-foreground" />}
+                    </button>
+
+                    {showHistory && (
+                      <div className="mt-3">
+                        {movLoading ? (
+                          <div className="space-y-2">
+                            {[1, 2].map((i) => <div key={i} className="h-8 animate-pulse rounded-lg bg-muted" />)}
+                          </div>
+                        ) : sortedMovements.length === 0 ? (
+                          <p className="py-4 text-center text-sm text-muted-foreground">No movements yet.</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b border-border">
+                                  {['Date', 'Type', 'Qty', 'Before → After', 'By'].map((h) => (
+                                    <th key={h} className="pb-2 pr-4 text-left text-xs font-medium text-muted-foreground last:pr-0">
+                                      {h}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border">
+                                {sortedMovements.map((m: UnpublishedStockMovement) => (
+                                  <tr key={m.id} className="transition-colors hover:bg-muted/40">
+                                    <td className="py-2 pr-4 text-xs whitespace-nowrap text-muted-foreground">
+                                      {m.createdAt ? new Date(m.createdAt).toLocaleString() : '—'}
+                                    </td>
+                                    <td className="py-2 pr-4">
+                                      <MovementBadge type={m.movementType} />
+                                    </td>
+                                    <td className="py-2 pr-4 font-mono text-sm font-medium tabular-nums text-foreground">
+                                      {m.quantity}
+                                    </td>
+                                    <td className="py-2 pr-4 text-xs whitespace-nowrap">
+                                      <span className="text-muted-foreground">{m.quantityBefore}</span>
+                                      <span className="mx-1.5 text-muted-foreground/50">→</span>
+                                      <span className="font-medium text-foreground">{m.quantityAfter}</span>
+                                    </td>
+                                    <td className="py-2 text-xs whitespace-nowrap text-muted-foreground">
+                                      {m.performedById ? (userMap.get(m.performedById) ?? '…') : '—'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

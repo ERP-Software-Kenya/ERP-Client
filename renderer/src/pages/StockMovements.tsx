@@ -1,80 +1,167 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
+import { useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
-import { ResourceSelect } from '../components/ResourceSelect';
-import { SimpleTable } from '../components/SimpleTable';
+import {
+  Activity,
+  Clock,
+  HelpCircle,
+  History,
+  Lock,
+  Minus,
+  PackageSearch,
+  Plus,
+  RotateCcw,
+  ShieldOff,
+  Unlock,
+  XCircle,
+} from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Inventory, Locations, Products, useStockMovementsByInventory, useStockOperation } from '../api';
-import { formatEntityLabel, truncateId } from '../lib/entityLabel';
-import { RECENT_NS, useRecentIds } from '../lib/recentIds';
-import type { InventoryItem, StockMovement, StockMovementOp } from '../types';
+import { GuideModal, type GuideStep } from '../components/GuideModal';
+import { Field } from '../components/FormDrawer';
+import { ResourceSelect } from '../components/ResourceSelect';
+import {
+  Inventory,
+  Locations,
+  Products,
+  useStockMovementsByInventory,
+  useStockOperation,
+  get,
+} from '../api';
+import type { InventoryItem, StockMovement, StockMovementOp, PlatformUser } from '../types';
 
-const STOCK_OPS: StockMovementOp[] = [
-  'add',
-  'remove',
-  'adjust',
-  'reserve',
-  'release-reservation',
-  'damage',
-  'write-off',
+const GUIDE_KEY = 'guide-stock-history-v1';
+
+const GUIDE_STEPS: GuideStep[] = [
+  {
+    icon: <PackageSearch size={16} />,
+    title: 'Pick an inventory item',
+    description: 'Select a product at a location from the dropdown to load its complete movement history.',
+  },
+  {
+    icon: <History size={16} />,
+    title: 'Review every change',
+    description: 'See before and after quantities for each operation, color-coded by movement type.',
+  },
+  {
+    icon: <Activity size={16} />,
+    title: 'Record a new operation',
+    description: 'Use the panel below the table to add, remove, adjust, reserve, or write off stock.',
+  },
 ];
 
-interface OpForm {
-  inventoryId: string;
-  locationId: string;
-  productId: string;
+type OpDef = {
   op: StockMovementOp;
-  quantity: string;
-  absoluteQuantity: string;
+  label: string;
+  icon: ReactNode;
+  usesAbsolute?: boolean;
+  showCost?: boolean;
+  iconColor: string;
+  badgeColor: string;
+};
+
+const OPS: OpDef[] = [
+  {
+    op: 'add',
+    label: 'Add',
+    icon: <Plus size={13} />,
+    showCost: true,
+    iconColor: 'text-green-600 dark:text-green-400',
+    badgeColor: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  },
+  {
+    op: 'remove',
+    label: 'Remove',
+    icon: <Minus size={13} />,
+    iconColor: 'text-red-600 dark:text-red-400',
+    badgeColor: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  },
+  {
+    op: 'adjust',
+    label: 'Adjust',
+    icon: <RotateCcw size={13} />,
+    usesAbsolute: true,
+    showCost: true,
+    iconColor: 'text-blue-600 dark:text-blue-400',
+    badgeColor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  },
+  {
+    op: 'reserve',
+    label: 'Reserve',
+    icon: <Lock size={13} />,
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  },
+  {
+    op: 'release-reservation',
+    label: 'Release',
+    icon: <Unlock size={13} />,
+    iconColor: 'text-teal-600 dark:text-teal-400',
+    badgeColor: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+  },
+  {
+    op: 'damage',
+    label: 'Damage',
+    icon: <ShieldOff size={13} />,
+    iconColor: 'text-orange-600 dark:text-orange-400',
+    badgeColor: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  },
+  {
+    op: 'write-off',
+    label: 'Write Off',
+    icon: <XCircle size={13} />,
+    iconColor: 'text-rose-700 dark:text-rose-400',
+    badgeColor: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+  },
+];
+
+function MovementBadge({ type }: { type: string }) {
+  const def = OPS.find((o) => o.op === type);
+  const color = def?.badgeColor ?? 'bg-muted text-muted-foreground';
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
+      {def?.icon}
+      {def?.label ?? type}
+    </span>
+  );
+}
+
+interface OpForm {
+  qty: string;
+  absoluteQty: string;
   unitCost: string;
-  referenceId: string;
-  referenceType: string;
   notes: string;
 }
 
-const EMPTY_OP: OpForm = {
-  inventoryId: '',
-  locationId: '',
-  productId: '',
-  op: 'add',
-  quantity: '',
-  absoluteQuantity: '',
-  unitCost: '',
-  referenceId: '',
-  referenceType: '',
-  notes: '',
-};
+const EMPTY_OP: OpForm = { qty: '', absoluteQty: '', unitCost: '', notes: '' };
 
-export default function StockMovementsPage() {
-  const recent = useRecentIds(RECENT_NS.stockMovementsInventory);
-  const [opOpen, setOpOpen] = useState(false);
+export default function StockHistoryPage() {
+  const [guideOpen, setGuideOpen] = useState(() => !localStorage.getItem(GUIDE_KEY));
+  const [selectedInventoryId, setSelectedInventoryId] = useState('');
+  const [activeOp, setActiveOp] = useState<OpDef>(OPS[0]);
   const [opForm, setOpForm] = useState<OpForm>(EMPTY_OP);
-  const [historyInventoryId, setHistoryInventoryId] = useState('');
 
-  const { data: inventoryList } = Inventory.useList();
-  const { data: locations } = Locations.useList();
   const { data: products } = Products.useList();
-  const locationLabel = useMemo(() => {
+  const { data: locations } = Locations.useList();
+  const { data: movements, isLoading: movLoading, refetch } = useStockMovementsByInventory(
+    selectedInventoryId || undefined,
+  );
+  const stockOp = useStockOperation();
+
+  const productMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const l of locations ?? []) {
-      m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
-    }
-    return m;
-  }, [locations]);
-  const productLabel = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const p of products ?? []) {
-      m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
-    }
+    for (const p of products ?? []) m.set(p.id, p.name);
     return m;
   }, [products]);
 
-  const { data: movements, isLoading: historyLoading, refetch } = useStockMovementsByInventory(
-    historyInventoryId || undefined,
-  );
-  const stockOp = useStockOperation();
+  const locationMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of locations ?? []) m.set(l.id, l.name);
+    return m;
+  }, [locations]);
+
+  const inventoryLabel = (item: InventoryItem) =>
+    `${productMap.get(item.productId) ?? item.productId} @ ${locationMap.get(item.locationId) ?? item.locationId}`;
 
   const sortedMovements = useMemo(() => {
     const rows = [...(movements ?? [])];
@@ -86,270 +173,334 @@ export default function StockMovementsPage() {
     return rows;
   }, [movements]);
 
-  useEffect(() => {
-    if (!opForm.inventoryId || !inventoryList) return;
-    const row = inventoryList.find((i) => i.id === opForm.inventoryId);
-    if (row) {
-      setOpForm((prev) => ({
-        ...prev,
-        locationId: row.locationId,
-        productId: row.productId,
-      }));
+  const uniqueUserIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const m of sortedMovements) {
+      if (m.performedById) ids.add(m.performedById);
     }
-  }, [opForm.inventoryId, inventoryList]);
+    return [...ids];
+  }, [sortedMovements]);
 
-  const selectHistory = (inventoryId: string) => {
-    setHistoryInventoryId(inventoryId);
-    if (inventoryId) {
-      const row = inventoryList?.find((i) => i.id === inventoryId);
-      const label = row
-        ? `${productLabel.get(row.productId) ?? formatEntityLabel({ id: row.productId })} @ ${
-            locationLabel.get(row.locationId) ?? formatEntityLabel({ id: row.locationId })
-          }`
-        : undefined;
-      recent.push(inventoryId, label);
+  const userQueries = useQueries({
+    queries: uniqueUserIds.map((id) => ({
+      queryKey: ['users', id] as const,
+      queryFn: () => get<PlatformUser>(`/api/v1/users/${id}`),
+      staleTime: 300_000,
+      retry: false,
+    })),
+  });
+
+  const userMap = useMemo(() => {
+    const m = new Map<string, string>();
+    uniqueUserIds.forEach((id, idx) => {
+      const data = userQueries[idx]?.data;
+      if (data) {
+        const name = [data.firstName, data.lastName].filter(Boolean).join(' ') || data.email || id;
+        m.set(id, name);
+      }
+    });
+    return m;
+  }, [uniqueUserIds, userQueries]);
+
+  const totalMovements = sortedMovements.length;
+
+  const lastMovement = sortedMovements[0]?.createdAt
+    ? new Date(sortedMovements[0].createdAt).toLocaleDateString()
+    : '—';
+
+  const mostUsedOp = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const m of sortedMovements) {
+      counts.set(m.movementType, (counts.get(m.movementType) ?? 0) + 1);
     }
-  };
+    let best = '';
+    let bestCount = 0;
+    for (const [op, count] of counts) {
+      if (count > bestCount) { best = op; bestCount = count; }
+    }
+    return best ? (OPS.find((o) => o.op === best)?.label ?? best) : '—';
+  }, [sortedMovements]);
+
+  // We need selectedItem to build the op body; fetch it from inventory list
+  const { data: inventoryList } = Inventory.useList();
+  const selectedItem = useMemo(
+    () => inventoryList?.find((i) => i.id === selectedInventoryId),
+    [inventoryList, selectedInventoryId],
+  );
 
   const submitOp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!opForm.inventoryId || !opForm.locationId || !opForm.productId) {
-      toast.error('Pick an inventory record');
+    if (!selectedItem) { toast.error('Select an inventory item first'); return; }
+    if (activeOp.usesAbsolute && !opForm.absoluteQty) {
+      toast.error('Absolute quantity is required for Adjust');
       return;
     }
-    if (opForm.op === 'adjust' && !opForm.absoluteQuantity) {
-      toast.error('Absolute quantity is required for adjust');
-      return;
-    }
-    if (opForm.op !== 'adjust' && !opForm.quantity) {
+    if (!activeOp.usesAbsolute && !opForm.qty) {
       toast.error('Quantity is required');
       return;
     }
-
-    const body = {
-      inventoryId: opForm.inventoryId,
-      locationId: opForm.locationId,
-      productId: opForm.productId,
-      unitCost: opForm.unitCost ? Number(opForm.unitCost) : undefined,
-      referenceId: opForm.referenceId || undefined,
-      referenceType: opForm.referenceType || undefined,
-      notes: opForm.notes || undefined,
-      ...(opForm.op === 'adjust'
-        ? { absoluteQuantity: Number(opForm.absoluteQuantity) }
-        : { quantity: Number(opForm.quantity) }),
-    };
-
     stockOp.mutate(
-      { op: opForm.op, body },
+      {
+        op: activeOp.op,
+        body: {
+          inventoryId: selectedItem.id,
+          locationId: selectedItem.locationId,
+          productId: selectedItem.productId,
+          unitCost: opForm.unitCost ? Number(opForm.unitCost) : undefined,
+          notes: opForm.notes || undefined,
+          ...(activeOp.usesAbsolute
+            ? { absoluteQuantity: Number(opForm.absoluteQty) }
+            : { quantity: Number(opForm.qty) }),
+        },
+      },
       {
         onSuccess: () => {
-          toast.success('Movement recorded');
-          selectHistory(opForm.inventoryId);
-          setOpOpen(false);
+          toast.success(`${activeOp.label} recorded`);
           setOpForm(EMPTY_OP);
-          if (historyInventoryId === opForm.inventoryId) void refetch();
-          else setHistoryInventoryId(opForm.inventoryId);
+          void refetch();
         },
         onError: (err: Error) => toast.error(err.message || 'Operation failed'),
       },
     );
   };
 
-  const inventoryLabel = (i: InventoryItem) => {
-    const loc = locationLabel.get(i.locationId) ?? formatEntityLabel({ id: i.locationId });
-    const prod = productLabel.get(i.productId) ?? formatEntityLabel({ id: i.productId });
-    return `${prod} @ ${loc} (on hand ${i.quantityOnHand})`;
-  };
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <GuideModal
+        open={guideOpen}
+        onClose={() => { localStorage.setItem(GUIDE_KEY, '1'); setGuideOpen(false); }}
+        title="Welcome to Stock History"
+        description="Track every quantity change for any inventory item and record new stock operations."
+        steps={GUIDE_STEPS}
+        tip="Movement type badges are color-coded — green for adds, red for removes, blue for adjustments."
+      />
+
+      {/* Page header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Stock movements</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Stock History</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Operations match Core API paths under <code className="text-xs">/stock-movements/&#123;op&#125;</code>.
-            History is per inventory record (newest first). Recent inventories are saved in this browser.
+            Full audit trail of every stock operation, per inventory item.
           </p>
         </div>
-        <Button onClick={() => setOpOpen(true)}>New operation</Button>
+        <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)} className="gap-1.5">
+          <HelpCircle size={15} />
+          Guide
+        </Button>
       </div>
 
-      {recent.entries.length > 0 && (
-        <FormSection title="Recent inventories">
-          <SimpleTable
-            columns={[
-              {
-                key: 'label',
-                header: 'Inventory',
-                render: (r) => r.label || truncateId(r.id),
-              },
-              {
-                key: 'when',
-                header: 'Saved',
-                render: (r) => new Date(r.savedAt).toLocaleString(),
-              },
-              {
-                key: 'actions',
-                header: '',
-                render: (r) => (
-                  <div className="flex gap-2">
-                    <Button type="button" size="sm" variant="outline" onClick={() => selectHistory(r.id)}>
-                      Open history
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
-                      Remove
-                    </Button>
-                  </div>
-                ),
-              },
-            ]}
-            rows={recent.entries}
-            rowKey={(r) => r.id}
-          />
-        </FormSection>
-      )}
-
-      <FormSection title="Movement history">
-        <Field label="Inventory record">
+      {/* Inventory selector */}
+      <div className="rounded-xl border border-border bg-card p-5">
+        <p className="mb-1 text-sm font-medium text-foreground">Select inventory item</p>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Choose a product and location to load its history.
+        </p>
+        <div className="max-w-sm">
           <ResourceSelect
             resource={Inventory}
             getLabel={inventoryLabel}
-            value={historyInventoryId}
-            onValueChange={selectHistory}
-            placeholder="Select inventory…"
+            value={selectedInventoryId}
+            onValueChange={(id) => { setSelectedInventoryId(id); setOpForm(EMPTY_OP); }}
+            placeholder="Search inventory…"
+            allowNone
+            noneLabel="— Clear selection —"
           />
-        </Field>
-        {!historyInventoryId ? (
-          <p className="mt-2 text-sm text-muted-foreground">Select a record to load movements.</p>
-        ) : historyLoading ? (
-          <p className="mt-2 text-sm text-muted-foreground">Loading…</p>
-        ) : sortedMovements.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">No movements for this record.</p>
-        ) : (
-          <div className="mt-4">
-            <SimpleTable
-              columns={[
-                { key: 'type', header: 'Type', render: (m: StockMovement) => m.movementType },
-                { key: 'qty', header: 'Qty', render: (m: StockMovement) => m.quantity },
-                {
-                  key: 'change',
-                  header: 'Before → After',
-                  render: (m: StockMovement) => `${m.quantityBefore} → ${m.quantityAfter}`,
-                },
-                {
-                  key: 'ref',
-                  header: 'Reference',
-                  render: (m: StockMovement) =>
-                    m.referenceType || m.referenceId
-                      ? `${m.referenceType ?? '—'} / ${m.referenceId ? truncateId(m.referenceId) : '—'}`
-                      : '—',
-                },
-                { key: 'notes', header: 'Notes', render: (m: StockMovement) => m.notes ?? '—' },
-                {
-                  key: 'when',
-                  header: 'When',
-                  render: (m: StockMovement) =>
-                    m.createdAt ? new Date(m.createdAt).toLocaleString() : '—',
-                },
-              ]}
-              rows={sortedMovements}
-              rowKey={(m) => m.id}
-            />
-          </div>
-        )}
-      </FormSection>
+        </div>
+      </div>
 
-      <FormDrawer
-        open={opOpen}
-        onClose={() => setOpOpen(false)}
-        title="Stock operation"
-        footer={
-          <>
-            <Button type="submit" form="stock-op-form" disabled={stockOp.isPending}>
-              {stockOp.isPending ? 'Submitting…' : 'Submit'}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setOpOpen(false)}>
-              Cancel
-            </Button>
-          </>
-        }
-      >
-        <form id="stock-op-form" onSubmit={submitOp} className="space-y-4">
-          <p className="text-xs text-muted-foreground">
-            Fields match StockOperationRequest (or AdjustStockRequest when op is adjust). Location and
-            product fill from the inventory row.
-          </p>
-          <Field label="Inventory record" required>
-            <ResourceSelect
-              resource={Inventory}
-              getLabel={inventoryLabel}
-              value={opForm.inventoryId}
-              onValueChange={(inventoryId) => setOpForm({ ...opForm, inventoryId })}
-            />
-          </Field>
-          <Field label="Operation" required>
-            <Select value={opForm.op} onValueChange={(v) => setOpForm({ ...opForm, op: v as StockMovementOp })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {STOCK_OPS.map((op) => (
-                  <SelectItem key={op} value={op}>
-                    {op}
-                  </SelectItem>
+      {selectedInventoryId && selectedItem ? (
+        <>
+          {/* Stat cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">Total Movements</p>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <History size={14} />
+                </div>
+              </div>
+              <p className="mt-2 text-2xl font-bold text-foreground">{totalMovements}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">Last Activity</p>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <Clock size={14} />
+                </div>
+              </div>
+              <p className="mt-2 truncate text-2xl font-bold text-foreground">{lastMovement}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-muted-foreground">Top Operation</p>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-500/10 text-green-600 dark:text-green-400">
+                  <Activity size={14} />
+                </div>
+              </div>
+              <p className="mt-2 text-2xl font-bold text-foreground">{mostUsedOp}</p>
+            </div>
+          </div>
+
+          {/* History table */}
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border px-5 py-3">
+              <h2 className="text-sm font-semibold text-foreground">Movement History</h2>
+              <span className="text-xs text-muted-foreground">Newest first</span>
+            </div>
+            <div className="p-5">
+              {movLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-10 animate-pulse rounded-lg bg-muted" />
+                  ))}
+                </div>
+              ) : sortedMovements.length === 0 ? (
+                <div className="py-8 text-center">
+                  <History size={28} className="mx-auto mb-2 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">No movements recorded yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        {['Date & Time', 'Type', 'Qty', 'Before → After', 'Notes', 'By'].map((h) => (
+                          <th
+                            key={h}
+                            className="pb-2 pr-4 text-left text-xs font-medium text-muted-foreground last:pr-0"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {sortedMovements.map((m: StockMovement) => (
+                        <tr key={m.id} className="transition-colors hover:bg-muted/40">
+                          <td className="py-2.5 pr-4 text-xs text-muted-foreground whitespace-nowrap">
+                            {m.createdAt ? new Date(m.createdAt).toLocaleString() : '—'}
+                          </td>
+                          <td className="py-2.5 pr-4">
+                            <MovementBadge type={m.movementType} />
+                          </td>
+                          <td className="py-2.5 pr-4 font-mono text-sm font-medium tabular-nums text-foreground">
+                            {m.quantity}
+                          </td>
+                          <td className="py-2.5 pr-4 text-xs whitespace-nowrap">
+                            <span className="text-muted-foreground">{m.quantityBefore}</span>
+                            <span className="mx-1.5 text-muted-foreground/50">→</span>
+                            <span className="font-medium text-foreground">{m.quantityAfter}</span>
+                          </td>
+                          <td className="max-w-[140px] truncate py-2.5 pr-4 text-xs text-muted-foreground">
+                            {m.notes ?? '—'}
+                          </td>
+                          <td className="py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                            {m.performedById ? (userMap.get(m.performedById) ?? '…') : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Record operation */}
+          <div className="overflow-hidden rounded-xl border border-border bg-card">
+            <div className="border-b border-border px-5 py-3">
+              <h2 className="text-sm font-semibold text-foreground">Record Operation</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {productMap.get(selectedItem.productId) ?? selectedItem.productId}
+                {' @ '}
+                {locationMap.get(selectedItem.locationId) ?? selectedItem.locationId}
+                {' · On hand: '}
+                <span className="font-medium text-foreground">{selectedItem.quantityOnHand}</span>
+              </p>
+            </div>
+            <form onSubmit={submitOp} className="space-y-4 p-5">
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                {OPS.map((def) => (
+                  <button
+                    key={def.op}
+                    type="button"
+                    onClick={() => { setActiveOp(def); setOpForm(EMPTY_OP); }}
+                    className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs font-medium transition-colors ${
+                      activeOp.op === def.op
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
+                    }`}
+                  >
+                    <span className={activeOp.op === def.op ? 'text-primary' : def.iconColor}>
+                      {def.icon}
+                    </span>
+                    {def.label}
+                  </button>
                 ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          {opForm.op === 'adjust' ? (
-            <Field label="Absolute quantity" required>
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                value={opForm.absoluteQuantity}
-                onChange={(e) => setOpForm({ ...opForm, absoluteQuantity: e.target.value })}
-              />
-            </Field>
-          ) : (
-            <Field label="Quantity" required>
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                value={opForm.quantity}
-                onChange={(e) => setOpForm({ ...opForm, quantity: e.target.value })}
-              />
-            </Field>
-          )}
-          <Field label="Unit cost">
-            <Input
-              type="number"
-              min="0"
-              step="any"
-              value={opForm.unitCost}
-              onChange={(e) => setOpForm({ ...opForm, unitCost: e.target.value })}
-            />
-          </Field>
-          <Field label="Reference ID">
-            <Input
-              value={opForm.referenceId}
-              onChange={(e) => setOpForm({ ...opForm, referenceId: e.target.value })}
-              placeholder="Optional"
-            />
-          </Field>
-          <Field label="Reference type">
-            <Input
-              value={opForm.referenceType}
-              onChange={(e) => setOpForm({ ...opForm, referenceType: e.target.value })}
-              placeholder="Optional e.g. stock_transfer"
-            />
-          </Field>
-          <Field label="Notes">
-            <Input value={opForm.notes} onChange={(e) => setOpForm({ ...opForm, notes: e.target.value })} />
-          </Field>
-        </form>
-      </FormDrawer>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field
+                  label={activeOp.usesAbsolute ? 'Set to quantity (absolute)' : 'Quantity'}
+                  required
+                >
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder={activeOp.usesAbsolute ? 'New total on hand' : 'Amount to change'}
+                    value={activeOp.usesAbsolute ? opForm.absoluteQty : opForm.qty}
+                    onChange={(e) =>
+                      setOpForm((prev) =>
+                        activeOp.usesAbsolute
+                          ? { ...prev, absoluteQty: e.target.value }
+                          : { ...prev, qty: e.target.value },
+                      )
+                    }
+                  />
+                </Field>
+                {activeOp.showCost && (
+                  <Field label="Unit cost (optional)">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="0.00"
+                      value={opForm.unitCost}
+                      onChange={(e) => setOpForm((prev) => ({ ...prev, unitCost: e.target.value }))}
+                    />
+                  </Field>
+                )}
+                <div className={activeOp.showCost ? '' : 'sm:col-span-2'}>
+                  <Field label="Notes (optional)">
+                    <Input
+                      placeholder="Reason or reference…"
+                      value={opForm.notes}
+                      onChange={(e) => setOpForm((prev) => ({ ...prev, notes: e.target.value }))}
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button type="submit" disabled={stockOp.isPending} className="gap-1.5">
+                  {stockOp.isPending ? 'Saving…' : `Record ${activeOp.label}`}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </>
+      ) : (
+        !selectedInventoryId && (
+          <div className="rounded-xl border border-dashed border-border p-10 text-center">
+            <PackageSearch size={32} className="mx-auto mb-3 text-muted-foreground/40" />
+            <p className="text-sm font-medium text-muted-foreground">No item selected</p>
+            <p className="mt-1 text-xs text-muted-foreground/70">
+              Select an inventory item above to view its movement history.
+            </p>
+          </div>
+        )
+      )}
     </div>
   );
 }
