@@ -6,9 +6,10 @@ import {
 import { toast } from 'sonner';
 import {
   Products, Suppliers,
-  useCategoryParents, useLinkProductSupplier, useProductSuppliers,
+  useCategoryParents, useLinkProductSupplier, useNextSku, useProductSuppliers,
   useUnlinkProductSupplier, useUploadProductImage,
 } from '../api';
+import { useDebounce } from '../hooks/useDebounce';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -239,11 +240,11 @@ function Step1Panel({
 // ── Step 2: Product Details ────────────────────────────────────────────────────
 
 function Step2Panel({
-  name, setName, sku, setSku, barcode, setBarcode,
+  name, setName, sku, barcode, setBarcode,
   unit, setUnit, description, setDescription,
 }: {
   name: string; setName: (v: string) => void;
-  sku: string; setSku: (v: string) => void;
+  sku: string;
   barcode: string; setBarcode: (v: string) => void;
   unit: ProductUnit | ''; setUnit: (v: ProductUnit | '') => void;
   description: string; setDescription: (v: string) => void;
@@ -264,7 +265,7 @@ function Step2Panel({
           </div>
           <div>
             <FieldLabel>SKU</FieldLabel>
-            <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder="OIL-5L-001" />
+            <Input value={sku} readOnly placeholder="Auto-generated from name" className="bg-muted/50 cursor-not-allowed" />
           </div>
         </div>
 
@@ -598,6 +599,16 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
   const { data: suppliers }        = Suppliers.useList();
   const { data: productSuppliers, refetch: refetchSups } = useProductSuppliers(productId ?? undefined);
 
+  // SKU preview: only while creating a brand-new, not-yet-persisted product.
+  const isEditing = !!editingProduct;
+  const debouncedName = useDebounce(name, 300);
+  const { data: nextSkuData } = useNextSku(!isEditing && !productId ? debouncedName : '');
+  useEffect(() => {
+    if (!isEditing && !productId && nextSkuData?.sku) {
+      setSku(nextSkuData.sku);
+    }
+  }, [nextSkuData, isEditing, productId]);
+
   const margin =
     costPrice && retailPrice && Number(costPrice) > 0 && Number(retailPrice) > 0
       ? Math.round((1 - Number(costPrice) / Number(retailPrice)) * 100)
@@ -642,13 +653,14 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
       if (!pid) {
         const created = await createMutation.mutateAsync({
           name: name.trim(),
-          sku: sku || undefined,
+          sku: undefined, // server generates the authoritative SKU; the field above is preview-only
           barcode: barcode || undefined,
           unit: unit || undefined,
           description: description || undefined,
         });
         pid = created.id;
         setProductId(pid);
+        setSku(created.sku ?? '');
       } else {
         await updateMutation.mutateAsync({
           id: pid,
@@ -756,7 +768,7 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
           {step === 1 && (
             <Step2Panel
               name={name} setName={setName}
-              sku={sku} setSku={setSku}
+              sku={sku}
               barcode={barcode} setBarcode={setBarcode}
               unit={unit} setUnit={setUnit}
               description={description} setDescription={setDescription}

@@ -423,6 +423,12 @@ export interface ProductLog {
   createdAt?: string;
 }
 
+export interface StockTransferItem {
+  productId: string;
+  quantitySent: number;
+  quantityReceived: number;
+}
+
 export interface StockTransfer {
   id: string;
   organizationId: string;
@@ -430,6 +436,7 @@ export interface StockTransfer {
   toLocationId: string;
   transferNumber: string;
   status?: string;
+  items?: StockTransferItem[];
 }
 
 // Verified 2026-07-26 against core-apis's OrderResponse/CreateOrderRequest source
