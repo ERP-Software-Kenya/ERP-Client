@@ -211,13 +211,26 @@ export function useCategoryParents(enabled = true) {
   });
 }
 
-/** Stock transfers have no list/search endpoint — only get-by-id + create (+ complete/cancel helpers below). */
 export const StockTransfers = {
   useGet(id: string | undefined) {
     return useQuery({
       queryKey: ['stock-transfers', id],
       queryFn: () => get<StockTransfer>(`/api/v1/stock-transfers/${id}`),
       enabled: !!id,
+    });
+  },
+  /** Paginated history — resolves to { items, total }. */
+  useSearch(params?: { page?: number; limit?: number; filters?: Record<string, string> }) {
+    return useQuery({
+      queryKey: ['stock-transfers', 'search', params?.page ?? 1, params?.limit ?? 15, params?.filters ?? {}],
+      queryFn: async () => {
+        const raw = await get<PaginatedResponse<StockTransfer>>('/api/v1/stock-transfers', {
+          $page: params?.page ?? 1,
+          $perPage: params?.limit ?? 15,
+          ...(params?.filters ?? {}),
+        });
+        return { items: raw.items ?? [], total: raw.totalCount ?? 0 };
+      },
     });
   },
   useCreate() {
@@ -452,6 +465,14 @@ export function useProductSuppliers(productId: string | undefined) {
     queryKey: ['products', productId, 'suppliers'],
     queryFn: () => get<ProductSupplier[]>(`/api/v1/products/${productId}/suppliers`),
     enabled: !!productId,
+  });
+}
+
+export function useNextSku(name: string) {
+  return useQuery({
+    queryKey: ['products', 'next-sku', name],
+    queryFn: () => get<{ sku: string }>(`/api/v1/products/next-sku?name=${encodeURIComponent(name)}`),
+    enabled: name.trim().length > 0,
   });
 }
 
