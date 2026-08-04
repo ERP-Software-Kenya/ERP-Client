@@ -569,6 +569,21 @@ export interface PlatformUser {
   createdAt?: string;
 }
 
+// ── Org member directory (backend /api/v1/auth/members — needed, not yet built; see docs/superpowers/plans/2026-08-04-backend-requirements.md) ──
+
+export interface OrgMemberDetail {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  createdAt: string | null;
+  isActive: boolean | null;
+  role: string;
+  status: string;
+  invitedEmail: string | null;
+}
+
 // ── Fleet / Vehicles ──────────────────────────────────────────────────────────
 
 export interface Vehicle {

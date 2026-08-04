@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import type {
   Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
   Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, Expense, PurchaseItem,
-  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
+  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, OrgMemberDetail, Location,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
@@ -196,11 +196,23 @@ export const ActivityLogs = createCreateOnlyResource<ActivityLog>('/api/v1/activ
 export const Roles = createCreateOnlyResource<Role>('/api/v1/roles', 'roles', 'Role');
 export const UserRoles = createCreateOnlyResource<UserRole>('/api/v1/user-roles', 'user-roles', 'User role');
 export const PlatformConfigurations = createCreateOnlyResource<PlatformConfiguration>('/api/v1/platform-configurations', 'platform-configurations', 'Configuration');
-export const Users = createCreateOnlyResource<PlatformUser>('/api/v1/users', 'users', 'User');
+export const Users = createResource<PlatformUser>('/api/v1/users', 'users', 'User');
+// NEEDS BACKEND: GET/DELETE /api/v1/auth/members — see docs/superpowers/plans/2026-08-04-backend-requirements.md
+export const OrgMembers = createResource<OrgMemberDetail>('/api/v1/auth/members', 'org-members', 'Member');
 export const Locations = createResource<Location>('/api/v1/locations', 'locations', 'Location');
 // ── Inventory cluster (hook-based) ─────────────────────────────────────────────
 
-export const Inventory = createResource<InventoryItem>('/api/v1/inventory', 'inventory', 'Inventory item');
+const inventoryBase = createResource<InventoryItem>('/api/v1/inventory', 'inventory', 'Inventory item');
+export const Inventory = {
+  ...inventoryBase,
+  useByProduct(productId: string | undefined) {
+    return useQuery({
+      queryKey: ['inventory', 'by-product', productId],
+      queryFn: () => get<InventoryItem[]>(`/api/v1/inventory/by-product/${productId}`),
+      enabled: !!productId,
+    });
+  }
+};
 
 export function useCategoryParents(enabled = true) {
   return useQuery({
@@ -300,7 +312,9 @@ export function useCompleteStockTransfer() {
       id: string;
       items: Array<{
         fromInventoryId: string;
-        toInventoryId: string;
+        // NEEDS BACKEND: resolve/create this server-side when omitted — see
+        // docs/superpowers/plans/2026-08-04-backend-requirements.md
+        toInventoryId?: string;
         productId: string;
         fromLocationId: string;
         toLocationId: string;

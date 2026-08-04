@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { GuideModal, type GuideStep } from '../components/GuideModal';
 import { Field } from '../components/FormDrawer';
 import { ResourceSelect } from '../components/ResourceSelect';
@@ -28,6 +29,8 @@ import {
   useStockOperation,
   get,
 } from '../api';
+import { formatEntityLabel, truncateId } from '../lib/entityLabel';
+import { useAutoSelectFirst } from '../hooks/useAutoSelectFirst';
 import type { InventoryItem, StockMovement, StockMovementOp, PlatformUser } from '../types';
 
 const GUIDE_KEY = 'guide-stock-history-v1';
@@ -137,41 +140,55 @@ const EMPTY_OP: OpForm = { qty: '', absoluteQty: '', unitCost: '', notes: '' };
 
 export default function StockHistoryPage() {
   const [guideOpen, setGuideOpen] = useState(() => !localStorage.getItem(GUIDE_KEY));
-  const [selectedInventoryId, setSelectedInventoryId] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState('');
+  const [filterType, setFilterType] = useState('all');
   const [activeOp, setActiveOp] = useState<OpDef>(OPS[0]);
   const [opForm, setOpForm] = useState<OpForm>(EMPTY_OP);
 
   const { data: products } = Products.useList();
   const { data: locations } = Locations.useList();
+  const { data: inventoryList } = Inventory.useList();
+
+  useAutoSelectFirst(inventoryList, (item: InventoryItem) => {
+    setSelectedProductId(item.productId);
+    setSelectedLocationId(item.locationId);
+  });
+
+  const selectedInventoryId = useMemo(() => {
+    if (!selectedProductId || !selectedLocationId) return undefined;
+    return inventoryList?.find((i) => i.productId === selectedProductId && i.locationId === selectedLocationId)?.id;
+  }, [inventoryList, selectedProductId, selectedLocationId]);
+
   const { data: movements, isLoading: movLoading, refetch } = useStockMovementsByInventory(
-    selectedInventoryId || undefined,
+    selectedInventoryId,
   );
   const stockOp = useStockOperation();
 
   const productMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of products ?? []) m.set(p.id, p.name);
+    for (const p of products ?? []) m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
     return m;
   }, [products]);
 
   const locationMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const l of locations ?? []) m.set(l.id, l.name);
+    for (const l of locations ?? []) m.set(l.id, l.type ? `${l.name} (${l.type})` : formatEntityLabel({ name: l.name, id: l.id }));
     return m;
   }, [locations]);
 
-  const inventoryLabel = (item: InventoryItem) =>
-    `${productMap.get(item.productId) ?? item.productId} @ ${locationMap.get(item.locationId) ?? item.locationId}`;
-
   const sortedMovements = useMemo(() => {
-    const rows = [...(movements ?? [])];
+    let rows = [...(movements ?? [])];
+    if (filterType !== 'all') {
+      rows = rows.filter((m) => m.movementType === filterType);
+    }
     rows.sort((a, b) => {
       const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return tb - ta;
     });
     return rows;
-  }, [movements]);
+  }, [movements, filterType]);
 
   const uniqueUserIds = useMemo(() => {
     const ids = new Set<string>();
@@ -222,7 +239,6 @@ export default function StockHistoryPage() {
   }, [sortedMovements]);
 
   // We need selectedItem to build the op body; fetch it from inventory list
-  const { data: inventoryList } = Inventory.useList();
   const selectedItem = useMemo(
     () => inventoryList?.find((i) => i.id === selectedInventoryId),
     [inventoryList, selectedInventoryId],
@@ -280,7 +296,7 @@ export default function StockHistoryPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Stock History</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Full audit trail of every stock operation, per inventory item.
+            Full audit trail of every stock operation.
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)} className="gap-1.5">
@@ -289,22 +305,53 @@ export default function StockHistoryPage() {
         </Button>
       </div>
 
-      {/* Inventory selector */}
-      <div className="rounded-xl border border-border bg-card p-5">
-        <p className="mb-1 text-sm font-medium text-foreground">Select inventory item</p>
-        <p className="mb-3 text-xs text-muted-foreground">
-          Choose a product and location to load its history.
-        </p>
-        <div className="max-w-sm">
-          <ResourceSelect
-            resource={Inventory}
-            getLabel={inventoryLabel}
-            value={selectedInventoryId}
-            onValueChange={(id) => { setSelectedInventoryId(id); setOpForm(EMPTY_OP); }}
-            placeholder="Search inventory…"
-            allowNone
-            noneLabel="— Clear selection —"
-          />
+      {/* Dedicated Filter Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">Product:</span>
+          <div className="w-48">
+            <ResourceSelect
+              resource={Products}
+              getLabel={(p) => productMap.get(p.id) ?? truncateId(p.id)}
+              value={selectedProductId}
+              onValueChange={(id) => { setSelectedProductId(id); setOpForm(EMPTY_OP); }}
+              placeholder="Select product…"
+              allowNone
+              noneLabel="— Clear product —"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">Location:</span>
+          <div className="w-48">
+            <ResourceSelect
+              resource={Locations}
+              getLabel={(l) => locationMap.get(l.id) ?? truncateId(l.id)}
+              value={selectedLocationId}
+              onValueChange={(id) => { setSelectedLocationId(id); setOpForm(EMPTY_OP); }}
+              placeholder="Select location…"
+              allowNone
+              noneLabel="— Clear location —"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">Action:</span>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="All actions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All actions</SelectItem>
+              {OPS.map((def) => (
+                <SelectItem key={def.op} value={def.op}>
+                  {def.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -491,15 +538,17 @@ export default function StockHistoryPage() {
           </div>
         </>
       ) : (
-        !selectedInventoryId && (
-          <div className="rounded-xl border border-dashed border-border p-10 text-center">
-            <PackageSearch size={32} className="mx-auto mb-3 text-muted-foreground/40" />
-            <p className="text-sm font-medium text-muted-foreground">No item selected</p>
-            <p className="mt-1 text-xs text-muted-foreground/70">
-              Select an inventory item above to view its movement history.
-            </p>
-          </div>
-        )
+        <div className="rounded-xl border border-dashed border-border p-10 text-center">
+          <PackageSearch size={32} className="mx-auto mb-3 text-muted-foreground/40" />
+          <p className="text-sm font-medium text-muted-foreground">
+            {selectedProductId && selectedLocationId ? 'No inventory record found' : 'Selection required'}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground/70">
+            {selectedProductId && selectedLocationId
+              ? 'This product is not currently stocked at the selected location.'
+              : 'Select both a Product and a Location above to view movement history.'}
+          </p>
+        </div>
       )}
     </div>
   );
