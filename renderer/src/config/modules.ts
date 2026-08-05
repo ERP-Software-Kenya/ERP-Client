@@ -141,7 +141,7 @@ export const MODULES: ModuleGroup[] = [
     label: 'Locations',
     icon: Warehouse,
     items: [
-      { key: 'stores',     title: 'Stores',     path: '/stores',    icon: Store },
+      { key: 'stores', title: 'Stores', path: '/stores', icon: Store },
       { key: 'warehouses', title: 'Warehouses', path: '/warehouse', icon: Building },
       // { key: 'warehouse-grn', title: 'GRN', path: '/warehouse/grn', icon: PackagePlus, disabled: true },
       // { key: 'gin', title: 'GIN', path: '/warehouse/gin', icon: PackageMinus, disabled: true },
@@ -186,19 +186,19 @@ export const MODULES: ModuleGroup[] = [
   //     { key: 'tax-summary', title: 'Tax Summary', path: '/reports/tax-summary', icon: Percent, disabled: true },
   //   ],
   // },
-  // {
-  //   label: 'Administration',
-  //   icon: Users,
-  //   items: [
-  //     { key: 'users', title: 'Users', path: '/users', icon: Users },
-  //     { key: 'roles', title: 'Roles & Permissions', path: '/roles', icon: Lock },
-  //     { key: 'user-roles', title: 'User Roles', path: '/user-roles', icon: UserCog },
-  //     { key: 'organizations', title: 'Organizations', path: '/organizations', icon: Building2 },
-  //     { key: 'activity-logs', title: 'Activity Logs', path: '/activity-logs', icon: Activity },
-  //     { key: 'audit-log', title: 'Audit Log lookup', path: '/audit-log', icon: History },
-  //     { key: 'expenses', title: 'Expenses', path: '/expenses', icon: Wallet },
-  //   ],
-  // },
+  {
+    label: 'Administration',
+    icon: Users,
+    items: [
+      { key: 'users', title: 'Users', path: '/users', icon: Users },
+      { key: 'roles', title: 'Roles & Permissions', path: '/roles', icon: Lock },
+      { key: 'user-roles', title: 'User Roles', path: '/user-roles', icon: UserCog },
+      { key: 'organizations', title: 'Organizations', path: '/organizations', icon: Building2 },
+      { key: 'activity-logs', title: 'Activity Logs', path: '/activity-logs', icon: Activity },
+      { key: 'audit-log', title: 'Audit Log lookup', path: '/audit-log', icon: History },
+      { key: 'expenses', title: 'Expenses', path: '/expenses', icon: Wallet },
+    ],
+  },
   {
     label: 'Settings',
     icon: Settings,

@@ -569,19 +569,51 @@ export interface PlatformUser {
   createdAt?: string;
 }
 
-// ── Org member directory (backend /api/v1/auth/members — needed, not yet built; see docs/superpowers/plans/2026-08-04-backend-requirements.md) ──
+// ── Clerk User Management ───────────────────────────────────────────────────
 
-export interface OrgMemberDetail {
+export interface ClerkUser {
+  /** Alias of clerkUserId — added client-side so rows satisfy DataTable's `{ id: string }`. */
   id: string;
+  clerkUserId: string;
+  email: string;
   firstName: string | null;
   lastName: string | null;
-  email: string | null;
-  phone: string | null;
-  createdAt: string | null;
-  isActive: boolean | null;
+  imageUrl: string;
+  banned: boolean;
+  roles: string[];
+  createdAt: number;
+  lastSignInAt: number | null;
+}
+
+export interface ClerkUserListResponse {
+  data: ClerkUser[];
+  totalCount: number;
+}
+
+export interface ClerkUserRolesResponse {
+  clerkUserId: string;
+  roles: string[];
+}
+
+export interface InviteUserPayload {
+  email: string;
+  roles?: string[];
+  redirectUrl?: string;
+}
+
+export interface UpdateRolesPayload {
+  roles: string[];
+}
+
+export interface AssignOrgPayload {
+  organizationId: string;
   role: string;
-  status: string;
-  invitedEmail: string | null;
+}
+
+export interface ClerkOrganization {
+  organizationId: string;
+  name: string;
+  slug: string;
 }
 
 // ── Fleet / Vehicles ──────────────────────────────────────────────────────────

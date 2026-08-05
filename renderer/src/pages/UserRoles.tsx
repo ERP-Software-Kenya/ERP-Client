@@ -3,11 +3,10 @@ import { useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AdvancedIdLookup } from '../components/AdvancedIdLookup';
 import { FormDrawer, Field, FormSection } from '../components/FormDrawer';
-import { RecentIdPicker } from '../components/RecentIdPicker';
 import { RecentRecords } from '../components/RecentRecords';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { UserRoles, get } from '../api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { UserRoles, useListRoles, useListUserDirectory, get } from '../api';
 import { formatEntityLabel } from '../lib/entityLabel';
 import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../lib/recentIds';
 import type { UserRole } from '../types';
@@ -55,6 +54,24 @@ export default function UserRolesPage() {
 
   const createMutation = UserRoles.useCreate();
   const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = UserRoles.useGet(activeId);
+  const { data: roles } = useListRoles();
+  const { data: userDirectory } = useListUserDirectory();
+
+  const roleNameById = useMemo(
+    () => new Map((roles ?? []).map((r) => [r.id, r.name])),
+    [roles],
+  );
+
+  const userNameById = useMemo(
+    () =>
+      new Map(
+        (userDirectory ?? []).map((u) => [
+          u.id,
+          [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id,
+        ]),
+      ),
+    [userDirectory],
+  );
 
   const recentUserLabels = useMemo(
     () => new Map(recentUsers.entries.map((e) => [e.id, e.label])),
@@ -147,10 +164,10 @@ export default function UserRolesPage() {
   };
 
   const labelForUserId = (userId: string | undefined) =>
-    userId ? recentUserLabels.get(userId) ?? formatEntityLabel({ id: userId }) : '—';
+    userId ? userNameById.get(userId) ?? recentUserLabels.get(userId) ?? formatEntityLabel({ id: userId }) : '—';
 
   const labelForRoleId = (roleId: string | undefined) =>
-    roleId ? recentRoleLabels.get(roleId) ?? formatEntityLabel({ id: roleId }) : '—';
+    roleId ? roleNameById.get(roleId) ?? recentRoleLabels.get(roleId) ?? formatEntityLabel({ id: roleId }) : '—';
 
   return (
     <div className="space-y-4">
@@ -298,41 +315,33 @@ export default function UserRolesPage() {
         }
       >
         <form id="user-role-form" onSubmit={handleSubmit} className="space-y-5">
-          <p className="text-xs text-muted-foreground">
-            Pick a user and role from Recent. Create or open records on the Users and Roles pages
-            first — there are no user or role directory APIs.
-          </p>
           <Field label="User" required>
-            <RecentIdPicker
-              namespace={RECENT_NS.users}
-              value={form.userId}
-              onSelect={(id) => setForm({ ...form, userId: id })}
-              emptyHint="No recent users in this browser. Create or open a user on the Users page first."
-            />
-            <p className="mt-2 text-xs text-muted-foreground">or enter an ID</p>
-            <Input
-              className="mt-1"
-              placeholder="Paste user ID"
-              value={form.userId}
-              onChange={(e) => setForm({ ...form, userId: e.target.value })}
-              required
-            />
+            <Select value={form.userId || undefined} onValueChange={(v) => setForm({ ...form, userId: v })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select user…" />
+              </SelectTrigger>
+              <SelectContent>
+                {(userDirectory ?? []).map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {[u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="Role" required>
-            <RecentIdPicker
-              namespace={RECENT_NS.roles}
-              value={form.roleId}
-              onSelect={(id) => setForm({ ...form, roleId: id })}
-              emptyHint="No recent roles in this browser. Create or open a role on the Roles page first."
-            />
-            <p className="mt-2 text-xs text-muted-foreground">or enter an ID</p>
-            <Input
-              className="mt-1"
-              placeholder="Paste role ID"
-              value={form.roleId}
-              onChange={(e) => setForm({ ...form, roleId: e.target.value })}
-              required
-            />
+            <Select value={form.roleId || undefined} onValueChange={(v) => setForm({ ...form, roleId: v })}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select role…" />
+              </SelectTrigger>
+              <SelectContent>
+                {(roles ?? []).map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         </form>
       </FormDrawer>

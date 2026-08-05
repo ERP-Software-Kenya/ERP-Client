@@ -46,6 +46,7 @@ const PurchaseItems = lazy(() => import('./pages/PurchaseItems'));
 const Roles = lazy(() => import('./pages/Roles'));
 const UserRoles = lazy(() => import('./pages/UserRoles'));
 const Users = lazy(() => import('./pages/Users'));
+const UserDetail = lazy(() => import('./pages/UserDetail'));
 const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
 const VehicleDetailPage = lazy(() => import('./pages/VehicleDetailPage'));
 const POSTerminal = lazy(() => import('./pages/pos/POSTerminal'));
@@ -119,6 +120,7 @@ function App() {
             <Route path="roles" element={<Roles />} />
             <Route path="user-roles" element={<UserRoles />} />
             <Route path="users" element={<Users />} />
+            <Route path="users/clerk/:clerkUserId" element={<UserDetail />} />
           </Route>
         </Routes>
       </Suspense>

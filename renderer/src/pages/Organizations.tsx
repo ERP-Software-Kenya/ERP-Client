@@ -6,7 +6,7 @@ import { ViewDrawer } from '../components/ViewDrawer';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Organizations } from '../api';
+import { Organizations, useListCountries } from '../api';
 import { usePagination } from '../hooks/usePagination';
 import type { Organization } from '../types';
 
@@ -42,6 +42,7 @@ export default function OrganizationsPage() {
   const createMutation = Organizations.useCreate();
   const updateMutation = Organizations.useUpdate();
   const removeMutation = Organizations.useDelete();
+  const { data: countries } = useListCountries();
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
   const { data, isLoading, error, refetch } = Organizations.useSearch({ page, search: debouncedSearch });
 
@@ -165,7 +166,21 @@ export default function OrganizationsPage() {
             <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           </Field>
           <Field label="Country">
-            <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} />
+            <Select
+              value={form.country || undefined}
+              onValueChange={(v) => setForm({ ...form, country: v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select country…" />
+              </SelectTrigger>
+              <SelectContent>
+                {(countries ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.name}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="Status">
             <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>

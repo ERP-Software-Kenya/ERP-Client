@@ -6,13 +6,15 @@ import { toast } from 'sonner';
 import type {
   Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
   Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, Expense, PurchaseItem,
-  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, OrgMemberDetail, Location,
+  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
   Country, State, City,
   CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
+  ClerkUserListResponse, ClerkUserRolesResponse,
+  InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -194,11 +196,29 @@ export const Expenses = createCreateOnlyResource<Expense>('/api/v1/expenses', 'e
 export const PurchaseItems = createCreateOnlyResource<PurchaseItem>('/api/v1/purchase-items', 'purchase-items', 'Purchase item');
 export const ActivityLogs = createCreateOnlyResource<ActivityLog>('/api/v1/activity-logs', 'activity-logs', 'Activity log');
 export const Roles = createCreateOnlyResource<Role>('/api/v1/roles', 'roles', 'Role');
+
+/** Flat list of all roles — backed by the fixed 4-row role table (GET /api/v1/roles/list). */
+export function useListRoles() {
+  return useQuery<Role[]>({
+    queryKey: ['roles', 'list'],
+    queryFn: () => get<Role[]>('/api/v1/roles/list'),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export const UserRoles = createCreateOnlyResource<UserRole>('/api/v1/user-roles', 'user-roles', 'User role');
 export const PlatformConfigurations = createCreateOnlyResource<PlatformConfiguration>('/api/v1/platform-configurations', 'platform-configurations', 'Configuration');
-export const Users = createResource<PlatformUser>('/api/v1/users', 'users', 'User');
-// NEEDS BACKEND: GET/DELETE /api/v1/auth/members — see docs/superpowers/plans/2026-08-04-backend-requirements.md
-export const OrgMembers = createResource<OrgMemberDetail>('/api/v1/auth/members', 'org-members', 'Member');
+/**
+ * Internal user directory (local DB, distinct from the Clerk-backed `ClerkUsers` resource
+ * used on the Users page). GET /api/v1/users/directory.
+ */
+export function useListUserDirectory(organizationId?: string) {
+  return useQuery<PlatformUser[]>({
+    queryKey: ['users', 'directory', organizationId],
+    queryFn: () => get<PlatformUser[]>('/api/v1/users/directory', organizationId ? { organizationId } : undefined),
+    staleTime: 5 * 60 * 1000,
+  });
+}
 export const Locations = createResource<Location>('/api/v1/locations', 'locations', 'Location');
 // ── Inventory cluster (hook-based) ─────────────────────────────────────────────
 
@@ -572,3 +592,159 @@ export function useRemoveLocationImage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['locations'] }),
   });
 }
+
+// ── Clerk User Management ───────────────────────────────────────────────────
+
+const CLERK_USERS_KEY = 'clerk-users';
+
+/** Backend returns clerkUserId only — add `id` so rows satisfy DataTable's `{ id: string }`. */
+function withId(res: ClerkUserListResponse): ClerkUserListResponse {
+  return { ...res, data: res.data.map((u) => ({ ...u, id: u.clerkUserId })) };
+}
+
+export const ClerkUsers = {
+  /** GET /api/v1/users?limit=&offset=&organizationId= */
+  useList(params: { page: number; limit?: number; organizationId?: string; enabled?: boolean }) {
+    const limit = params.limit ?? 15;
+    return useQuery({
+      queryKey: [CLERK_USERS_KEY, 'list', params.page, limit, params.organizationId],
+      queryFn: () =>
+        get<ClerkUserListResponse>('/api/v1/users', {
+          limit,
+          offset: (params.page - 1) * limit,
+          ...(params.organizationId ? { organizationId: params.organizationId } : {}),
+        }).then(withId),
+      enabled: params.enabled !== false,
+      staleTime: 30_000,
+    });
+  },
+
+  /** GET /api/v1/users/search?query=&limit=&offset= */
+  useSearch(params: { query: string; page: number; limit?: number; enabled?: boolean }) {
+    const limit = params.limit ?? 15;
+    return useQuery({
+      queryKey: [CLERK_USERS_KEY, 'search', params.query, params.page, limit],
+      queryFn: () =>
+        get<ClerkUserListResponse>('/api/v1/users/search', {
+          query: params.query,
+          limit,
+          offset: (params.page - 1) * limit,
+        }).then(withId),
+      enabled: params.enabled !== false && params.query.trim().length > 0,
+      staleTime: 15_000,
+    });
+  },
+
+  /** GET /api/v1/users/clerk/:clerkUserId/roles */
+  useGetRoles(clerkUserId: string | undefined) {
+    return useQuery({
+      queryKey: [CLERK_USERS_KEY, 'roles', clerkUserId],
+      queryFn: () => get<ClerkUserRolesResponse>(`/api/v1/users/clerk/${clerkUserId as string}/roles`),
+      enabled: !!clerkUserId,
+      staleTime: 30_000,
+    });
+  },
+
+  /** POST /api/v1/users/clerk/invite */
+  useInvite() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: InviteUserPayload) => post<void>('/api/v1/users/clerk/invite', body),
+      onSuccess: () => {
+        toast.success('Invitation sent');
+        queryClient.invalidateQueries({ queryKey: [CLERK_USERS_KEY] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to send invitation'),
+    });
+  },
+
+  /** PUT /api/v1/users/clerk/:clerkUserId/roles */
+  useUpdateRoles() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ clerkUserId, body }: { clerkUserId: string; body: UpdateRolesPayload }) =>
+        put<void>(`/api/v1/users/clerk/${clerkUserId}/roles`, body),
+      onSuccess: () => {
+        toast.success('Roles updated');
+        queryClient.invalidateQueries({ queryKey: [CLERK_USERS_KEY] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to update roles'),
+    });
+  },
+
+  /** PUT /api/v1/users/clerk/:clerkUserId/ban */
+  useBan() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (clerkUserId: string) => put<void>(`/api/v1/users/clerk/${clerkUserId}/ban`, {}),
+      onSuccess: () => {
+        toast.success('User banned');
+        queryClient.invalidateQueries({ queryKey: [CLERK_USERS_KEY] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to ban user'),
+    });
+  },
+
+  /** PUT /api/v1/users/clerk/:clerkUserId/unban */
+  useUnban() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (clerkUserId: string) => put<void>(`/api/v1/users/clerk/${clerkUserId}/unban`, {}),
+      onSuccess: () => {
+        toast.success('User unbanned');
+        queryClient.invalidateQueries({ queryKey: [CLERK_USERS_KEY] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to unban user'),
+    });
+  },
+
+  /** DELETE /api/v1/users/clerk/:clerkUserId */
+  useDelete() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (clerkUserId: string) => del(`/api/v1/users/clerk/${clerkUserId}`),
+      onSuccess: () => {
+        toast.success('User deleted');
+        queryClient.invalidateQueries({ queryKey: [CLERK_USERS_KEY] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to delete user'),
+    });
+  },
+
+  /** POST /api/v1/users/clerk/:clerkUserId/organizations */
+  useAssignOrg() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ clerkUserId, body }: { clerkUserId: string; body: AssignOrgPayload }) =>
+        post<void>(`/api/v1/users/clerk/${clerkUserId}/organizations`, body),
+      onSuccess: () => {
+        toast.success('User assigned to organisation');
+        queryClient.invalidateQueries({ queryKey: [CLERK_USERS_KEY] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to assign to organisation'),
+    });
+  },
+
+  /** DELETE /api/v1/users/clerk/:clerkUserId/organizations/:organizationId */
+  useRemoveFromOrg() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ clerkUserId, organizationId }: { clerkUserId: string; organizationId: string }) =>
+        del(`/api/v1/users/clerk/${clerkUserId}/organizations/${organizationId}`),
+      onSuccess: () => {
+        toast.success('User removed from organisation');
+        queryClient.invalidateQueries({ queryKey: [CLERK_USERS_KEY] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to remove from organisation'),
+    });
+  },
+
+  /** GET /api/v1/users/clerk/organizations */
+  useListOrganizations() {
+    return useQuery<ClerkOrganization[]>({
+      queryKey: [CLERK_USERS_KEY, 'organizations'],
+      queryFn: () => get<ClerkOrganization[]>('/api/v1/users/clerk/organizations'),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+};
