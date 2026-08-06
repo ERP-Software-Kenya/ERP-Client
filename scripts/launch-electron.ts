@@ -7,6 +7,9 @@ delete process.env.ELECTRON_RUN_AS_NODE;
 const require = createRequire(import.meta.url);
 const electronPath = require('electron') as string;
 const args = process.argv.slice(2);
+if (process.platform === 'linux') {
+  args.push('--ozone-platform=x11');
+}
 
 const child = spawn(electronPath, args, {
   stdio: 'inherit',

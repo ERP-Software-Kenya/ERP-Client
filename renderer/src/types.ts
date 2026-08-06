@@ -569,6 +569,53 @@ export interface PlatformUser {
   createdAt?: string;
 }
 
+// ── Clerk User Management ───────────────────────────────────────────────────
+
+export interface ClerkUser {
+  /** Alias of clerkUserId — added client-side so rows satisfy DataTable's `{ id: string }`. */
+  id: string;
+  clerkUserId: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  imageUrl: string;
+  banned: boolean;
+  roles: string[];
+  createdAt: number;
+  lastSignInAt: number | null;
+}
+
+export interface ClerkUserListResponse {
+  data: ClerkUser[];
+  totalCount: number;
+}
+
+export interface ClerkUserRolesResponse {
+  clerkUserId: string;
+  roles: string[];
+}
+
+export interface InviteUserPayload {
+  email: string;
+  roles?: string[];
+  redirectUrl?: string;
+}
+
+export interface UpdateRolesPayload {
+  roles: string[];
+}
+
+export interface AssignOrgPayload {
+  organizationId: string;
+  role: string;
+}
+
+export interface ClerkOrganization {
+  organizationId: string;
+  name: string;
+  slug: string;
+}
+
 // ── Fleet / Vehicles ──────────────────────────────────────────────────────────
 
 export interface Vehicle {

@@ -24,6 +24,12 @@ Newest entries first. Keep each entry to the four lines above — no extra narra
 
 ## Ledger
 
+### 2026-08-03 — Shipped frontend SKU auto-gen UI ahead of the backend that was supposed to power it
+
+**What happened:** Commit `7aadbe5` made `ProductOnboardingWizard.tsx`'s SKU field read-only and changed product creation to send `sku: undefined`, relying on a new `useNextSku()` hook that calls `GET /api/v1/products/next-sku`. That backend endpoint was never built (the implementation fork for it failed on session-limit before writing code) — `get-next-sku` is still an empty directory in `core-apis`, and `create-product.command-handler.ts` has no SKU auto-gen logic. This merged to `main` via PR #15.
+**Why it was wrong:** Four features were being implemented via parallel background forks; three failed immediately without producing code, but the frontend half of one of them (SKU) was committed anyway, on the assumption the backend fork had succeeded. Every product created since that commit now saves with **no SKU at all** — a live data-quality regression, not just a missing feature.
+**Do instead:** Before committing a frontend change that removes a working manual fallback (here: the manual SKU input) in favor of a new backend-dependent flow, verify the backend endpoint actually exists and responds — don't assume a parallel/forked implementation succeeded. When in doubt, keep the old fallback until the new endpoint is confirmed live. Full four-feature status verified 2026-08-04: only the location dashboard is actually done; user management and stock transfer redesign are both still ~0%.
+
 ### 2026-07-30 — Packaged Electron stuck on blank screen (BrowserRouter + empty resources)
 
 **What happened:** `npm run dist` / unpacked EXE showed a stuck blank dark window; `release/win-unpacked/resources` was sometimes empty after interrupted packs.
