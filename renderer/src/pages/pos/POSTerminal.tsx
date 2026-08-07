@@ -20,14 +20,17 @@ import {
   X,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { toast } from "sonner";
 import {
   Customers,
   Inventory,
   Locations,
   Products,
   Suppliers,
+  CreditApprovals,
 } from "../../api";
-import type { Customer, Location, Product, Supplier } from "../../types";
+import type { Customer, Location, Product, Supplier, SaleType, CustomerType, PaymentTiming, Bill } from "../../types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,11 +43,13 @@ import { formatEntityLabel } from "../../lib/entityLabel";
 import {
   runPurchaseCheckout,
   runSalesCheckout,
+  createDraftSale,
   type CheckoutResult,
   type CheckoutStep,
   type PosReceipt,
 } from "./checkout";
 import { ReceiptDocument } from "./ReceiptDocument";
+import { HeldSalesPanel } from "./HeldSalesPanel";
 
 type Mode = "sales" | "purchase";
 type PayMethod = "cash" | "card";
@@ -318,7 +323,23 @@ export default function POSTerminal() {
   );
   const [checkingOut, setCheckingOut] = useState(false);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [showHeldSales, setShowHeldSales] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // ── Sales v2 state ──
+  const [saleType, setSaleType] = useState<SaleType>("normal");
+  const [customerType, setCustomerType] = useState<CustomerType>("regular");
+  const [paymentTiming, setPaymentTiming] = useState<PaymentTiming>("cod");
+  const [partialAmount, setPartialAmount] = useState("");
+
+  const [facilitatorMode, setFacilitatorMode] = useState<"none" | "user" | "name">("none");
+  const [facilitatorUserId, setFacilitatorUserId] = useState("");
+  const [facilitatorName, setFacilitatorName] = useState("");
+  const [commissionPct, setCommissionPct] = useState("");
+
+  const { user } = useAuth();
+  const userRoles = user?.roles ?? [];
+  const canCreateBlackSale = userRoles.some((r) => ["org_admin", "org_manager", "super_admin"].includes(r));
 
   const debouncedCustomerInfo = useDebounce(customerInfo, 300);
 
@@ -452,6 +473,49 @@ export default function POSTerminal() {
     setQty(1);
     setCashTendered("");
     setCheckoutResult(null);
+    setSaleType("normal");
+    setCustomerType("regular");
+    setPaymentTiming("cod");
+    setPartialAmount("");
+    setFacilitatorMode("none");
+    setFacilitatorUserId("");
+    setFacilitatorName("");
+    setCommissionPct("");
+  };
+
+  const resumeSale = (b: Bill) => {
+    voidBill();
+    setMode("sales");
+    if (b.locationId) setLocationId(b.locationId);
+    if (b.customerId) {
+      setCustomerId(b.customerId);
+      // We don't have the customer name from Bill immediately unless we fetch it,
+      // but we can set the info to the ID for now or walkInName.
+      setCustomerInfo(b.walkInName || `Customer ${b.customerId.slice(0, 8)}`);
+    } else {
+      setCustomerInfo(b.walkInName || "");
+    }
+    if (b.saleType) setSaleType(b.saleType as SaleType);
+    if (b.customerType) setCustomerType(b.customerType as CustomerType);
+    if (b.paymentTiming) setPaymentTiming(b.paymentTiming as PaymentTiming);
+    
+    // Hydrate lines (simplified, we need products info for full rate/tax, 
+    // but the backend stores unitPrice/taxRate). 
+    if (b.items) {
+      setLines(
+        b.items.map((item, idx) => ({
+          id: ++lineIdSeq,
+          productId: item.productId,
+          sku: item.productId.slice(0, 8), // rough fallback
+          name: "Resumed Item", 
+          qty: item.quantity,
+          rate: item.unitPrice,
+          taxPct: item.taxRate,
+          unitLabel: "pcs",
+        }))
+      );
+    }
+    toast.success("Resumed hold sale. Please review lines as item names may be simplified.");
   };
 
   const closeSuccess = () => {
@@ -501,6 +565,13 @@ export default function POSTerminal() {
               subtotal,
               taxAmount: totalTax,
               totalAmount: grandTotal,
+              saleType,
+              customerType,
+              paymentTiming,
+              partialAmount: partialAmount ? Number(partialAmount) : undefined,
+              facilitatorUserId: facilitatorMode === "user" ? facilitatorUserId || undefined : undefined,
+              facilitatorName: facilitatorMode === "name" ? facilitatorName || undefined : undefined,
+              commissionPct: commissionPct ? Number(commissionPct) : undefined,
             })
           : await runPurchaseCheckout({
               locationId,
@@ -521,6 +592,48 @@ export default function POSTerminal() {
       if (result.primaryOk) {
         setLastReceipt(result.receipt);
         setSuccess({ receipt: result.receipt, steps: result.steps });
+      }
+    } finally {
+      setCheckingOut(false);
+    }
+  };
+
+  const handleHold = async () => {
+    if (lines.length === 0 || checkingOut) return;
+    setCheckingOut(true);
+    try {
+      const linePayload = lines.map((l) => ({
+        productId: l.productId,
+        sku: l.sku,
+        name: l.name,
+        qty: l.qty,
+        unitPrice: l.rate,
+        taxPct: l.taxPct,
+      }));
+      const { billId, steps } = await createDraftSale({
+        storeName: stockLocation?.name,
+        locationId: locationId || undefined,
+        locationName: stockLocation?.name,
+        inventory,
+        orgId,
+        customerId: customerId.trim() || undefined,
+        paymentMethod: payMethod,
+        amountReceived: cashTendered ? Number(cashTendered) : undefined,
+        customerInfo,
+        lines: linePayload,
+        extraCharges,
+        subtotal,
+        taxAmount: totalTax,
+        totalAmount: grandTotal,
+        saleType,
+        customerType,
+        paymentTiming,
+      });
+      if (billId) {
+        toast.success(`Sale put on hold (Draft ID: ${billId.slice(0, 8)})`);
+        voidBill();
+      } else {
+        setCheckoutResult({ receipt: {} as PosReceipt, steps, primaryOk: false });
       }
     } finally {
       setCheckingOut(false);
@@ -599,8 +712,42 @@ export default function POSTerminal() {
       //   deducted on the server). Walk-in needs a name; or pick a customer from search.
       // </div> */}
 
-      <div className="flex flex-1 gap-0 overflow-hidden">
+      <div className="flex flex-1 gap-0 overflow-hidden relative">
+        {showHeldSales && (
+          <HeldSalesPanel
+            onResume={resumeSale}
+            onClose={() => setShowHeldSales(false)}
+          />
+        )}
+
         <div className="w-64 flex-shrink-0 bg-card border-r border-border flex flex-col">
+          {mode === "sales" && (
+            <div className="p-4 border-b border-border space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase">Sale Type</p>
+              <div className="flex flex-col gap-1.5">
+                {(["normal", "credit", "black"] as SaleType[]).map((st) => {
+                  if (st === "black" && !canCreateBlackSale) return null;
+                  return (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() => setSaleType(st)}
+                      className={`text-xs font-medium py-1.5 px-3 rounded-md text-left transition ${
+                        saleType === st 
+                          ? st === "black" 
+                            ? "bg-slate-900 text-white" 
+                            : "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {st.charAt(0).toUpperCase() + st.slice(1)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="p-4 border-b border-border">
             <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
               {mode === "sales" ? "Add Product" : "Receive Product"}
@@ -794,11 +941,18 @@ export default function POSTerminal() {
               </button>
               <button
                 type="button"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg cursor-not-allowed"
-                title="Hold not wired yet"
-                disabled
+                onClick={handleHold}
+                disabled={lines.length === 0 || checkingOut}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition disabled:opacity-50"
               >
                 <PauseCircle size={13} /> Hold
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowHeldSales(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition"
+              >
+                <ListRestart size={13} /> View Held
               </button>
             </div>
           </div>
@@ -859,7 +1013,7 @@ export default function POSTerminal() {
                               type="number"
                               value={overridePrice}
                               onChange={(e) => setOverridePrice(e.target.value)}
-                              placeholder={`Rate (${line.rate})`}
+                              placeholder={`${saleType === "black" ? "Charged" : "Rate"} (${line.rate})`}
                               className="w-24 text-xs px-2 py-1 border border-amber-300 rounded outline-none focus:border-amber-500 bg-amber-50"
                             />
                             <select
@@ -901,7 +1055,7 @@ export default function POSTerminal() {
                             }}
                             className="hidden group-hover:flex items-center gap-1 text-[10px] text-amber-600 hover:underline mt-0.5"
                           >
-                            Override price / tax
+                            {saleType === "black" ? "Override charged price" : "Override price / tax"}
                           </button>
                         )}
                       </td>
@@ -1084,6 +1238,29 @@ export default function POSTerminal() {
                       )}
                     </div>
                   )}
+                  
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase">Payment Timing</p>
+                    <select
+                      value={paymentTiming}
+                      onChange={(e) => setPaymentTiming(e.target.value as PaymentTiming)}
+                      className="w-full text-xs px-2 py-1.5 border border-border rounded-lg outline-none bg-card focus:border-primary"
+                    >
+                      <option value="cod">COD</option>
+                      <option value="before_delivery">Before Delivery</option>
+                      <option value="after_delivery">After Delivery</option>
+                      <option value="half">Half / Partial</option>
+                    </select>
+                    {paymentTiming === "half" && (
+                      <input
+                        type="number"
+                        value={partialAmount}
+                        onChange={(e) => setPartialAmount(e.target.value)}
+                        placeholder="Amount Paid (₹)"
+                        className="w-full text-xs px-3 py-1.5 border border-border rounded-lg outline-none focus:border-primary mt-1"
+                      />
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -1171,6 +1348,39 @@ export default function POSTerminal() {
                   </button>
                 </div>
               )}
+              {mode === "sales" && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase">Customer Type</p>
+                  <select
+                    value={customerType}
+                    onChange={(e) => setCustomerType(e.target.value as CustomerType)}
+                    className="w-full text-xs px-2 py-1.5 border border-border rounded-lg outline-none bg-card focus:border-primary"
+                  >
+                    <option value="regular">Regular</option>
+                    <option value="new">New</option>
+                    <option value="shop">Shop</option>
+                    <option value="big_customer">Big Customer</option>
+                  </select>
+                </div>
+              )}
+              {mode === "sales" && saleType === "credit" && customerId && (
+                <div className="mt-2 text-[10px] space-y-1">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Credit Limit</span>
+                    <span className="font-semibold text-foreground">
+                      {customerSearch?.items?.find((c) => c.id === customerId)?.creditLimit
+                        ? fmt(customerSearch.items.find((c) => c.id === customerId)!.creditLimit!)
+                        : "None"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Credit Balance</span>
+                    <span className="font-semibold text-red-500">
+                      {fmt(customerSearch?.items?.find((c) => c.id === customerId)?.creditBalance || 0)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className={`rounded-xl p-3 border text-xs ${accentCls.light}`}>
@@ -1182,6 +1392,59 @@ export default function POSTerminal() {
                 {stockLocation?.name ?? "Select a location from the top bar"}
               </p>
             </div>
+
+            {mode === "sales" && saleType === "black" && (
+              <div className="rounded-xl p-3 border border-slate-700 bg-slate-900 text-slate-100 text-xs space-y-3">
+                <p className="font-semibold text-amber-400">Black Mode</p>
+                <div className="space-y-1">
+                  <label className="text-[10px] text-slate-400 uppercase">Facilitator / Middleman</label>
+                  <select
+                    value={facilitatorMode}
+                    onChange={(e) => {
+                      setFacilitatorMode(e.target.value as "none" | "user" | "name");
+                      setFacilitatorName("");
+                      setFacilitatorUserId("");
+                    }}
+                    className="w-full bg-slate-800 border-slate-700 text-xs px-2 py-1.5 rounded outline-none"
+                  >
+                    <option value="none">None</option>
+                    <option value="user">System User</option>
+                    <option value="name">External Name</option>
+                  </select>
+                </div>
+                {facilitatorMode === "name" && (
+                  <input
+                    value={facilitatorName}
+                    onChange={(e) => setFacilitatorName(e.target.value)}
+                    placeholder="Enter name"
+                    className="w-full bg-slate-800 border border-slate-700 text-xs px-2 py-1.5 rounded outline-none"
+                  />
+                )}
+                {facilitatorMode === "user" && (
+                  <input
+                    value={facilitatorUserId}
+                    onChange={(e) => setFacilitatorUserId(e.target.value)}
+                    placeholder="User ID"
+                    className="w-full bg-slate-800 border border-slate-700 text-xs px-2 py-1.5 rounded outline-none"
+                  />
+                )}
+                {facilitatorMode !== "none" && (
+                  <input
+                    type="number"
+                    value={commissionPct}
+                    onChange={(e) => setCommissionPct(e.target.value)}
+                    placeholder="Commission %"
+                    className="w-full bg-slate-800 border border-slate-700 text-xs px-2 py-1.5 rounded outline-none"
+                  />
+                )}
+                <div className="pt-2 border-t border-slate-700/50 flex justify-between">
+                  <span className="text-slate-400">Est. Markup</span>
+                  <span className="font-mono text-emerald-400">
+                    {fmt(lines.reduce((s, l) => s + (l.rate - productRate({ id: l.productId, price: 0 } as any, "sales")) * l.qty, 0))}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="px-5 py-4 border-t border-border space-y-2 flex-shrink-0">
