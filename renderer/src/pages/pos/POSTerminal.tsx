@@ -48,7 +48,7 @@ import {
   type CheckoutStep,
   type PosReceipt,
 } from "./checkout";
-import { ReceiptDocument } from "./ReceiptDocument";
+import { ReceiptDocument, type PrintDocType } from "./ReceiptDocument";
 import { HeldSalesPanel } from "./HeldSalesPanel";
 
 type Mode = "sales" | "purchase";
@@ -331,6 +331,7 @@ export default function POSTerminal() {
   const [customerType, setCustomerType] = useState<CustomerType>("regular");
   const [paymentTiming, setPaymentTiming] = useState<PaymentTiming>("cod");
   const [partialAmount, setPartialAmount] = useState("");
+  const [printDocType, setPrintDocType] = useState<PrintDocType>("receipt");
 
   const [facilitatorMode, setFacilitatorMode] = useState<"none" | "user" | "name">("none");
   const [facilitatorUserId, setFacilitatorUserId] = useState("");
@@ -1471,22 +1472,35 @@ export default function POSTerminal() {
                   ? "Complete Sale"
                   : "Create Purchase Order"}
             </button>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex gap-2">
+              <select
+                value={printDocType}
+                onChange={(e) => setPrintDocType(e.target.value as PrintDocType)}
+                className="w-1/2 bg-card border border-border text-xs rounded-xl px-2 py-2 outline-none"
+                disabled={!lastReceipt && !success}
+              >
+                <option value="receipt">Receipt</option>
+                <option value="debtor_note">Debtor Note</option>
+                <option value="statement">Statement</option>
+                <option value="delivery_note">Delivery Note</option>
+              </select>
               <button
                 type="button"
                 onClick={printReceipt}
                 disabled={!lastReceipt && !success}
                 title={
                   lastReceipt || success
-                    ? "Print last receipt"
+                    ? "Print document"
                     : mode === "sales"
                       ? "Complete a sale first"
                       : "Create a purchase order first"
                 }
-                className="flex items-center justify-center gap-1.5 py-2 border border-border rounded-xl text-xs text-muted-foreground hover:bg-muted transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-1/2 flex items-center justify-center gap-1.5 py-2 border border-border rounded-xl text-xs text-muted-foreground hover:bg-muted transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Printer size={13} /> Print
               </button>
+            </div>
+            <div className="grid grid-cols-1 gap-2 mt-2">
               <button
                 type="button"
                 disabled
@@ -1510,7 +1524,7 @@ export default function POSTerminal() {
 
       {(success?.receipt || lastReceipt) && (
         <div className="pos-print-root" aria-hidden>
-          <ReceiptDocument receipt={success?.receipt ?? lastReceipt!} />
+          <ReceiptDocument receipt={success?.receipt ?? lastReceipt!} docType={printDocType} />
         </div>
       )}
     </div>
