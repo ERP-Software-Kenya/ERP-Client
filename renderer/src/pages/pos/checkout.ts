@@ -1,4 +1,4 @@
-import { patch, post } from '../../lib/http';
+import { del, get, patch, post, put } from '../../lib/http';
 import type { Bill, CustomerType, InventoryItem, PaymentMethod, PaymentTiming, SaleType } from '../../types';
 
 export type CheckoutStepStatus = 'ok' | 'failed' | 'skipped';
@@ -205,9 +205,79 @@ async function runStockLines(
 }
 
 /**
+ * Re-hold an already-resumed DRAFT bill: update its header fields and replace its line
+ * items with the current cart, instead of POSTing a brand-new bill (which would leave the
+ * original DRAFT orphaned and show two rows for one sale in Held Sales).
+ *
+ * ponytail: full delete-then-recreate on items, no diffing — POS carts are small (a handful
+ * of lines), so this is a few extra requests, not a scaling problem. Revisit with a real
+ * diff/bulk-replace endpoint if carts start running into the hundreds of lines.
+ */
+async function updateDraftSale(
+  billId: string,
+  input: SalesCheckoutInput,
+  walkInName: string | undefined,
+  steps: CheckoutStep[],
+): Promise<{ billId: string; bill?: Bill; steps: CheckoutStep[] }> {
+  const headerAttempt = await tryStep(
+    'Update held bill',
+    () =>
+      put<Bill>(`/api/v1/bills/${billId}`, {
+        locationId: input.locationId,
+        customerId: input.customerId?.trim() || undefined,
+        walkInName: input.customerId?.trim() ? undefined : walkInName,
+      }),
+    (b) => b.id,
+  );
+  steps.push(headerAttempt.step);
+  if (headerAttempt.step.status === 'failed') {
+    return { billId: '', steps };
+  }
+
+  const loadAttempt = await tryStep('Load held bill items', () => get<Bill>(`/api/v1/bills/${billId}`));
+  steps.push(loadAttempt.step);
+  if (loadAttempt.step.status === 'failed') {
+    return { billId: '', steps };
+  }
+
+  for (const item of loadAttempt.result?.items ?? []) {
+    const removeAttempt = await tryStep(`Remove old item ${item.id.slice(0, 8)}…`, () =>
+      del(`/api/v1/bills/${billId}/items/${item.id}`),
+    );
+    steps.push(removeAttempt.step);
+  }
+
+  let latestBill: Bill | undefined = headerAttempt.result;
+  for (const l of input.lines) {
+    const addAttempt = await tryStep(
+      `Add item: ${l.name || l.sku || l.productId.slice(0, 8)}`,
+      () =>
+        post<Bill>(`/api/v1/bills/${billId}/items`, {
+          productId: l.productId,
+          quantity: l.qty,
+          unitPrice: l.unitPrice,
+          taxRate: l.taxPct,
+        }),
+      (b) => b.id,
+    );
+    steps.push(addAttempt.step);
+    if (addAttempt.step.status === 'failed') {
+      return { billId: '', steps };
+    }
+    if (addAttempt.result) latestBill = addAttempt.result;
+  }
+
+  return { billId, bill: latestBill, steps };
+}
+
+/**
  * Create bill (INITIATED) → PATCH DRAFT, then stop — the "Hold" path.
  * Extracted out of runSalesCheckout so both Hold and normal checkout share one
  * create-bill implementation instead of drifting apart.
+ *
+ * When input.existingBillId is set (re-holding a bill that was already Resumed), this
+ * updates that SAME DRAFT bill instead of creating a new one — the create-path mirror of
+ * runSalesCheckout's existingBillId branch below.
  */
 export async function createDraftSale(
   input: SalesCheckoutInput,
@@ -236,6 +306,10 @@ export async function createDraftSale(
       message: 'Walk-in name or customer is required',
     });
     return { billId: '', steps };
+  }
+
+  if (input.existingBillId) {
+    return updateDraftSale(input.existingBillId, input, walkInName, steps);
   }
 
   const notesParts: string[] = [];

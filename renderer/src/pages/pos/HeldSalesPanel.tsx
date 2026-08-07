@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { format } from "date-fns";
 import { ListRestart, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Bills } from "../../api";
@@ -80,7 +79,7 @@ export function HeldSalesPanel({ locationId, onResume, onClose }: Props) {
                         (b.customerId ? `Customer ${b.customerId.slice(0, 8)}…` : "Walk-in")}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {b.createdAt ? format(new Date(b.createdAt), "MMM d, h:mm a") : ""}
+                      {b.createdAt ? new Date(b.createdAt).toLocaleString() : ""}
                     </p>
                   </div>
                   <span className="font-semibold text-primary flex-shrink-0">

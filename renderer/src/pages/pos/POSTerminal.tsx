@@ -654,6 +654,8 @@ export default function POSTerminal() {
         paymentTiming,
         partialAmount:
           paymentTiming === "half" ? Number(partialAmount) : undefined,
+        // Re-holding a resumed draft updates that SAME bill instead of creating a new one.
+        existingBillId: activeDraftBillId ?? undefined,
       });
       if (billId) {
         toast.success(`Sale held — resume it from Held Sales`);
