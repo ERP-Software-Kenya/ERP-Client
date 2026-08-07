@@ -28,6 +28,7 @@ import {
   Locations,
   Products,
   Suppliers,
+  ClerkUsers,
 } from "../../api";
 import { get } from "../../lib/http";
 import { useAuth } from "../../context/AuthContext";
@@ -73,6 +74,7 @@ interface BillLine {
   rate: number;
   taxPct: number;
   unitLabel: string;
+  officialRate: number;
 }
 
 interface ExtraCharge {
@@ -447,6 +449,13 @@ export default function POSTerminal() {
   const [showHeldSales, setShowHeldSales] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const [facilitatorMode, setFacilitatorMode] = useState<'none' | 'user' | 'name'>('none');
+  const [facilitatorUserId, setFacilitatorUserId] = useState("");
+  const [facilitatorName, setFacilitatorName] = useState("");
+  const [commissionPct, setCommissionPct] = useState("");
+  const [facilitatorSearchVal, setFacilitatorSearchVal] = useState("");
+  const [showFacilitatorSuggestions, setShowFacilitatorSuggestions] = useState(false);
+
   const { user } = useAuth();
   const userRoles = user?.roles ?? [];
   // Real role names (types.ts ROLE_NAMES): super_admin, org_admin, store_manager, store_staff.
@@ -482,6 +491,13 @@ export default function POSTerminal() {
   const { data: selectedCustomer } = Customers.useGet(
     mode === "sales" && saleType !== "normal" && customerId ? customerId : undefined,
   );
+
+  const { data: facilitatorSearch } = ClerkUsers.useSearch({
+    page: 1,
+    limit: 8,
+    query: facilitatorSearchVal.trim(),
+    enabled: facilitatorMode === "user" && facilitatorSearchVal.trim().length >= 2 && !facilitatorUserId,
+  });
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -531,6 +547,7 @@ export default function POSTerminal() {
           rate: productRate(p, mode),
           taxPct: 0,
           unitLabel: p.unit || "pcs",
+          officialRate: productRate(p, mode),
         },
       ]);
     }
@@ -578,6 +595,7 @@ export default function POSTerminal() {
   const totalTax = lines.reduce((s, l) => s + lineTax(l), 0);
   const extraTotal = extraCharges.reduce((s, c) => s + c.amount, 0);
   const grandTotal = subtotal + totalTax + extraTotal;
+  const blackMarkup = saleType === "black" ? lines.reduce((s, l) => s + (l.rate - l.officialRate) * l.qty, 0) : 0;
 
   const voidBill = () => {
     setLines([]);
@@ -593,6 +611,11 @@ export default function POSTerminal() {
     setCustomerType("regular");
     setPaymentTiming("cod");
     setPartialAmount("");
+    setFacilitatorMode("none");
+    setFacilitatorUserId("");
+    setFacilitatorName("");
+    setCommissionPct("");
+    setFacilitatorSearchVal("");
   };
 
   const closeSuccess = () => {
@@ -657,6 +680,9 @@ export default function POSTerminal() {
               paymentTiming,
               partialAmount:
                 paymentTiming === "half" ? Number(partialAmount) : undefined,
+              facilitatorUserId: facilitatorMode === "user" ? facilitatorUserId : undefined,
+              facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
+              commissionPct: commissionPct ? Number(commissionPct) : undefined,
             })
           : await runPurchaseCheckout({
               locationId,
@@ -709,6 +735,9 @@ export default function POSTerminal() {
         customerType,
         paymentTiming,
         partialAmount: paymentTiming === "half" ? Number(partialAmount) : undefined,
+        facilitatorUserId: facilitatorMode === "user" ? facilitatorUserId : undefined,
+        facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
+        commissionPct: commissionPct ? Number(commissionPct) : undefined,
       });
       if (result.billId) {
         toast.success(`Sale held as draft — ${result.receipt.ref}`);
@@ -744,6 +773,7 @@ export default function POSTerminal() {
             rate: it.unitPrice,
             taxPct: it.taxRate,
             unitLabel: p?.unit || "pcs",
+            officialRate: p ? productRate(p, mode) : it.unitPrice,
           };
         }),
       );
@@ -1151,7 +1181,7 @@ export default function POSTerminal() {
                             }}
                             className="hidden group-hover:flex items-center gap-1 text-[10px] text-amber-600 hover:underline mt-0.5"
                           >
-                            Override price / tax
+                            {saleType === 'black' ? "Charged price" : "Override price / tax"}
                           </button>
                         )}
                       </td>
@@ -1477,6 +1507,104 @@ export default function POSTerminal() {
                     customerType={customerType}
                     onChange={setCustomerType}
                   />
+                </div>
+              )}
+
+              {mode === "sales" && saleType === "black" && (
+                <div className="mt-3 space-y-3">
+                  <div className="p-3 border rounded-xl bg-muted/40 border-border/80">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                      Facilitator & Commission
+                    </p>
+                    <div className="grid grid-cols-3 gap-1.5 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setFacilitatorMode("none")}
+                        className={`px-2 py-1.5 rounded-lg text-[11px] font-medium border transition ${
+                          facilitatorMode === "none" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                        }`}
+                      >None</button>
+                      <button
+                        type="button"
+                        onClick={() => setFacilitatorMode("user")}
+                        className={`px-2 py-1.5 rounded-lg text-[11px] font-medium border transition ${
+                          facilitatorMode === "user" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                        }`}
+                      >System User</button>
+                      <button
+                        type="button"
+                        onClick={() => setFacilitatorMode("name")}
+                        className={`px-2 py-1.5 rounded-lg text-[11px] font-medium border transition ${
+                          facilitatorMode === "name" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                        }`}
+                      >Name Only</button>
+                    </div>
+
+                    {facilitatorMode === "user" && (
+                      <div className="relative mb-2">
+                        <input
+                          value={facilitatorSearchVal}
+                          onChange={(e) => {
+                            setFacilitatorSearchVal(e.target.value);
+                            setFacilitatorUserId("");
+                            setShowFacilitatorSuggestions(true);
+                          }}
+                          onFocus={() => setShowFacilitatorSuggestions(true)}
+                          placeholder="Search user..."
+                          className="w-full px-2 py-1.5 text-xs border border-border rounded-lg outline-none focus:border-primary"
+                        />
+                        {showFacilitatorSuggestions && !facilitatorUserId && (facilitatorSearch?.data?.length ?? 0) > 0 && (
+                          <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden max-h-40 overflow-y-auto">
+                            {(facilitatorSearch?.data ?? []).map((u) => (
+                              <button
+                                key={u.id}
+                                type="button"
+                                className="block w-full px-2 py-1.5 text-left text-[11px] hover:bg-muted border-b border-border last:border-0"
+                                onClick={() => {
+                                  setFacilitatorUserId(u.id);
+                                  setFacilitatorSearchVal(`${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email);
+                                  setShowFacilitatorSuggestions(false);
+                                }}
+                              >
+                                {u.firstName} {u.lastName} <span className="text-muted-foreground">{u.email}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {facilitatorMode === "name" && (
+                      <div className="mb-2">
+                        <input
+                          value={facilitatorName}
+                          onChange={(e) => setFacilitatorName(e.target.value)}
+                          placeholder="Facilitator name"
+                          className="w-full px-2 py-1.5 text-xs border border-border rounded-lg outline-none focus:border-primary"
+                        />
+                      </div>
+                    )}
+                    {facilitatorMode !== "none" && (
+                      <div>
+                        <input
+                          type="number"
+                          value={commissionPct}
+                          onChange={(e) => setCommissionPct(e.target.value)}
+                          placeholder="Commission %"
+                          className="w-full px-2 py-1.5 text-xs border border-border rounded-lg outline-none focus:border-primary"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-2 border border-border/80 bg-background rounded-lg flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-medium">Black Markup</span>
+                    <span className="font-semibold">{fmt(blackMarkup)}</span>
+                  </div>
+                  {facilitatorMode !== "none" && commissionPct && (
+                    <div className="p-2 border border-border/80 bg-background rounded-lg flex items-center justify-between text-xs mt-1.5">
+                      <span className="text-muted-foreground font-medium">Est. Commission</span>
+                      <span className="font-semibold text-primary">{fmt((blackMarkup * Number(commissionPct)) / 100)}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
