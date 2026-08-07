@@ -1,5 +1,5 @@
 import { patch, post } from '../../lib/http';
-import type { Bill, InventoryItem, PaymentMethod } from '../../types';
+import type { Bill, InventoryItem, PaymentMethod, SaleType, CustomerType, PaymentTiming } from '../../types';
 
 export type CheckoutStepStatus = 'ok' | 'failed' | 'skipped';
 
@@ -64,6 +64,14 @@ export interface SalesCheckoutInput {
   subtotal: number;
   taxAmount: number;
   totalAmount: number;
+  // ── Sales v2 fields ──
+  saleType?: SaleType | string;
+  customerType?: CustomerType | string;
+  paymentTiming?: PaymentTiming | string;
+  partialAmount?: number;
+  facilitatorUserId?: string;
+  facilitatorName?: string;
+  commissionPct?: number;
 }
 
 export interface PurchaseCheckoutInput {
@@ -281,6 +289,14 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
           unitPrice: l.unitPrice,
           taxRate: l.taxPct,
         })),
+        // Sales v2 fields
+        saleType: input.saleType,
+        customerType: input.customerType,
+        paymentTiming: input.paymentTiming,
+        partialAmount: input.paymentTiming === 'half' ? input.partialAmount : undefined,
+        facilitatorUserId: input.facilitatorUserId,
+        facilitatorName: input.facilitatorName,
+        commissionPct: input.commissionPct,
       }),
     (b) => b.id,
   );
@@ -419,4 +435,50 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
   });
 
   return { receipt, steps, primaryOk: true };
+}
+
+/**
+ * Hold/Rakhone: creates a bill and stops at DRAFT (never calls COMPLETED).
+ * Returns the bill ID so POSTerminal can display and resume it later.
+ */
+export async function createDraftSale(
+  input: SalesCheckoutInput,
+): Promise<{ billId: string; steps: CheckoutStep[] }> {
+  const steps: CheckoutStep[] = [];
+  const walkInName = input.customerInfo?.trim() || (input.customerId ? undefined : 'Walk-in');
+
+  const notesParts: string[] = [];
+  if (input.extraCharges.length > 0)
+    notesParts.push(`POS extras: ${input.extraCharges.map((c) => `${c.label}=${c.amount}`).join(', ')}`);
+  if (input.storeName) notesParts.push(`Store: ${input.storeName}`);
+
+  const createAttempt = await tryStep(
+    'Create bill (hold)',
+    () =>
+      post<Bill>('/api/v1/bills', {
+        locationId: input.locationId,
+        customerId: input.customerId?.trim() || undefined,
+        walkInName: input.customerId?.trim() ? undefined : walkInName,
+        notes: notesParts.length ? notesParts.join(' · ') : undefined,
+        items: input.lines.map((l) => ({
+          productId: l.productId,
+          quantity: l.qty,
+          unitPrice: l.unitPrice,
+          taxRate: l.taxPct,
+        })),
+        saleType: input.saleType,
+        customerType: input.customerType,
+        paymentTiming: input.paymentTiming,
+      }),
+    (b) => b.id,
+  );
+  steps.push(createAttempt.step);
+  if (!createAttempt.result?.id) return { billId: '', steps };
+
+  const billId = createAttempt.result.id;
+  const draftAttempt = await tryStep('Mark draft (hold)', () =>
+    patch<Bill>(`/api/v1/bills/${billId}/status`, { status: 'DRAFT' }),
+  );
+  steps.push(draftAttempt.step);
+  return { billId, steps };
 }
