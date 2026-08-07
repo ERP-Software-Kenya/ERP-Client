@@ -234,6 +234,15 @@ export type BillStatus = 'INITIATED' | 'DRAFT' | 'COMPLETED' | 'CANCELLED';
 /** Matches core-apis EPaymentMethod. */
 export type PaymentMethod = 'CASH' | 'CARD' | 'UPI' | 'NET_BANKING' | 'CHEQUE' | 'CREDIT';
 
+/** Matches core-apis ESaleType. */
+export type SaleType = 'normal' | 'credit' | 'black';
+
+/** Matches core-apis ECustomerType. */
+export type CustomerType = 'regular' | 'new' | 'shop' | 'big_customer';
+
+/** Matches core-apis EPaymentTiming. */
+export type PaymentTiming = 'before_delivery' | 'after_delivery' | 'half' | 'cod';
+
 export interface BillItem {
   id: string;
   billId: string;
@@ -268,6 +277,15 @@ export interface Bill {
   createdAt?: string;
   updatedAt?: string | null;
   items?: BillItem[];
+  // ── Sales v2 fields ──
+  saleType?: SaleType | string;
+  customerType?: CustomerType | string | null;
+  paymentTiming?: PaymentTiming | string | null;
+  partialAmount?: number | null;
+  blackAmount?: number;
+  facilitatorUserId?: string | null;
+  facilitatorName?: string | null;
+  commissionAmount?: number;
 }
 
 export interface CreateBillItemInput {
@@ -287,6 +305,14 @@ export interface CreateBillInput {
   walkInGstin?: string;
   notes?: string;
   items: CreateBillItemInput[];
+  // ── Sales v2 fields ──
+  saleType?: SaleType | string;
+  customerType?: CustomerType | string;
+  paymentTiming?: PaymentTiming | string;
+  partialAmount?: number;
+  facilitatorUserId?: string;
+  facilitatorName?: string;
+  commissionPct?: number;
 }
 
 export interface UpdateBillInput {
@@ -479,6 +505,38 @@ export interface Customer {
   gstin?: string;
   createdAt?: string;
   updatedAt?: string;
+  // ── Sales v2 credit fields ──
+  creditLimit?: number | null;
+  creditBalance?: number;
+}
+
+export type CreditApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CreditApprovalRequest {
+  id: string;
+  organizationId: string;
+  customerId: string;
+  billId: string;
+  requestedAmount: number;
+  requestedById: string;
+  status: CreditApprovalStatus | string;
+  decidedById?: string | null;
+  decidedAt?: string | null;
+  createdAt: string;
+}
+
+export type CommissionStatus = 'owed' | 'paid';
+
+export interface CommissionPayable {
+  id: string;
+  organizationId: string;
+  billId: string;
+  facilitatorUserId?: string | null;
+  facilitatorName?: string | null;
+  amount: number;
+  status: CommissionStatus | string;
+  paidAt?: string | null;
+  createdAt: string;
 }
 
 export interface Expense {

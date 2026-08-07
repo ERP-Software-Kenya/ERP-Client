@@ -11,6 +11,8 @@ import type {
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
+  SaleType, CustomerType, PaymentTiming,
+  CreditApprovalRequest, CommissionPayable,
   Country, State, City,
   CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
   ClerkUserListResponse, ClerkUserRolesResponse,
@@ -188,6 +190,56 @@ export const Customers = {
         queryClient.invalidateQueries({ queryKey: ['customers'] });
       },
       onError: (error: Error) => toast.error(error.message || 'Failed to update customer'),
+    });
+  },
+};
+
+export const CreditApprovals = {
+  useListPending() {
+    return useQuery({
+      queryKey: ['credit-approvals', 'pending'],
+      queryFn: () => get<CreditApprovalRequest[]>('/api/v1/credit-approvals'),
+    });
+  },
+  useApprove() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => post<CreditApprovalRequest>(`/api/v1/credit-approvals/${id}/approve`, {}),
+      onSuccess: () => {
+        toast.success('Credit sale approved');
+        queryClient.invalidateQueries({ queryKey: ['credit-approvals'] });
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+        queryClient.invalidateQueries({ queryKey: ['customers'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to approve'),
+    });
+  },
+  useReject() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => post<CreditApprovalRequest>(`/api/v1/credit-approvals/${id}/reject`, {}),
+      onSuccess: () => {
+        toast.success('Credit sale rejected');
+        queryClient.invalidateQueries({ queryKey: ['credit-approvals'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to reject'),
+    });
+  },
+  useBlackLedger() {
+    return useQuery({
+      queryKey: ['credit-approvals', 'black-ledger'],
+      queryFn: () => get<{ bills: Bill[]; commissions: CommissionPayable[] }>('/api/v1/credit-approvals/black-ledger'),
+    });
+  },
+  useMarkCommissionPaid() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => post<CommissionPayable>(`/api/v1/credit-approvals/commissions/${id}/mark-paid`, {}),
+      onSuccess: () => {
+        toast.success('Commission marked paid');
+        queryClient.invalidateQueries({ queryKey: ['credit-approvals', 'black-ledger'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to mark paid'),
     });
   },
 };
