@@ -64,6 +64,10 @@ export interface SalesCheckoutInput {
   subtotal: number;
   taxAmount: number;
   totalAmount: number;
+  saleType?: 'normal' | 'credit' | 'black';
+  customerType?: 'regular' | 'new' | 'shop' | 'big_customer';
+  paymentTiming?: 'before_delivery' | 'after_delivery' | 'half' | 'cod';
+  partialAmount?: number;
 }
 
 export interface PurchaseCheckoutInput {
@@ -197,11 +201,18 @@ async function runStockLines(
   return steps;
 }
 
+export interface DraftSaleResult {
+  /** Present only when the bill made it to DRAFT; steps carry the failure reason otherwise. */
+  billId?: string;
+  receipt: PosReceipt;
+  steps: CheckoutStep[];
+}
+
 /**
- * Sales: POST bill (INITIATED) → PATCH DRAFT → PATCH COMPLETED.
- * Stock is deducted on the server when COMPLETED — no client stock-remove.
+ * Shared "create bill (INITIATED) → mark DRAFT" path, used by both `runSalesCheckout`
+ * (which continues on to COMPLETED) and `holdSale` in POSTerminal.tsx (which stops here).
  */
-export async function runSalesCheckout(input: SalesCheckoutInput): Promise<CheckoutResult> {
+export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftSaleResult> {
   const steps: CheckoutStep[] = [];
   const walkInName =
     input.customerInfo?.trim() ||
@@ -229,11 +240,11 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
       status: 'failed',
       message: 'Select a stock location — required for sales bills',
     });
-    return { receipt, steps, primaryOk: false };
+    return { receipt, steps };
   }
   if (input.lines.length === 0) {
     steps.push({ name: 'Validate lines', status: 'failed', message: 'Cart is empty' });
-    return { receipt, steps, primaryOk: false };
+    return { receipt, steps };
   }
   if (!input.customerId?.trim() && !walkInName) {
     steps.push({
@@ -241,7 +252,15 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
       status: 'failed',
       message: 'Walk-in name or customer is required',
     });
-    return { receipt, steps, primaryOk: false };
+    return { receipt, steps };
+  }
+  if (input.paymentTiming === 'half' && !(Number(input.partialAmount) > 0)) {
+    steps.push({
+      name: 'Validate payment timing',
+      status: 'failed',
+      message: 'Enter a partial amount greater than 0 for half payment',
+    });
+    return { receipt, steps };
   }
 
   steps.push({
@@ -275,6 +294,10 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
         customerId: input.customerId?.trim() || undefined,
         walkInName: input.customerId?.trim() ? undefined : walkInName,
         notes: notesParts.length ? notesParts.join(' · ') : undefined,
+        saleType: input.saleType,
+        customerType: input.customerType,
+        paymentTiming: input.paymentTiming,
+        partialAmount: input.paymentTiming === 'half' ? input.partialAmount : undefined,
         items: input.lines.map((l) => ({
           productId: l.productId,
           quantity: l.qty,
@@ -296,7 +319,7 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
           'Server 500 on bill create — usually createdById fallback (BillsController has no ClerkAuthGuard). Needs core-apis fix; client payload is valid.',
       });
     }
-    return { receipt, steps, primaryOk: false };
+    return { receipt, steps };
   }
 
   const billId = createAttempt.result.id;
@@ -311,6 +334,19 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
   );
   steps.push(draftAttempt.step);
   if (draftAttempt.step.status === 'failed') {
+    return { receipt, steps };
+  }
+
+  return { receipt, steps, billId };
+}
+
+/**
+ * Sales: POST bill (INITIATED) → PATCH DRAFT → PATCH COMPLETED.
+ * Stock is deducted on the server when COMPLETED — no client stock-remove.
+ */
+export async function runSalesCheckout(input: SalesCheckoutInput): Promise<CheckoutResult> {
+  const { receipt, steps, billId } = await createDraftSale(input);
+  if (!billId) {
     return { receipt, steps, primaryOk: false };
   }
 

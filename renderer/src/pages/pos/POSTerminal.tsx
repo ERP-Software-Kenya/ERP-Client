@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
+  Archive,
   Banknote,
   Check,
   ChevronDown,
@@ -19,6 +20,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Customers,
@@ -27,7 +29,18 @@ import {
   Products,
   Suppliers,
 } from "../../api";
-import type { Customer, Location, Product, Supplier } from "../../types";
+import { get } from "../../lib/http";
+import { useAuth } from "../../context/AuthContext";
+import type {
+  Bill,
+  Customer,
+  CustomerType,
+  Location,
+  PaymentTiming,
+  Product,
+  SaleType,
+  Supplier,
+} from "../../types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +51,7 @@ import {
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatEntityLabel } from "../../lib/entityLabel";
 import {
+  createDraftSale,
   runPurchaseCheckout,
   runSalesCheckout,
   type CheckoutResult,
@@ -45,6 +59,7 @@ import {
   type PosReceipt,
 } from "./checkout";
 import { ReceiptDocument } from "./ReceiptDocument";
+import HeldSalesPanel from "./HeldSalesPanel";
 
 type Mode = "sales" | "purchase";
 type PayMethod = "cash" | "card";
@@ -131,6 +146,112 @@ function ModeToggle({
         <PackagePlus size={14} />
         Purchase Receiving
       </button>
+    </div>
+  );
+}
+
+const SALE_TYPE_OPTIONS: Array<{ value: SaleType; label: string }> = [
+  { value: "normal", label: "Normal" },
+  { value: "credit", label: "Credit" },
+  { value: "black", label: "Black" },
+];
+
+function SaleTypeToggle({
+  saleType,
+  onChange,
+  canCreateBlackSale,
+}: {
+  saleType: SaleType;
+  onChange: (t: SaleType) => void;
+  canCreateBlackSale: boolean;
+}) {
+  const options = SALE_TYPE_OPTIONS.filter(
+    (o) => o.value !== "black" || canCreateBlackSale,
+  );
+  return (
+    <div className="flex items-center bg-muted rounded-lg p-1 gap-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+            saleType === o.value
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const CUSTOMER_TYPE_OPTIONS: Array<{ value: CustomerType; label: string }> = [
+  { value: "regular", label: "Regular" },
+  { value: "new", label: "New" },
+  { value: "shop", label: "Shop" },
+  { value: "big_customer", label: "Big Customer" },
+];
+
+function CustomerTypeRow({
+  customerType,
+  onChange,
+}: {
+  customerType: CustomerType;
+  onChange: (t: CustomerType) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      {CUSTOMER_TYPE_OPTIONS.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition ${
+            customerType === o.value
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border text-muted-foreground hover:border-border"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const PAYMENT_TIMING_OPTIONS: Array<{ value: PaymentTiming; label: string }> = [
+  { value: "cod", label: "COD" },
+  { value: "before_delivery", label: "Before Delivery" },
+  { value: "after_delivery", label: "After Delivery" },
+  { value: "half", label: "Half" },
+];
+
+function PaymentTimingRow({
+  paymentTiming,
+  onChange,
+}: {
+  paymentTiming: PaymentTiming;
+  onChange: (t: PaymentTiming) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      {PAYMENT_TIMING_OPTIONS.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition ${
+            paymentTiming === o.value
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border text-muted-foreground hover:border-border"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -318,7 +439,20 @@ export default function POSTerminal() {
   );
   const [checkingOut, setCheckingOut] = useState(false);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [saleType, setSaleType] = useState<SaleType>("normal");
+  const [customerType, setCustomerType] = useState<CustomerType>("regular");
+  const [paymentTiming, setPaymentTiming] = useState<PaymentTiming>("cod");
+  const [partialAmount, setPartialAmount] = useState("");
+  const [holding, setHolding] = useState(false);
+  const [showHeldSales, setShowHeldSales] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const { user } = useAuth();
+  const userRoles = user?.roles ?? [];
+  // Real role names (types.ts ROLE_NAMES): super_admin, org_admin, store_manager, store_staff.
+  const canCreateBlackSale = userRoles.some((r) =>
+    ["super_admin", "org_admin"].includes(r),
+  );
 
   const debouncedCustomerInfo = useDebounce(customerInfo, 300);
 
@@ -345,6 +479,9 @@ export default function POSTerminal() {
       debouncedCustomerInfo.trim().length >= 2 &&
       !customerId,
   });
+  const { data: selectedCustomer } = Customers.useGet(
+    mode === "sales" && saleType !== "normal" && customerId ? customerId : undefined,
+  );
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -452,6 +589,10 @@ export default function POSTerminal() {
     setQty(1);
     setCashTendered("");
     setCheckoutResult(null);
+    setSaleType("normal");
+    setCustomerType("regular");
+    setPaymentTiming("cod");
+    setPartialAmount("");
   };
 
   const closeSuccess = () => {
@@ -468,19 +609,29 @@ export default function POSTerminal() {
       isNaN(Number(cashTendered)) ||
       Number(cashTendered) < grandTotal);
 
+  const partialAmountMissing =
+    mode === "sales" &&
+    paymentTiming === "half" &&
+    (partialAmount === "" ||
+      isNaN(Number(partialAmount)) ||
+      Number(partialAmount) <= 0);
+
+  const buildLinePayload = () =>
+    lines.map((l) => ({
+      productId: l.productId,
+      sku: l.sku,
+      name: l.name,
+      qty: l.qty,
+      unitPrice: l.rate,
+      taxPct: l.taxPct,
+    }));
+
   const generateBill = async () => {
-    if (lines.length === 0 || checkingOut || cashShort) return;
+    if (lines.length === 0 || checkingOut || cashShort || partialAmountMissing) return;
     setCheckingOut(true);
     setCheckoutResult(null);
     try {
-      const linePayload = lines.map((l) => ({
-        productId: l.productId,
-        sku: l.sku,
-        name: l.name,
-        qty: l.qty,
-        unitPrice: l.rate,
-        taxPct: l.taxPct,
-      }));
+      const linePayload = buildLinePayload();
 
       const supplier = suppliers.find((s) => s.id === supplierId);
 
@@ -501,6 +652,11 @@ export default function POSTerminal() {
               subtotal,
               taxAmount: totalTax,
               totalAmount: grandTotal,
+              saleType,
+              customerType,
+              paymentTiming,
+              partialAmount:
+                paymentTiming === "half" ? Number(partialAmount) : undefined,
             })
           : await runPurchaseCheckout({
               locationId,
@@ -524,6 +680,89 @@ export default function POSTerminal() {
       }
     } finally {
       setCheckingOut(false);
+    }
+  };
+
+  // Reuses the bill-create path (create -> DRAFT) via checkout.ts's createDraftSale,
+  // but never calls the COMPLETED transition — the bill stays a resumable draft.
+  const holdSale = async () => {
+    if (lines.length === 0 || holding || partialAmountMissing || !locationId) return;
+    setHolding(true);
+    setCheckoutResult(null);
+    try {
+      const result = await createDraftSale({
+        storeName: stockLocation?.name,
+        locationId: locationId || undefined,
+        locationName: stockLocation?.name,
+        inventory,
+        orgId,
+        customerId: customerId.trim() || undefined,
+        paymentMethod: payMethod,
+        amountReceived: cashTendered ? Number(cashTendered) : undefined,
+        customerInfo,
+        lines: buildLinePayload(),
+        extraCharges,
+        subtotal,
+        taxAmount: totalTax,
+        totalAmount: grandTotal,
+        saleType,
+        customerType,
+        paymentTiming,
+        partialAmount: paymentTiming === "half" ? Number(partialAmount) : undefined,
+      });
+      if (result.billId) {
+        toast.success(`Sale held as draft — ${result.receipt.ref}`);
+        voidBill();
+      } else {
+        setCheckoutResult({ receipt: result.receipt, steps: result.steps, primaryOk: false });
+      }
+    } finally {
+      setHolding(false);
+    }
+  };
+
+  const resumeSale = async (billId: string) => {
+    try {
+      const bill = await get<Bill>(`/api/v1/bills/${billId}`);
+      const items = bill.items ?? [];
+      const products = await Promise.all(
+        items.map((it) =>
+          get<Product>(`/api/v1/products/${it.productId}`).catch(() => null),
+        ),
+      );
+      setLines(
+        items.map((it, idx) => {
+          const p = products[idx];
+          return {
+            id: ++lineIdSeq,
+            productId: it.productId,
+            sku: p
+              ? formatEntityLabel({ sku: p.sku, id: p.id })
+              : it.productId.slice(0, 8),
+            name: p?.name || "Item",
+            qty: it.quantity,
+            rate: it.unitPrice,
+            taxPct: it.taxRate,
+            unitLabel: p?.unit || "pcs",
+          };
+        }),
+      );
+      setCustomerId(bill.customerId || "");
+      setCustomerInfo(
+        bill.walkInName ||
+          (bill.customerId ? `Customer ${bill.customerId.slice(0, 8)}…` : ""),
+      );
+      if (bill.locationId) setLocationId(bill.locationId);
+      setSaleType((bill.saleType as SaleType) || "normal");
+      setCustomerType((bill.customerType as CustomerType) || "regular");
+      setPaymentTiming((bill.paymentTiming as PaymentTiming) || "cod");
+      setPartialAmount(
+        bill.partialAmount != null ? String(bill.partialAmount) : "",
+      );
+      setShowHeldSales(false);
+      toast.success(`Resumed ${bill.billNumber}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to resume sale");
     }
   };
 
@@ -792,14 +1031,25 @@ export default function POSTerminal() {
               >
                 <X size={13} /> Void
               </button>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg cursor-not-allowed"
-                title="Hold not wired yet"
-                disabled
-              >
-                <PauseCircle size={13} /> Hold
-              </button>
+              {mode === "sales" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void holdSale()}
+                    disabled={lines.length === 0 || holding || partialAmountMissing || !locationId}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <PauseCircle size={13} /> {holding ? "Holding…" : "Hold"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowHeldSales(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition"
+                  >
+                    <Archive size={13} /> Held Sales
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -1036,6 +1286,17 @@ export default function POSTerminal() {
               <>
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                    Sale Type
+                  </p>
+                  <SaleTypeToggle
+                    saleType={saleType}
+                    onChange={setSaleType}
+                    canCreateBlackSale={canCreateBlackSale}
+                  />
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
                     Payment Method
                   </p>
                   <div className="grid grid-cols-2 gap-2">
@@ -1084,6 +1345,33 @@ export default function POSTerminal() {
                       )}
                     </div>
                   )}
+                  <div className="mt-3">
+                    <label className="block mb-1.5 text-xs font-medium text-muted-foreground">
+                      Payment Timing
+                    </label>
+                    <PaymentTimingRow
+                      paymentTiming={paymentTiming}
+                      onChange={setPaymentTiming}
+                    />
+                    {paymentTiming === "half" && (
+                      <div className="mt-2">
+                        <input
+                          type="number"
+                          value={partialAmount}
+                          onChange={(e) => setPartialAmount(e.target.value)}
+                          placeholder="Partial amount received"
+                          className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-primary ${
+                            partialAmountMissing ? "border-destructive" : "border-border"
+                          }`}
+                        />
+                        {partialAmountMissing && (
+                          <p className="mt-1 text-[10px] font-medium text-destructive">
+                            Enter a partial amount greater than 0
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -1171,6 +1459,26 @@ export default function POSTerminal() {
                   </button>
                 </div>
               )}
+              {mode === "sales" &&
+                saleType === "credit" &&
+                customerId &&
+                selectedCustomer && (
+                  <p className="mt-1.5 text-[10px] text-muted-foreground">
+                    Credit limit: {fmt(Number(selectedCustomer.creditLimit ?? 0))}{" "}
+                    · Balance: {fmt(Number(selectedCustomer.creditBalance ?? 0))}
+                  </p>
+                )}
+              {mode === "sales" && (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                    Customer Type
+                  </p>
+                  <CustomerTypeRow
+                    customerType={customerType}
+                    onChange={setCustomerType}
+                  />
+                </div>
+              )}
             </div>
 
             <div className={`rounded-xl p-3 border text-xs ${accentCls.light}`}>
@@ -1192,6 +1500,7 @@ export default function POSTerminal() {
                 lines.length === 0 ||
                 checkingOut ||
                 cashShort ||
+                partialAmountMissing ||
                 (mode === "sales" && !locationId) ||
                 (mode === "purchase" && !supplierId)
               }
@@ -1249,6 +1558,14 @@ export default function POSTerminal() {
         <div className="pos-print-root" aria-hidden>
           <ReceiptDocument receipt={success?.receipt ?? lastReceipt!} />
         </div>
+      )}
+
+      {showHeldSales && (
+        <HeldSalesPanel
+          locationId={locationId}
+          onClose={() => setShowHeldSales(false)}
+          onResume={(billId) => void resumeSale(billId)}
+        />
       )}
     </div>
   );
