@@ -47,6 +47,8 @@ const Roles = lazy(() => import('./pages/Roles'));
 const UserRoles = lazy(() => import('./pages/UserRoles'));
 const Users = lazy(() => import('./pages/Users'));
 const UserDetail = lazy(() => import('./pages/UserDetail'));
+const PendingApprovals = lazy(() => import('./pages/credit-approvals/PendingApprovals'));
+const BlackLedger = lazy(() => import('./pages/credit-approvals/BlackLedger'));
 const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
 const VehicleDetailPage = lazy(() => import('./pages/VehicleDetailPage'));
 const POSTerminal = lazy(() => import('./pages/pos/POSTerminal'));
@@ -109,6 +111,8 @@ function App() {
             <Route path="customers" element={<Customers />} />
             <Route path="orders" element={<Orders />} />
             <Route path="invoices" element={<Invoices />} />
+            <Route path="approvals/pending" element={<PendingApprovals />} />
+            <Route path="approvals/black-ledger" element={<BlackLedger />} />
             <Route path="vehicles" element={<VehiclesPage />} />
             <Route path="vehicles/:id" element={<VehicleDetailPage />} />
             <Route path="activity-logs" element={<ActivityLogs />} />

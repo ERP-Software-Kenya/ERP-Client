@@ -159,15 +159,14 @@ export const MODULES: ModuleGroup[] = [
   //     { key: 'maintenance', title: 'Maintenance', path: '/vehicles/maintenance', icon: Wrench, disabled: true },
   //   ],
   // },
-  // {
-  //   label: 'Approvals',
-  //   icon: CheckSquare,
-  //   items: [
-  //     { key: 'approvals-pending', title: 'Pending', path: '/approvals/pending', icon: Clock, disabled: true },
-  //     { key: 'approvals-history', title: 'History', path: '/approvals/history', icon: History, disabled: true },
-  //     { key: 'approvals-rules', title: 'Rules', path: '/approvals/rules', icon: Settings, disabled: true },
-  //   ],
-  // },
+  {
+    label: 'Approvals',
+    icon: CheckSquare,
+    items: [
+      { key: 'approvals-pending', title: 'Pending Credit Sales', path: '/approvals/pending', icon: Clock },
+      { key: 'approvals-history', title: 'Black Ledger', path: '/approvals/black-ledger', icon: History },
+    ],
+  },
   // {
   //   label: 'Reports',
   //   icon: BarChart3,
