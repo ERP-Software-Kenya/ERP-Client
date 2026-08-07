@@ -1,5 +1,5 @@
 import { patch, post } from '../../lib/http';
-import type { Bill, InventoryItem, PaymentMethod } from '../../types';
+import type { Bill, CustomerType, InventoryItem, PaymentMethod, PaymentTiming, SaleType } from '../../types';
 
 export type CheckoutStepStatus = 'ok' | 'failed' | 'skipped';
 
@@ -64,6 +64,13 @@ export interface SalesCheckoutInput {
   subtotal: number;
   taxAmount: number;
   totalAmount: number;
+  // ── Sales v2 fields ──
+  saleType?: SaleType | string;
+  customerType?: CustomerType | string;
+  paymentTiming?: PaymentTiming | string;
+  partialAmount?: number;
+  /** When set (Resume flow), checkout completes this existing DRAFT bill instead of creating a new one. */
+  existingBillId?: string;
 }
 
 export interface PurchaseCheckoutInput {
@@ -198,30 +205,17 @@ async function runStockLines(
 }
 
 /**
- * Sales: POST bill (INITIATED) → PATCH DRAFT → PATCH COMPLETED.
- * Stock is deducted on the server when COMPLETED — no client stock-remove.
+ * Create bill (INITIATED) → PATCH DRAFT, then stop — the "Hold" path.
+ * Extracted out of runSalesCheckout so both Hold and normal checkout share one
+ * create-bill implementation instead of drifting apart.
  */
-export async function runSalesCheckout(input: SalesCheckoutInput): Promise<CheckoutResult> {
+export async function createDraftSale(
+  input: SalesCheckoutInput,
+): Promise<{ billId: string; bill?: Bill; steps: CheckoutStep[] }> {
   const steps: CheckoutStep[] = [];
   const walkInName =
     input.customerInfo?.trim() ||
     (input.customerId ? undefined : 'Walk-in');
-  const receipt: PosReceipt = {
-    ref: localRef('POS'),
-    mode: 'sales',
-    storeName: input.storeName ?? input.locationName,
-    partyLabel:
-      input.customerInfo?.trim() ||
-      (input.customerId ? `Customer ${input.customerId.slice(0, 8)}…` : 'Walk-in'),
-    paymentMethod: input.paymentMethod,
-    lines: buildReceiptLines(input.lines),
-    extraCharges: input.extraCharges,
-    subtotal: input.subtotal,
-    taxAmount: input.taxAmount,
-    totalAmount: input.totalAmount,
-    createdAt: new Date().toISOString(),
-    synced: false,
-  };
 
   if (!input.locationId) {
     steps.push({
@@ -229,11 +223,11 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
       status: 'failed',
       message: 'Select a stock location — required for sales bills',
     });
-    return { receipt, steps, primaryOk: false };
+    return { billId: '', steps };
   }
   if (input.lines.length === 0) {
     steps.push({ name: 'Validate lines', status: 'failed', message: 'Cart is empty' });
-    return { receipt, steps, primaryOk: false };
+    return { billId: '', steps };
   }
   if (!input.customerId?.trim() && !walkInName) {
     steps.push({
@@ -241,22 +235,7 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
       status: 'failed',
       message: 'Walk-in name or customer is required',
     });
-    return { receipt, steps, primaryOk: false };
-  }
-
-  steps.push({
-    name: 'Local receipt',
-    status: 'ok',
-    message: `Issued ${receipt.ref} — ready to print`,
-  });
-
-  if (input.extraCharges.length > 0) {
-    steps.push(
-      skipped(
-        'Extra charges',
-        'Extra charges stay on the local receipt only (bill lines are products).',
-      ),
-    );
+    return { billId: '', steps };
   }
 
   const notesParts: string[] = [];
@@ -281,6 +260,10 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
           unitPrice: l.unitPrice,
           taxRate: l.taxPct,
         })),
+        saleType: input.saleType,
+        customerType: input.customerType,
+        paymentTiming: input.paymentTiming,
+        partialAmount: input.paymentTiming === 'half' ? input.partialAmount : undefined,
       }),
     (b) => b.id,
   );
@@ -296,14 +279,10 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
           'Server 500 on bill create — usually createdById fallback (BillsController has no ClerkAuthGuard). Needs core-apis fix; client payload is valid.',
       });
     }
-    return { receipt, steps, primaryOk: false };
+    return { billId: '', steps };
   }
 
   const billId = createAttempt.result.id;
-  if (createAttempt.result.billNumber) {
-    receipt.ref = createAttempt.result.billNumber;
-  }
-
   const draftAttempt = await tryStep(
     'Mark draft',
     () => patch<Bill>(`/api/v1/bills/${billId}/status`, { status: 'DRAFT' }),
@@ -311,7 +290,97 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
   );
   steps.push(draftAttempt.step);
   if (draftAttempt.step.status === 'failed') {
+    return { billId: '', steps };
+  }
+
+  return { billId, bill: draftAttempt.result ?? createAttempt.result, steps };
+}
+
+/**
+ * Sales: POST bill (INITIATED) → PATCH DRAFT → PATCH COMPLETED (via createDraftSale),
+ * or — when input.existingBillId is set (Resume flow) — skip straight to PATCH COMPLETED
+ * on that bill so a resumed hold completes the SAME bill instead of creating a new one.
+ * Stock is deducted on the server when COMPLETED — no client stock-remove.
+ */
+export async function runSalesCheckout(input: SalesCheckoutInput): Promise<CheckoutResult> {
+  const steps: CheckoutStep[] = [];
+  const walkInName =
+    input.customerInfo?.trim() ||
+    (input.customerId ? undefined : 'Walk-in');
+  const receipt: PosReceipt = {
+    ref: localRef('POS'),
+    mode: 'sales',
+    storeName: input.storeName ?? input.locationName,
+    partyLabel:
+      input.customerInfo?.trim() ||
+      (input.customerId ? `Customer ${input.customerId.slice(0, 8)}…` : 'Walk-in'),
+    paymentMethod: input.paymentMethod,
+    lines: buildReceiptLines(input.lines),
+    extraCharges: input.extraCharges,
+    subtotal: input.subtotal,
+    taxAmount: input.taxAmount,
+    totalAmount: input.totalAmount,
+    createdAt: new Date().toISOString(),
+    synced: false,
+  };
+
+  if (!input.existingBillId) {
+    if (!input.locationId) {
+      steps.push({
+        name: 'Validate location',
+        status: 'failed',
+        message: 'Select a stock location — required for sales bills',
+      });
+      return { receipt, steps, primaryOk: false };
+    }
+    if (!input.customerId?.trim() && !walkInName) {
+      steps.push({
+        name: 'Validate customer',
+        status: 'failed',
+        message: 'Walk-in name or customer is required',
+      });
+      return { receipt, steps, primaryOk: false };
+    }
+  }
+  if (input.lines.length === 0) {
+    steps.push({ name: 'Validate lines', status: 'failed', message: 'Cart is empty' });
     return { receipt, steps, primaryOk: false };
+  }
+
+  steps.push({
+    name: 'Local receipt',
+    status: 'ok',
+    message: `Issued ${receipt.ref} — ready to print`,
+  });
+
+  if (input.extraCharges.length > 0) {
+    steps.push(
+      skipped(
+        'Extra charges',
+        'Extra charges stay on the local receipt only (bill lines are products).',
+      ),
+    );
+  }
+
+  let billId: string;
+  if (input.existingBillId) {
+    billId = input.existingBillId;
+    steps.push({
+      name: 'Resume held bill',
+      status: 'ok',
+      message: `Completing existing DRAFT bill ${billId.slice(0, 8)}…`,
+      entityId: billId,
+    });
+  } else {
+    const draft = await createDraftSale(input);
+    steps.push(...draft.steps);
+    if (!draft.billId) {
+      return { receipt, steps, primaryOk: false };
+    }
+    billId = draft.billId;
+    if (draft.bill?.billNumber) {
+      receipt.ref = draft.bill.billNumber;
+    }
   }
 
   const completeAttempt = await tryStep(

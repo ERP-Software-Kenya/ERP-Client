@@ -5,6 +5,7 @@ import {
   Check,
   ChevronDown,
   CreditCard,
+  ListRestart,
   Mail,
   Minus,
   Package,
@@ -20,6 +21,8 @@ import {
   X,
 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
+import { useAuth } from "../../context/AuthContext";
 import {
   Customers,
   Inventory,
@@ -27,7 +30,16 @@ import {
   Products,
   Suppliers,
 } from "../../api";
-import type { Customer, Location, Product, Supplier } from "../../types";
+import type {
+  Bill,
+  Customer,
+  CustomerType,
+  Location,
+  PaymentTiming,
+  Product,
+  SaleType,
+  Supplier,
+} from "../../types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +50,7 @@ import {
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatEntityLabel } from "../../lib/entityLabel";
 import {
+  createDraftSale,
   runPurchaseCheckout,
   runSalesCheckout,
   type CheckoutResult,
@@ -45,6 +58,7 @@ import {
   type PosReceipt,
 } from "./checkout";
 import { ReceiptDocument } from "./ReceiptDocument";
+import { HeldSalesPanel } from "./HeldSalesPanel";
 
 type Mode = "sales" | "purchase";
 type PayMethod = "cash" | "card";
@@ -131,6 +145,47 @@ function ModeToggle({
         <PackagePlus size={14} />
         Purchase Receiving
       </button>
+    </div>
+  );
+}
+
+const SALE_TYPE_LABELS: Record<SaleType, string> = {
+  normal: "Normal",
+  credit: "Credit",
+  black: "Black",
+};
+
+function SaleTypeToggle({
+  saleType,
+  onChange,
+  canCreateBlackSale,
+}: {
+  saleType: SaleType;
+  onChange: (t: SaleType) => void;
+  canCreateBlackSale: boolean;
+}) {
+  const options: SaleType[] = canCreateBlackSale
+    ? ["normal", "credit", "black"]
+    : ["normal", "credit"];
+
+  return (
+    <div className="flex items-center bg-muted rounded-lg p-1 gap-1">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          onClick={() => onChange(opt)}
+          className={`flex-1 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+            saleType === opt
+              ? opt === "black"
+                ? "bg-slate-900 text-white shadow-sm"
+                : "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {SALE_TYPE_LABELS[opt]}
+        </button>
+      ))}
     </div>
   );
 }
@@ -320,6 +375,20 @@ export default function POSTerminal() {
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  // ── Sales v2 state ──
+  const [saleType, setSaleType] = useState<SaleType>("normal");
+  const [customerType, setCustomerType] = useState<CustomerType>("regular");
+  const [paymentTiming, setPaymentTiming] = useState<PaymentTiming>("cod");
+  const [partialAmount, setPartialAmount] = useState("");
+  const [showHeldSales, setShowHeldSales] = useState(false);
+  /** Bill id being edited via Resume — checkout completes THIS bill instead of creating a new one. */
+  const [activeDraftBillId, setActiveDraftBillId] = useState<string | null>(null);
+
+  const { user } = useAuth();
+  const canCreateBlackSale = (user?.roles ?? []).some((r) =>
+    ["org_admin", "org_manager", "super_admin"].includes(r),
+  );
+
   const debouncedCustomerInfo = useDebounce(customerInfo, 300);
 
   const { data: locations = [], isLoading: locationsLoading } =
@@ -345,6 +414,13 @@ export default function POSTerminal() {
       debouncedCustomerInfo.trim().length >= 2 &&
       !customerId,
   });
+
+  // Stable by-id fetch for the SELECTED customer — unlike customerSearch above (debounced,
+  // disabled once customerId is set), this key stays valid after selection so credit
+  // limit/balance keep rendering. Only fetched when it's actually needed (credit/black + selected).
+  const { data: selectedCustomer } = Customers.useGet(
+    saleType !== "normal" && customerId ? customerId : undefined,
+  );
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -452,6 +528,11 @@ export default function POSTerminal() {
     setQty(1);
     setCashTendered("");
     setCheckoutResult(null);
+    setSaleType("normal");
+    setCustomerType("regular");
+    setPaymentTiming("cod");
+    setPartialAmount("");
+    setActiveDraftBillId(null);
   };
 
   const closeSuccess = () => {
@@ -468,8 +549,16 @@ export default function POSTerminal() {
       isNaN(Number(cashTendered)) ||
       Number(cashTendered) < grandTotal);
 
+  const partialAmountMissing =
+    mode === "sales" &&
+    paymentTiming === "half" &&
+    (partialAmount.trim() === "" ||
+      isNaN(Number(partialAmount)) ||
+      Number(partialAmount) <= 0);
+
   const generateBill = async () => {
-    if (lines.length === 0 || checkingOut || cashShort) return;
+    if (lines.length === 0 || checkingOut || cashShort || partialAmountMissing)
+      return;
     setCheckingOut(true);
     setCheckoutResult(null);
     try {
@@ -501,6 +590,12 @@ export default function POSTerminal() {
               subtotal,
               taxAmount: totalTax,
               totalAmount: grandTotal,
+              saleType,
+              customerType,
+              paymentTiming,
+              partialAmount:
+                paymentTiming === "half" ? Number(partialAmount) : undefined,
+              existingBillId: activeDraftBillId ?? undefined,
             })
           : await runPurchaseCheckout({
               locationId,
@@ -525,6 +620,106 @@ export default function POSTerminal() {
     } finally {
       setCheckingOut(false);
     }
+  };
+
+  const holdSale = async () => {
+    if (lines.length === 0 || checkingOut) return;
+    setCheckingOut(true);
+    try {
+      const linePayload = lines.map((l) => ({
+        productId: l.productId,
+        sku: l.sku,
+        name: l.name,
+        qty: l.qty,
+        unitPrice: l.rate,
+        taxPct: l.taxPct,
+      }));
+      const { billId, steps } = await createDraftSale({
+        storeName: stockLocation?.name,
+        locationId: locationId || undefined,
+        locationName: stockLocation?.name,
+        inventory,
+        orgId,
+        customerId: customerId.trim() || undefined,
+        paymentMethod: payMethod,
+        amountReceived: cashTendered ? Number(cashTendered) : undefined,
+        customerInfo,
+        lines: linePayload,
+        extraCharges,
+        subtotal,
+        taxAmount: totalTax,
+        totalAmount: grandTotal,
+        saleType,
+        customerType,
+        paymentTiming,
+        partialAmount:
+          paymentTiming === "half" ? Number(partialAmount) : undefined,
+      });
+      if (billId) {
+        toast.success(`Sale held — resume it from Held Sales`);
+        voidBill();
+      } else {
+        const failMsg =
+          steps.find((s) => s.status === "failed")?.message ||
+          "Could not hold sale";
+        toast.error(failMsg);
+      }
+    } finally {
+      setCheckingOut(false);
+    }
+  };
+
+  /** Resume a DRAFT bill from Held Sales — repopulates the cart and keeps the SAME bill id
+   *  so Complete Sale transitions this bill instead of creating a new one. */
+  const resumeSale = (b: Bill) => {
+    voidBill();
+    setMode("sales");
+    if (b.locationId) setLocationId(b.locationId);
+    if (b.customerId) {
+      setCustomerId(b.customerId);
+      setCustomerInfo(b.walkInName || `Customer ${b.customerId.slice(0, 8)}…`);
+    } else if (b.walkInName) {
+      setCustomerInfo(b.walkInName);
+    }
+
+    const resumedSaleType: SaleType =
+      b.saleType === "credit" || b.saleType === "black" || b.saleType === "normal"
+        ? b.saleType
+        : "normal";
+    // Never let a resumed draft put a non-permitted session into black mode.
+    setSaleType(
+      resumedSaleType === "black" && !canCreateBlackSale ? "normal" : resumedSaleType,
+    );
+    if (b.customerType === "regular" || b.customerType === "new" || b.customerType === "shop" || b.customerType === "big_customer") {
+      setCustomerType(b.customerType);
+    }
+    if (
+      b.paymentTiming === "before_delivery" ||
+      b.paymentTiming === "after_delivery" ||
+      b.paymentTiming === "half" ||
+      b.paymentTiming === "cod"
+    ) {
+      setPaymentTiming(b.paymentTiming);
+    }
+    if (b.partialAmount != null) setPartialAmount(String(b.partialAmount));
+
+    if (b.items?.length) {
+      setLines(
+        b.items.map((item) => ({
+          id: ++lineIdSeq,
+          productId: item.productId,
+          sku: item.productId.slice(0, 8),
+          // ponytail: BillItem has no name/sku — refetch Products by id if exact labels matter later.
+          name: `Product ${item.productId.slice(0, 8)}…`,
+          qty: item.quantity,
+          rate: item.unitPrice,
+          taxPct: item.taxRate,
+          unitLabel: "pcs",
+        })),
+      );
+    }
+    setActiveDraftBillId(b.id);
+    toast.success(`Resumed held sale ${b.billNumber || b.id.slice(0, 8)}`);
   };
 
   const accentCls =
@@ -599,8 +794,29 @@ export default function POSTerminal() {
       //   deducted on the server). Walk-in needs a name; or pick a customer from search.
       // </div> */}
 
-      <div className="flex flex-1 gap-0 overflow-hidden">
+      <div className="flex flex-1 gap-0 overflow-hidden relative">
+        {showHeldSales && (
+          <HeldSalesPanel
+            locationId={locationId}
+            onResume={resumeSale}
+            onClose={() => setShowHeldSales(false)}
+          />
+        )}
+
         <div className="w-64 flex-shrink-0 bg-card border-r border-border flex flex-col">
+          {mode === "sales" && (
+            <div className="p-4 border-b border-border">
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                Sale Type
+              </p>
+              <SaleTypeToggle
+                saleType={saleType}
+                onChange={setSaleType}
+                canCreateBlackSale={canCreateBlackSale}
+              />
+            </div>
+          )}
+
           <div className="p-4 border-b border-border">
             <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
               {mode === "sales" ? "Add Product" : "Receive Product"}
@@ -792,14 +1008,25 @@ export default function POSTerminal() {
               >
                 <X size={13} /> Void
               </button>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg cursor-not-allowed"
-                title="Hold not wired yet"
-                disabled
-              >
-                <PauseCircle size={13} /> Hold
-              </button>
+              {mode === "sales" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void holdSale()}
+                    disabled={lines.length === 0 || checkingOut}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <PauseCircle size={13} /> Hold
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowHeldSales(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition"
+                  >
+                    <ListRestart size={13} /> Held Sales
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -1084,6 +1311,40 @@ export default function POSTerminal() {
                       )}
                     </div>
                   )}
+
+                  <div className="mt-3">
+                    <label className="block mb-1 text-xs font-medium text-muted-foreground">
+                      Payment Timing
+                    </label>
+                    <select
+                      value={paymentTiming}
+                      onChange={(e) =>
+                        setPaymentTiming(e.target.value as PaymentTiming)
+                      }
+                      className="w-full px-3 py-2 border border-border rounded-lg text-sm outline-none bg-card focus:border-primary"
+                    >
+                      <option value="cod">Cash on Delivery</option>
+                      <option value="before_delivery">Before Delivery</option>
+                      <option value="after_delivery">After Delivery</option>
+                      <option value="half">Half / Partial</option>
+                    </select>
+                    {paymentTiming === "half" && (
+                      <input
+                        type="number"
+                        value={partialAmount}
+                        onChange={(e) => setPartialAmount(e.target.value)}
+                        placeholder="Amount paid now"
+                        className={`mt-2 w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-primary ${
+                          partialAmountMissing ? "border-destructive" : "border-border"
+                        }`}
+                      />
+                    )}
+                    {partialAmountMissing && (
+                      <p className="mt-1 text-xs font-medium text-destructive">
+                        Enter the partial amount paid to continue
+                      </p>
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -1171,7 +1432,44 @@ export default function POSTerminal() {
                   </button>
                 </div>
               )}
+              {mode === "sales" && saleType === "credit" && customerId && (
+                <div className="mt-2 rounded-lg border border-border bg-muted/40 px-2.5 py-2 text-[11px] text-muted-foreground">
+                  Credit limit: {fmt(selectedCustomer?.creditLimit ?? 0)} ·
+                  Balance: {fmt(selectedCustomer?.creditBalance ?? 0)}
+                </div>
+              )}
             </div>
+
+            {mode === "sales" && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+                  Customer Type
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(
+                    [
+                      { value: "regular", label: "Regular" },
+                      { value: "new", label: "New" },
+                      { value: "shop", label: "Shop" },
+                      { value: "big_customer", label: "Big Customer" },
+                    ] as { value: CustomerType; label: string }[]
+                  ).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setCustomerType(opt.value)}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition ${
+                        customerType === opt.value
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:border-border"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className={`rounded-xl p-3 border text-xs ${accentCls.light}`}>
               <div className="flex items-center gap-1.5 font-semibold mb-0.5">
@@ -1192,6 +1490,7 @@ export default function POSTerminal() {
                 lines.length === 0 ||
                 checkingOut ||
                 cashShort ||
+                partialAmountMissing ||
                 (mode === "sales" && !locationId) ||
                 (mode === "purchase" && !supplierId)
               }
