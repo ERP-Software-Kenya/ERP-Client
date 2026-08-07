@@ -234,6 +234,10 @@ export type BillStatus = 'INITIATED' | 'DRAFT' | 'COMPLETED' | 'CANCELLED';
 /** Matches core-apis EPaymentMethod. */
 export type PaymentMethod = 'CASH' | 'CARD' | 'UPI' | 'NET_BANKING' | 'CHEQUE' | 'CREDIT';
 
+export type SaleType = 'normal' | 'credit' | 'black';
+export type CustomerType = 'regular' | 'new' | 'shop' | 'big_customer';
+export type PaymentTiming = 'before_delivery' | 'after_delivery' | 'half' | 'cod';
+
 export interface BillItem {
   id: string;
   billId: string;
@@ -259,6 +263,14 @@ export interface Bill {
   walkInGstin?: string | null;
   status: BillStatus | string;
   paymentMethod?: PaymentMethod | string | null;
+  saleType: SaleType | string;
+  customerType?: CustomerType | string | null;
+  paymentTiming?: PaymentTiming | string | null;
+  partialAmount?: number | null;
+  blackAmount: number;
+  facilitatorUserId?: string | null;
+  facilitatorName?: string | null;
+  commissionAmount: number;
   subtotal: number;
   taxAmount: number;
   discountAmount: number;
@@ -477,8 +489,39 @@ export interface Customer {
   email?: string;
   phone?: string;
   gstin?: string;
+  creditLimit?: number | null;
+  creditBalance?: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type CreditApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CreditApprovalRequest {
+  id: string;
+  organizationId: string;
+  customerId: string;
+  billId: string;
+  requestedAmount: number;
+  requestedById: string;
+  status: CreditApprovalStatus | string;
+  decidedById?: string | null;
+  decidedAt?: string | null;
+  createdAt: string;
+}
+
+export type CommissionStatus = 'owed' | 'paid';
+
+export interface CommissionPayable {
+  id: string;
+  organizationId: string;
+  billId: string;
+  facilitatorUserId?: string | null;
+  facilitatorName?: string | null;
+  amount: number;
+  status: CommissionStatus | string;
+  paidAt?: string | null;
+  createdAt: string;
 }
 
 export interface Expense {
