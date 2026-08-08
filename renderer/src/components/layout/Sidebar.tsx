@@ -10,12 +10,10 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
   const location = useLocation();
   const { canAccess, isLoading } = usePageAccess();
 
-  const visibleModules = isLoading
-    ? MODULES
-    : MODULES.map((group) => ({
-        ...group,
-        items: group.items.filter((item) => canAccess(item.key)),
-      })).filter((group) => group.items.length > 0);
+  const visibleModules = MODULES.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => canAccess(item.key)),
+  })).filter((group) => group.items.length > 0);
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
     const active = MODULES.find((g) => g.items.some((i) => i.path === location.pathname));
@@ -49,7 +47,18 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
         </button>
       )}
       <div className="flex-1 overflow-y-auto py-3 space-y-1 custom-scrollbar">
-        {visibleModules.map((group) => {
+        {isLoading ? (
+          <div className="px-3 space-y-4 animate-pulse">
+            {[5, 3, 4, 2].map((count, gi) => (
+              <div key={gi} className="space-y-1">
+                {!collapsed && <div className="h-3 w-20 rounded bg-muted mb-2" />}
+                {Array.from({ length: count }).map((_, ii) => (
+                  <div key={ii} className={cn('h-9 rounded-md bg-muted/60', collapsed ? 'w-10 mx-auto' : 'w-full')} />
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : visibleModules.map((group) => {
           const isOpen = openGroups.has(group.label);
           const isGroupActive = group.items.some((i) => !i.disabled && i.path === location.pathname);
           const GroupIcon = group.icon;
