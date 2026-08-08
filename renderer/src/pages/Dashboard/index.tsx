@@ -44,7 +44,7 @@ import {
   RadialBar,
 } from 'recharts';
 import { cn } from '../../lib/utils';
-import { useAuth } from '../../context/AuthContext';
+import { useSession } from '../../context/SessionContext';
 import {
   Products,
   Suppliers,
@@ -1084,10 +1084,10 @@ function OperationsTab() {
 type Tab = 'overview' | 'analytics' | 'operations';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, organization } = useSession();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
-  const orgName = user?.organization?.name ?? 'Your Organization';
+  const orgName = organization?.name ?? 'Your Organization';
   const userName = user?.firstName ?? 'there';
 
   const today = new Date().toLocaleDateString('en-US', {
