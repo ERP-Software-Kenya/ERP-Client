@@ -15,6 +15,8 @@ import type {
   CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
   ClerkUserListResponse, ClerkUserRolesResponse,
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
+  PageAccessConfig,
+  FleetVehicle, FleetDriver, FleetTrip, FleetMaintenance, FleetExpense,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -745,6 +747,84 @@ export const ClerkUsers = {
       queryKey: [CLERK_USERS_KEY, 'organizations'],
       queryFn: () => get<ClerkOrganization[]>('/api/v1/users/clerk/organizations'),
       staleTime: 5 * 60 * 1000,
+    });
+  },
+};
+
+// ── Fleet Management ──────────────────────────────────────────────────────────
+
+export const FleetVehicles = createResource<FleetVehicle>('/api/v1/vehicles', 'fleet-vehicles', 'Vehicle');
+export const FleetDrivers  = createResource<FleetDriver>('/api/v1/drivers', 'fleet-drivers', 'Driver');
+export const FleetTrips    = createResource<FleetTrip>('/api/v1/trips', 'fleet-trips', 'Trip');
+
+export const FleetMaintenanceApi = {
+  useCreate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: Partial<FleetMaintenance>) => post<FleetMaintenance>('/api/v1/maintenance', body),
+      onSuccess: () => {
+        toast.success('Maintenance record created');
+        queryClient.invalidateQueries({ queryKey: ['fleet-maintenance'] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to create maintenance record'),
+    });
+  },
+};
+
+export const FleetExpensesApi = {
+  useGet(id: string | undefined) {
+    return useQuery<FleetExpense>({
+      queryKey: ['fleet-expenses', id],
+      queryFn: () => get<FleetExpense>(`/api/v1/vehicle-expenses/${id as string}`),
+      enabled: !!id,
+    });
+  },
+  useCreate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: Partial<FleetExpense>) => post<FleetExpense>('/api/v1/vehicle-expenses', body),
+      onSuccess: () => {
+        toast.success('Expense recorded');
+        queryClient.invalidateQueries({ queryKey: ['fleet-expenses'] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to record expense'),
+    });
+  },
+  useDelete() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => del(`/api/v1/vehicle-expenses/${id}`),
+      onSuccess: () => {
+        toast.success('Expense deleted');
+        queryClient.invalidateQueries({ queryKey: ['fleet-expenses'] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to delete expense'),
+    });
+  },
+};
+
+const PAGE_ACCESS_KEY = 'page-access';
+
+export const PageAccess = {
+  useList(opts?: { enabled?: boolean }) {
+    return useQuery<PageAccessConfig[]>({
+      queryKey: [PAGE_ACCESS_KEY],
+      queryFn: () => get<PageAccessConfig[]>('/api/v1/common-utility/page-access'),
+      staleTime: 5 * 60 * 1000,
+      enabled: opts?.enabled !== false,
+    });
+  },
+
+  useUpdate() {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: (configs: PageAccessConfig[]) =>
+        put<void>('/api/v1/common-utility/page-access', { configs }),
+      onSuccess: () => {
+        void qc.invalidateQueries({ queryKey: [PAGE_ACCESS_KEY] });
+        toast.success('Page access configuration saved');
+      },
+      onError: () => toast.error('Failed to save page access configuration'),
     });
   },
 };

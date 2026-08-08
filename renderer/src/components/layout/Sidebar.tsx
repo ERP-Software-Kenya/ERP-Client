@@ -4,9 +4,19 @@ import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MODULES } from '../../config/modules';
 import { cn } from '../../lib/utils';
 import { Tooltip } from '../ui/tooltip';
+import { usePageAccess } from '../../context/PageAccessContext';
 
 export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const location = useLocation();
+  const { canAccess, isLoading } = usePageAccess();
+
+  const visibleModules = isLoading
+    ? MODULES
+    : MODULES.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => canAccess(item.key)),
+      })).filter((group) => group.items.length > 0);
+
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
     const active = MODULES.find((g) => g.items.some((i) => i.path === location.pathname));
     return new Set(active ? [active.label] : MODULES.map((g) => g.label));
@@ -39,7 +49,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
         </button>
       )}
       <div className="flex-1 overflow-y-auto py-3 space-y-1 custom-scrollbar">
-        {MODULES.map((group) => {
+        {visibleModules.map((group) => {
           const isOpen = openGroups.has(group.label);
           const isGroupActive = group.items.some((i) => !i.disabled && i.path === location.pathname);
           const GroupIcon = group.icon;

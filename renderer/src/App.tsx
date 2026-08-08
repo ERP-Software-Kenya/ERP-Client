@@ -4,6 +4,8 @@ import { Loader2 } from 'lucide-react';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 import { useAuth } from './context/AuthContext';
+import { PageAccessProvider } from './context/PageAccessContext';
+import PageAccessRoute from './components/PageAccessRoute';
 
 const Login = lazy(() => import('./pages/Login'));
 const SSOCallback = lazy(() => import('./pages/SSOCallback'));
@@ -47,8 +49,15 @@ const Roles = lazy(() => import('./pages/Roles'));
 const UserRoles = lazy(() => import('./pages/UserRoles'));
 const Users = lazy(() => import('./pages/Users'));
 const UserDetail = lazy(() => import('./pages/UserDetail'));
+const PageAccessPage = lazy(() => import('./pages/PageAccess'));
 const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
 const VehicleDetailPage = lazy(() => import('./pages/VehicleDetailPage'));
+const FleetDashboard = lazy(() => import('./pages/Fleet'));
+const FleetVehiclesPage = lazy(() => import('./pages/Fleet/Vehicles'));
+const FleetDriversPage = lazy(() => import('./pages/Fleet/Drivers'));
+const FleetTripsPage = lazy(() => import('./pages/Fleet/Trips'));
+const FleetMaintenancePage = lazy(() => import('./pages/Fleet/Maintenance'));
+const FleetExpensesPage = lazy(() => import('./pages/Fleet/Expenses'));
 const POSTerminal = lazy(() => import('./pages/pos/POSTerminal'));
 
 function RouteFallback() {
@@ -77,7 +86,7 @@ function App() {
           <Route path="/sso-continue" element={<SSOContinue />} />
           <Route path="/onboarding/create-org" element={<SessionRoute><CreateOrganization /></SessionRoute>} />
 
-          <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          <Route path="/" element={<ProtectedRoute><PageAccessProvider><AppLayout /></PageAccessProvider></ProtectedRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="products" element={<Products />} />
             <Route path="inventory" element={<InventoryPage />} />
@@ -111,6 +120,12 @@ function App() {
             <Route path="invoices" element={<Invoices />} />
             <Route path="vehicles" element={<VehiclesPage />} />
             <Route path="vehicles/:id" element={<VehicleDetailPage />} />
+            <Route path="fleet" element={<FleetDashboard />} />
+            <Route path="fleet/vehicles" element={<FleetVehiclesPage />} />
+            <Route path="fleet/drivers" element={<FleetDriversPage />} />
+            <Route path="fleet/trips" element={<FleetTripsPage />} />
+            <Route path="fleet/maintenance" element={<FleetMaintenancePage />} />
+            <Route path="fleet/expenses" element={<FleetExpensesPage />} />
             <Route path="activity-logs" element={<ActivityLogs />} />
             <Route path="audit-log" element={<AuditLog />} />
             <Route path="expenses" element={<Expenses />} />
@@ -121,6 +136,7 @@ function App() {
             <Route path="user-roles" element={<UserRoles />} />
             <Route path="users" element={<Users />} />
             <Route path="users/clerk/:clerkUserId" element={<UserDetail />} />
+            <Route path="page-access" element={<PageAccessRoute pageKey="page-access"><PageAccessPage /></PageAccessRoute>} />
           </Route>
         </Routes>
       </Suspense>
