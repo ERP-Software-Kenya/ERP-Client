@@ -42,6 +42,7 @@ import {
   ScanLine,
   Search,
   Settings,
+  ShieldCheck,
   ShoppingBag,
   ShoppingCart,
   SlidersHorizontal,
@@ -66,13 +67,18 @@ export interface ModuleItem {
   icon: LucideIcon;
   /** No page/API wired up yet — rendered in the sidebar but not clickable. */
   disabled?: boolean;
+  /** Hidden from store_manager / store_staff — only org_admin and super_admin see these. */
+  adminOnly?: boolean;
 }
 
 export interface ModuleGroup {
   label: string;
   icon: LucideIcon;
   items: ModuleItem[];
+  /** If true, the whole group is hidden for non-admin roles. */
+  adminOnly?: boolean;
 }
+
 
 export const MODULES: ModuleGroup[] = [
   {
@@ -147,18 +153,18 @@ export const MODULES: ModuleGroup[] = [
       // { key: 'gin', title: 'GIN', path: '/warehouse/gin', icon: PackageMinus, disabled: true },
     ],
   },
-  // {
-  //   label: 'Vehicles',
-  //   icon: Truck,
-  //   items: [
-  //     { key: 'vehicles', title: 'Vehicles', path: '/vehicles', icon: Car },
-  //     { key: 'drivers', title: 'Drivers', path: '/vehicles/drivers', icon: Users2, disabled: true },
-  //     { key: 'trips', title: 'Trips', path: '/vehicles/trips', icon: Route, disabled: true },
-  //     { key: 'tracking', title: 'Live Tracking', path: '/vehicles/tracking', icon: MapPin, disabled: true },
-  //     { key: 'fuel-log', title: 'Fuel Log', path: '/vehicles/fuel', icon: Fuel, disabled: true },
-  //     { key: 'maintenance', title: 'Maintenance', path: '/vehicles/maintenance', icon: Wrench, disabled: true },
-  //   ],
-  // },
+  {
+    label: 'Fleet Management',
+    icon: Truck,
+    items: [
+      { key: 'fleet-dashboard', title: 'Fleet Dashboard', path: '/fleet', icon: LayoutDashboard },
+      { key: 'fleet-vehicles', title: 'Vehicles', path: '/fleet/vehicles', icon: Car },
+      { key: 'fleet-drivers', title: 'Drivers', path: '/fleet/drivers', icon: Users2 },
+      { key: 'fleet-trips', title: 'Trips', path: '/fleet/trips', icon: Route },
+      { key: 'fleet-maintenance', title: 'Maintenance', path: '/fleet/maintenance', icon: Wrench },
+      { key: 'fleet-expenses', title: 'Vehicle Expenses', path: '/fleet/expenses', icon: Fuel },
+    ],
+  },
   // {
   //   label: 'Approvals',
   //   icon: CheckSquare,
@@ -189,14 +195,16 @@ export const MODULES: ModuleGroup[] = [
   {
     label: 'Administration',
     icon: Users,
+    adminOnly: true,
     items: [
-      { key: 'users', title: 'Users', path: '/users', icon: Users },
-      { key: 'roles', title: 'Roles & Permissions', path: '/roles', icon: Lock },
-      { key: 'user-roles', title: 'User Roles', path: '/user-roles', icon: UserCog },
-      { key: 'organizations', title: 'Organizations', path: '/organizations', icon: Building2 },
-      { key: 'activity-logs', title: 'Activity Logs', path: '/activity-logs', icon: Activity },
-      { key: 'audit-log', title: 'Audit Log lookup', path: '/audit-log', icon: History },
-      { key: 'expenses', title: 'Expenses', path: '/expenses', icon: Wallet },
+      { key: 'users', title: 'Users', path: '/users', icon: Users, adminOnly: true },
+      { key: 'roles', title: 'Roles & Permissions', path: '/roles', icon: Lock, adminOnly: true },
+      { key: 'user-roles', title: 'User Roles', path: '/user-roles', icon: UserCog, adminOnly: true },
+      { key: 'organizations', title: 'Organizations', path: '/organizations', icon: Building2, adminOnly: true },
+      { key: 'activity-logs', title: 'Activity Logs', path: '/activity-logs', icon: Activity, adminOnly: true },
+      { key: 'audit-log', title: 'Audit Log lookup', path: '/audit-log', icon: History, adminOnly: true },
+      { key: 'expenses', title: 'Expenses', path: '/expenses', icon: Wallet, adminOnly: true },
+      { key: 'page-access', title: 'Page Access', path: '/page-access', icon: ShieldCheck, adminOnly: true },
     ],
   },
   {
