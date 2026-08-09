@@ -196,8 +196,38 @@ export const Customers = {
 };
 
 export const Expenses = createCreateOnlyResource<Expense>('/api/v1/expenses', 'expenses', 'Expense');
+
+export const ExpensesApi = {
+  useList(status?: string) {
+    return useQuery<Expense[]>({
+      queryKey: ['expenses', 'list', status ?? 'all'],
+      queryFn: () => get<Expense[]>('/api/v1/expenses/list', status ? { status } : undefined),
+      staleTime: 30_000,
+    });
+  },
+  useUpdateStatus() {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, status }: { id: string; status: string }) =>
+        patch<Expense>(`/api/v1/expenses/${id}/status`, { status }),
+      onSuccess: () => {
+        void qc.invalidateQueries({ queryKey: ['expenses', 'list'] });
+        toast.success('Expense status updated');
+      },
+      onError: () => toast.error('Failed to update expense status'),
+    });
+  },
+};
 export const PurchaseItems = createCreateOnlyResource<PurchaseItem>('/api/v1/purchase-items', 'purchase-items', 'Purchase item');
 export const ActivityLogs = createCreateOnlyResource<ActivityLog>('/api/v1/activity-logs', 'activity-logs', 'Activity log');
+
+export function useListActivityLogs() {
+  return useQuery<ActivityLog[]>({
+    queryKey: ['activity-logs', 'list'],
+    queryFn: () => get<ActivityLog[]>('/api/v1/activity-logs/list'),
+    staleTime: 30_000,
+  });
+}
 export const Roles = createCreateOnlyResource<Role>('/api/v1/roles', 'roles', 'Role');
 
 /** Flat list of all roles — backed by the fixed 4-row role table (GET /api/v1/roles/list). */
@@ -210,6 +240,14 @@ export function useListRoles() {
 }
 
 export const UserRoles = createCreateOnlyResource<UserRole>('/api/v1/user-roles', 'user-roles', 'User role');
+
+export function useListUserRoles() {
+  return useQuery<UserRole[]>({
+    queryKey: ['user-roles', 'list'],
+    queryFn: () => get<UserRole[]>('/api/v1/user-roles/list'),
+    staleTime: 30_000,
+  });
+}
 export const PlatformConfigurations = createCreateOnlyResource<PlatformConfiguration>('/api/v1/platform-configurations', 'platform-configurations', 'Configuration');
 /**
  * Internal user directory (local DB, distinct from the Clerk-backed `ClerkUsers` resource
