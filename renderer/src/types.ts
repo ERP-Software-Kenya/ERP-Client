@@ -770,3 +770,54 @@ export interface FleetExpense {
   description?: string;
   tripId?: string;
 }
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+export interface SalesSummaryData {
+  revenueThisMonth: number;
+  revenueThisWeek: number;
+  avgBillValue: number;
+  activeCustomers: number;
+  completedBills: number;
+  pendingBills: number;
+}
+
+export interface RevenueTrendPoint {
+  month: string;
+  revenue: number;
+  billCount: number;
+}
+
+export interface TopProduct {
+  productId: string;
+  productName: string;
+  totalRevenue: number;
+  totalQtySold: number;
+}
+
+export interface TopCustomer {
+  customerId: string | null;
+  customerName: string;
+  totalSpend: number;
+  billCount: number;
+}
+
+export interface PurchaseSummaryData {
+  spendThisMonth: number;
+  outstandingPos: number;
+  avgPoValue: number;
+  supplierCount: number;
+}
+
+export interface PurchaseTrendPoint {
+  month: string;
+  spend: number;
+  poCount: number;
+}
+
+export interface TopSupplier {
+  supplierId: string;
+  supplierName: string;
+  totalSpend: number;
+  poCount: number;
+}

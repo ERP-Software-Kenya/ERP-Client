@@ -18,6 +18,8 @@ import type {
   PageAccessConfig,
   FleetVehicle, FleetDriver, FleetTrip, FleetMaintenance, FleetExpense,
   VehicleTypeRef, VehicleBrandRef, FuelTypeRef, MaintenanceTypeRef,
+  SalesSummaryData, RevenueTrendPoint, TopProduct, TopCustomer,
+  PurchaseSummaryData, PurchaseTrendPoint, TopSupplier,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -852,6 +854,60 @@ export const MaintenanceTypes = {
     return useQuery<MaintenanceTypeRef[]>({
       queryKey: ['maintenance-types'],
       queryFn: () => get<MaintenanceTypeRef[]>('/api/v1/maintenance/maintenance-types/list'),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+};
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+export const Analytics = {
+  useSalesSummary() {
+    return useQuery<SalesSummaryData>({
+      queryKey: ['analytics', 'sales-summary'],
+      queryFn:  () => get<SalesSummaryData>('/api/v1/analytics/sales-summary'),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useRevenueTrend(months = 6) {
+    return useQuery<RevenueTrendPoint[]>({
+      queryKey: ['analytics', 'revenue-trend', months],
+      queryFn:  () => get<RevenueTrendPoint[]>('/api/v1/analytics/revenue-trend', { months }),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useTopProducts(limit = 10) {
+    return useQuery<TopProduct[]>({
+      queryKey: ['analytics', 'top-products', limit],
+      queryFn:  () => get<TopProduct[]>('/api/v1/analytics/top-products', { limit }),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useTopCustomers(limit = 10) {
+    return useQuery<TopCustomer[]>({
+      queryKey: ['analytics', 'top-customers', limit],
+      queryFn:  () => get<TopCustomer[]>('/api/v1/analytics/top-customers', { limit }),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  usePurchaseSummary() {
+    return useQuery<PurchaseSummaryData>({
+      queryKey: ['analytics', 'purchase-summary'],
+      queryFn:  () => get<PurchaseSummaryData>('/api/v1/analytics/purchase-summary'),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  usePurchaseTrend(months = 6) {
+    return useQuery<PurchaseTrendPoint[]>({
+      queryKey: ['analytics', 'purchase-trend', months],
+      queryFn:  () => get<PurchaseTrendPoint[]>('/api/v1/analytics/purchase-trend', { months }),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useTopSuppliers(limit = 10) {
+    return useQuery<TopSupplier[]>({
+      queryKey: ['analytics', 'top-suppliers', limit],
+      queryFn:  () => get<TopSupplier[]>('/api/v1/analytics/top-suppliers', { limit }),
       staleTime: 5 * 60 * 1000,
     });
   },
