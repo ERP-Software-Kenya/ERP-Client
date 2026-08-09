@@ -531,6 +531,7 @@ export interface CommissionPayable {
   paidAt?: string | null;
   createdAt: string;
 }
+export type EExpenseStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Expense {
   id: string;
@@ -540,6 +541,8 @@ export interface Expense {
   amount?: number;
   expenseDate?: string;
   description?: string;
+  status?: EExpenseStatus;
+  submittedBy?: string;
   createdAt?: string;
 }
 
@@ -621,6 +624,21 @@ export interface PlatformUser {
 }
 
 // ── Clerk User Management ───────────────────────────────────────────────────
+
+export enum EInvitationStatus {
+  Pending  = 'pending',
+  Accepted = 'accepted',
+  Revoked  = 'revoked',
+}
+
+export interface ClerkInvitation {
+  id: string;
+  emailAddress: string;
+  status: EInvitationStatus;
+  roles?: string[];
+  createdAt: number;
+  updatedAt: number;
+}
 
 export interface ClerkUser {
   /** Alias of clerkUserId — added client-side so rows satisfy DataTable's `{ id: string }`. */

@@ -13,7 +13,7 @@ import type {
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
   Country, State, City,
   CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
-  ClerkUserListResponse, ClerkUserRolesResponse,
+  ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
   CreditApprovalRequest, CommissionPayable,
   PageAccessConfig,
@@ -247,8 +247,38 @@ export const CreditApprovals = {
 };
 
 export const Expenses = createCreateOnlyResource<Expense>('/api/v1/expenses', 'expenses', 'Expense');
+
+export const ExpensesApi = {
+  useList(status?: string) {
+    return useQuery<Expense[]>({
+      queryKey: ['expenses', 'list', status ?? 'all'],
+      queryFn: () => get<Expense[]>('/api/v1/expenses/list', status ? { status } : undefined),
+      staleTime: 30_000,
+    });
+  },
+  useUpdateStatus() {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, status }: { id: string; status: string }) =>
+        patch<Expense>(`/api/v1/expenses/${id}/status`, { status }),
+      onSuccess: () => {
+        void qc.invalidateQueries({ queryKey: ['expenses', 'list'] });
+        toast.success('Expense status updated');
+      },
+      onError: () => toast.error('Failed to update expense status'),
+    });
+  },
+};
 export const PurchaseItems = createCreateOnlyResource<PurchaseItem>('/api/v1/purchase-items', 'purchase-items', 'Purchase item');
 export const ActivityLogs = createCreateOnlyResource<ActivityLog>('/api/v1/activity-logs', 'activity-logs', 'Activity log');
+
+export function useListActivityLogs() {
+  return useQuery<ActivityLog[]>({
+    queryKey: ['activity-logs', 'list'],
+    queryFn: () => get<ActivityLog[]>('/api/v1/activity-logs/list'),
+    staleTime: 30_000,
+  });
+}
 export const Roles = createCreateOnlyResource<Role>('/api/v1/roles', 'roles', 'Role');
 
 /** Flat list of all roles — backed by the fixed 4-row role table (GET /api/v1/roles/list). */
@@ -261,6 +291,14 @@ export function useListRoles() {
 }
 
 export const UserRoles = createCreateOnlyResource<UserRole>('/api/v1/user-roles', 'user-roles', 'User role');
+
+export function useListUserRoles() {
+  return useQuery<UserRole[]>({
+    queryKey: ['user-roles', 'list'],
+    queryFn: () => get<UserRole[]>('/api/v1/user-roles/list'),
+    staleTime: 30_000,
+  });
+}
 export const PlatformConfigurations = createCreateOnlyResource<PlatformConfiguration>('/api/v1/platform-configurations', 'platform-configurations', 'Configuration');
 /**
  * Internal user directory (local DB, distinct from the Clerk-backed `ClerkUsers` resource
@@ -649,7 +687,8 @@ export function useRemoveLocationImage() {
 
 // ── Clerk User Management ───────────────────────────────────────────────────
 
-const CLERK_USERS_KEY = 'clerk-users';
+const CLERK_USERS_KEY       = 'clerk-users';
+const CLERK_INVITATIONS_KEY = 'clerk-invitations';
 
 /** Backend returns clerkUserId only — add `id` so rows satisfy DataTable's `{ id: string }`. */
 function withId(res: ClerkUserListResponse): ClerkUserListResponse {
@@ -707,8 +746,32 @@ export const ClerkUsers = {
       onSuccess: () => {
         toast.success('Invitation sent');
         queryClient.invalidateQueries({ queryKey: [CLERK_USERS_KEY] });
+        queryClient.invalidateQueries({ queryKey: [CLERK_INVITATIONS_KEY] });
       },
       onError: (err: Error) => toast.error(err.message || 'Failed to send invitation'),
+    });
+  },
+
+  /** GET /api/v1/users/clerk/invitations?status= */
+  useListInvitations(status?: EInvitationStatus) {
+    return useQuery({
+      queryKey: [CLERK_INVITATIONS_KEY, status ?? 'all'],
+      queryFn: () =>
+        get<ClerkInvitation[]>('/api/v1/users/clerk/invitations', status ? { status } : {}),
+      staleTime: 30_000,
+    });
+  },
+
+  /** DELETE /api/v1/users/clerk/invitations/:invitationId */
+  useRevokeInvitation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (invitationId: string) => del<void>(`/api/v1/users/clerk/invitations/${invitationId}`),
+      onSuccess: () => {
+        toast.success('Invitation revoked');
+        queryClient.invalidateQueries({ queryKey: [CLERK_INVITATIONS_KEY] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to revoke invitation'),
     });
   },
 

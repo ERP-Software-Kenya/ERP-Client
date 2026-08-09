@@ -1,16 +1,27 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQueries } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { AdvancedIdLookup } from '../../components/AdvancedIdLookup';
-import { RecentRecords } from '../../components/RecentRecords';
-import { FormDrawer, Field, FormSection } from '../../components/FormDrawer';
+import { useState } from 'react';
+import { CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { DataTable } from '../../components/DataTable';
+import { FormDrawer, Field } from '../../components/FormDrawer';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { FilterDropdown } from '../../components/FilterDropdown';
 import { ResourceSelect } from '../../components/ResourceSelect';
-import { Expenses, Locations, Organizations, get } from '../../api';
-import { formatEntityLabel } from '../../lib/entityLabel';
-import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../../lib/recentIds';
-import type { Expense } from '../../types';
+import { Expenses, ExpensesApi, Locations, Organizations } from '../../api';
+import type { Expense, EExpenseStatus } from '../../types';
+
+const STATUS_OPTIONS = [
+  { label: 'All', value: '' },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'Rejected', value: 'rejected' },
+];
+
+const STATUS_BADGE: Record<EExpenseStatus, { label: string; class: string; icon: React.ReactNode }> = {
+  pending:  { label: 'Pending',  class: 'bg-amber-500/10 text-amber-600',  icon: <Clock size={11} /> },
+  approved: { label: 'Approved', class: 'bg-green-500/10 text-green-600',  icon: <CheckCircle2 size={11} /> },
+  rejected: { label: 'Rejected', class: 'bg-red-500/10 text-red-500',     icon: <XCircle size={11} /> },
+};
 
 interface FormState {
   organizationId: string;
@@ -19,274 +30,197 @@ interface FormState {
   amount: string;
   expenseDate: string;
   description: string;
+  submittedBy: string;
 }
 
-const EMPTY_FORM: FormState = {
+const EMPTY: FormState = {
   organizationId: '',
   locationId: '',
   category: '',
   amount: '',
   expenseDate: '',
   description: '',
+  submittedBy: '',
 };
 
-function copyId(id: string) {
-  void navigator.clipboard.writeText(id).then(
-    () => toast.success('ID copied'),
-    () => toast.error('Could not copy ID'),
-  );
-}
-
-function expenseLabel(expense: Pick<Expense, 'id' | 'category' | 'amount' | 'description'>) {
-  const cat = expense.category?.trim();
-  const amt = expense.amount != null ? String(expense.amount) : undefined;
-  if (cat && amt) return `${cat} · ${amt}`;
-  if (cat) return cat;
-  if (amt) return amt;
-  const desc = expense.description?.trim();
-  if (desc) return desc.length > 48 ? `${desc.slice(0, 48)}…` : desc;
-  return formatEntityLabel({ id: expense.id });
-}
-
-function formatExpenseDate(value: string | undefined) {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString();
-}
-
-export default function ExpensesPage() {
-  const recent = useRecentIds(RECENT_NS.expenses);
+export default function ExpensesPage(): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [lastCreated, setLastCreated] = useState<Expense | null>(null);
-  const [lookupId, setLookupId] = useState('');
-  const [activeId, setActiveId] = useState<string | undefined>();
+  const [form, setForm] = useState<FormState>(EMPTY);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [approveTarget, setApproveTarget] = useState<Expense | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<Expense | null>(null);
 
+  const { data: expenses = [], isLoading, error, refetch } = ExpensesApi.useList(statusFilter || undefined);
   const createMutation = Expenses.useCreate();
-  const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = Expenses.useGet(activeId);
+  const updateStatus = ExpensesApi.useUpdateStatus();
 
-  const closeDrawer = () => setDrawerOpen(false);
+  const closeDrawer = (): void => setDrawerOpen(false);
 
-  const recentQueries = useQueries({
-    queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
-      queryKey: ['expenses', e.id] as const,
-      queryFn: () => get<Expense>(`/api/v1/expenses/${e.id}`),
-      staleTime: 60_000,
-      retry: false,
-    })),
-  });
-
-  const listRows = useMemo(
-    () =>
-      recent.entries.map((e, i) => {
-        const q = i < HYDRATE_LIMIT ? recentQueries[i] : undefined;
-        const data = q?.data;
-        return {
-          id: e.id,
-          label: e.label,
-          savedAt: e.savedAt,
-          category: data?.category,
-          amount: data?.amount,
-          expenseDate: data?.expenseDate,
-          loading: q?.isLoading ?? false,
-          failed: !!q?.isError,
-        };
-      }),
-    [recent.entries, recentQueries],
-  );
-
-  useEffect(() => {
-    const loaded = lookedUp;
-    if (!loaded || loaded.id !== activeId) return;
-    recent.push(loaded.id, expenseLabel(loaded));
-  }, [activeId, lookedUp, recent.push]);
-
-  const loadById = (id: string) => {
-    const trimmed = id.trim();
-    if (!trimmed) {
-      toast.error('Enter an expense ID');
-      return;
-    }
-    setActiveId(trimmed);
-    setLookupId(trimmed);
-    recent.push(trimmed);
-  };
-
-  const loadExpense = () => loadById(lookupId);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (ev: React.FormEvent): void => {
+    ev.preventDefault();
+    if (!form.organizationId || !form.category || !form.amount || !form.expenseDate) return;
     createMutation.mutate(
       {
-        organizationId: form.organizationId || undefined,
+        organizationId: form.organizationId,
         locationId: form.locationId || undefined,
-        category: form.category || undefined,
-        amount: form.amount ? Number(form.amount) : undefined,
-        expenseDate: form.expenseDate ? new Date(form.expenseDate).toISOString() : undefined,
+        category: form.category,
+        amount: Number(form.amount),
+        expenseDate: new Date(form.expenseDate).toISOString() as unknown as undefined,
         description: form.description || undefined,
-      },
+        submittedBy: form.submittedBy || undefined,
+      } as Partial<Expense>,
       {
-        onSuccess: (created) => {
-          setLastCreated(created);
-          setActiveId(created.id);
-          setLookupId(created.id);
-          recent.push(
-            created.id,
-            expenseLabel({
-              ...created,
-              category: created.category ?? form.category,
-              amount: created.amount ?? (form.amount ? Number(form.amount) : undefined),
-              description: created.description ?? form.description,
-            }),
-          );
+        onSuccess: () => {
+          void refetch();
           closeDrawer();
-          setForm(EMPTY_FORM);
+          setForm(EMPTY);
         },
       },
     );
   };
 
+  const handleApprove = (): void => {
+    if (!approveTarget) return;
+    updateStatus.mutate(
+      { id: approveTarget.id, status: 'approved' },
+      { onSuccess: () => setApproveTarget(null) },
+    );
+  };
+
+  const handleReject = (): void => {
+    if (!rejectTarget) return;
+    updateStatus.mutate(
+      { id: rejectTarget.id, status: 'rejected' },
+      { onSuccess: () => setRejectTarget(null) },
+    );
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Expenses</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Create expenses and reopen recent ones saved in this browser.
-          </p>
-        </div>
-        <Button onClick={() => setDrawerOpen(true)}>New Expense</Button>
-      </div>
-
-      <RecentRecords
-        title="Recent expenses"
-        emptyHint="No recent expenses yet. Create one or use Advanced load by ID — it will appear here."
-        rows={listRows}
+      <DataTable<Expense>
+        title="Expenses"
+        description="Manage organisation expenses and expense claim requests."
+        toolbar={
+          <FilterDropdown
+            label="Status"
+            options={STATUS_OPTIONS}
+            value={statusFilter || null}
+            onChange={(v) => setStatusFilter(v ?? '')}
+          />
+        }
         columns={[
           {
-            key: 'category',
-            header: 'Category',
+            key: 'status',
+            label: 'Status',
             render: (r) => {
-              if (r.loading) return '…';
-              if (r.failed) return r.label?.trim() || 'unavailable';
-              return r.category || r.label || '—';
+              const st = (r.status ?? 'pending') as EExpenseStatus;
+              const cfg = STATUS_BADGE[st] ?? STATUS_BADGE.pending;
+              return (
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cfg.class}`}>
+                  {cfg.icon} {cfg.label}
+                </span>
+              );
             },
           },
           {
+            key: 'category',
+            label: 'Category',
+            render: (r) => <span className="font-medium">{r.category ?? '—'}</span>,
+          },
+          {
             key: 'amount',
-            header: 'Amount',
+            label: 'Amount',
             render: (r) =>
-              r.loading ? '…' : r.failed ? 'unavailable' : r.amount != null ? r.amount : '—',
+              r.amount != null
+                ? <span className="font-semibold tabular-nums">₹{Number(r.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                : <span className="text-muted-foreground">—</span>,
           },
           {
-            key: 'date',
-            header: 'Date',
-            render: (r) =>
-              r.loading ? '…' : r.failed ? 'unavailable' : formatExpenseDate(r.expenseDate),
+            key: 'submittedBy',
+            label: 'Submitted By',
+            render: (r) => r.submittedBy ?? <span className="text-muted-foreground">—</span>,
           },
           {
-            key: 'saved',
-            header: 'Saved',
-            render: (r) => new Date(r.savedAt).toLocaleString(),
+            key: 'expenseDate',
+            label: 'Date',
+            render: (r) => (r.expenseDate ? new Date(r.expenseDate).toLocaleDateString() : '—'),
+          },
+          {
+            key: 'description',
+            label: 'Description',
+            render: (r) => (
+              r.description
+                ? <span className="text-muted-foreground text-xs">{r.description}</span>
+                : <span className="text-muted-foreground">—</span>
+            ),
           },
           {
             key: 'actions',
-            header: '',
-            render: (r) => (
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant="outline" onClick={() => loadById(r.id)}>
-                  Open
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
-                  Remove
-                </Button>
-              </div>
-            ),
+            label: '',
+            render: (r) => {
+              const st = r.status ?? 'pending';
+              if (st !== 'pending') return null;
+              return (
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-green-600 hover:text-green-700 hover:bg-green-500/10 h-7 px-2"
+                    onClick={() => setApproveTarget(r)}
+                  >
+                    <CheckCircle2 size={13} className="mr-1" /> Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-500/10 h-7 px-2"
+                    onClick={() => setRejectTarget(r)}
+                  >
+                    <XCircle size={13} className="mr-1" /> Reject
+                  </Button>
+                </div>
+              );
+            },
           },
         ]}
-        rowKey={(r) => r.id}
-        onClear={recent.clear}
+        rows={expenses}
+        total={expenses.length}
+        page={page}
+        loading={isLoading}
+        error={error ? 'Failed to load expenses' : null}
+        onPageChange={setPage}
+        hideSearch
+        onRefetch={() => void refetch()}
+        onAdd={() => setDrawerOpen(true)}
+        addLabel="Submit Claim"
       />
-
-      <AdvancedIdLookup
-        entityLabel="expense"
-        value={lookupId}
-        onChange={setLookupId}
-        onLoad={loadExpense}
-      />
-
-      {activeId && (
-        <FormSection title="Expense">
-          {lookupLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : lookupError || !lookedUp ? (
-            <p className="text-sm text-destructive">
-              Expense not found
-              {lookupError instanceof Error && lookupError.message ? `: ${lookupError.message}` : '.'}
-            </p>
-          ) : (
-            <div className="grid gap-2 text-sm sm:grid-cols-2">
-              <p className="flex flex-wrap items-center gap-2 sm:col-span-2">
-                <span className="text-muted-foreground">ID:</span> {lookedUp.id}
-                <Button type="button" variant="outline" size="sm" onClick={() => copyId(lookedUp.id)}>
-                  Copy
-                </Button>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Category:</span> {lookedUp.category ?? '—'}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Amount:</span>{' '}
-                {lookedUp.amount != null ? lookedUp.amount : '—'}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Date:</span> {formatExpenseDate(lookedUp.expenseDate)}
-              </p>
-              <p className="sm:col-span-2">
-                <span className="text-muted-foreground">Description:</span> {lookedUp.description ?? '—'}
-              </p>
-            </div>
-          )}
-        </FormSection>
-      )}
-
-      {lastCreated && (
-        <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-2">
-          <div className="font-medium">Last created expense</div>
-          <div>{expenseLabel(lastCreated)}</div>
-          <div className="flex flex-wrap items-center gap-2">
-            ID: {lastCreated.id}
-            <Button type="button" variant="outline" size="sm" onClick={() => copyId(lastCreated.id)}>
-              Copy
-            </Button>
-          </div>
-        </div>
-      )}
 
       <FormDrawer
         open={drawerOpen}
         onClose={closeDrawer}
-        title="New Expense"
+        title="Submit Expense Claim"
         footer={
           <>
-            <Button type="submit" form="expense-form" disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Creating…' : 'Create'}
+            <Button
+              type="submit"
+              form="expense-form"
+              disabled={createMutation.isPending || !form.organizationId || !form.category || !form.amount || !form.expenseDate}
+            >
+              {createMutation.isPending ? 'Submitting…' : 'Submit Claim'}
             </Button>
-            <Button type="button" variant="outline" onClick={closeDrawer}>
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>Cancel</Button>
           </>
         }
       >
-        <form id="expense-form" onSubmit={handleSubmit} className="space-y-5">
-          <Field label="Organization">
+        <form id="expense-form" onSubmit={handleSubmit} className="space-y-4">
+          <Field label="Organisation" required>
             <ResourceSelect
               resource={Organizations}
               getLabel={(org) => org.name}
               value={form.organizationId}
-              onValueChange={(v) => setForm({ ...form, organizationId: v })}
-              placeholder="Select organization…"
+              onValueChange={(v) => setForm((f) => ({ ...f, organizationId: v }))}
+              placeholder="Select organisation…"
             />
           </Field>
           <Field label="Location (optional)">
@@ -294,7 +228,7 @@ export default function ExpensesPage() {
               resource={Locations}
               getLabel={(s) => s.name}
               value={form.locationId}
-              onValueChange={(v) => setForm({ ...form, locationId: v })}
+              onValueChange={(v) => setForm((f) => ({ ...f, locationId: v }))}
               placeholder="Select location…"
               allowNone
             />
@@ -302,16 +236,18 @@ export default function ExpensesPage() {
           <Field label="Category" required>
             <Input
               value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+              placeholder="e.g. Travel, Meals, Office Supplies"
               required
             />
           </Field>
-          <Field label="Amount" required>
+          <Field label="Amount (₹)" required>
             <Input
               type="number"
               step="0.01"
+              min="0"
               value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
               required
             />
           </Field>
@@ -319,18 +255,46 @@ export default function ExpensesPage() {
             <Input
               type="date"
               value={form.expenseDate}
-              onChange={(e) => setForm({ ...form, expenseDate: e.target.value })}
+              onChange={(e) => setForm((f) => ({ ...f, expenseDate: e.target.value }))}
               required
             />
           </Field>
-          <Field label="Description (optional)">
+          <Field label="Description">
             <Input
               value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Optional notes or purpose"
+            />
+          </Field>
+          <Field label="Submitted By">
+            <Input
+              value={form.submittedBy}
+              onChange={(e) => setForm((f) => ({ ...f, submittedBy: e.target.value }))}
+              placeholder="Name or employee ID (optional)"
             />
           </Field>
         </form>
       </FormDrawer>
+
+      <ConfirmDialog
+        open={approveTarget !== null}
+        onOpenChange={(open) => !open && setApproveTarget(null)}
+        title="Approve Expense"
+        description={`Approve this ${approveTarget?.category ?? 'expense'} claim of ₹${approveTarget?.amount ?? 0}?`}
+        confirmLabel="Approve"
+        isPending={updateStatus.isPending}
+        onConfirm={handleApprove}
+      />
+
+      <ConfirmDialog
+        open={rejectTarget !== null}
+        onOpenChange={(open) => !open && setRejectTarget(null)}
+        title="Reject Expense"
+        description={`Reject this ${rejectTarget?.category ?? 'expense'} claim of ₹${rejectTarget?.amount ?? 0}?`}
+        confirmLabel="Reject"
+        isPending={updateStatus.isPending}
+        onConfirm={handleReject}
+      />
     </div>
   );
 }

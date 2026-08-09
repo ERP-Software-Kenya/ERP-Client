@@ -1,14 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQueries } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { AdvancedIdLookup } from '../../components/AdvancedIdLookup';
-import { FormDrawer, Field, FormSection } from '../../components/FormDrawer';
-import { RecentRecords } from '../../components/RecentRecords';
+import { useState, useMemo } from 'react';
+import { FormDrawer, Field } from '../../components/FormDrawer';
+import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { UserRoles, useListRoles, useListUserDirectory, get } from '../../api';
-import { formatEntityLabel } from '../../lib/entityLabel';
-import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../../lib/recentIds';
+import { UserRoles, useListUserRoles, useListRoles, useListUserDirectory } from '../../api';
 import type { UserRole } from '../../types';
 
 interface FormState {
@@ -16,284 +11,86 @@ interface FormState {
   roleId: string;
 }
 
-const EMPTY_FORM: FormState = { userId: '', roleId: '' };
+const EMPTY: FormState = { userId: '', roleId: '' };
 
-function assignmentLabel(
-  assignment: Pick<UserRole, 'id' | 'userId' | 'roleId'>,
-  userLabels: Map<string, string | undefined>,
-  roleLabels: Map<string, string | undefined>,
-) {
-  const userPart = assignment.userId
-    ? userLabels.get(assignment.userId) ?? formatEntityLabel({ id: assignment.userId })
-    : '—';
-  const rolePart = assignment.roleId
-    ? roleLabels.get(assignment.roleId) ?? formatEntityLabel({ id: assignment.roleId })
-    : '—';
-  if (assignment.userId || assignment.roleId) return `${userPart} → ${rolePart}`;
-  return formatEntityLabel({ id: assignment.id });
-}
-
-function copyId(id: string) {
-  void navigator.clipboard.writeText(id).then(
-    () => toast.success('ID copied'),
-    () => toast.error('Could not copy ID'),
-  );
-}
-
-export default function UserRolesPage() {
-  const recent = useRecentIds(RECENT_NS.userRoles);
-  const recentUsers = useRecentIds(RECENT_NS.users);
-  const recentRoles = useRecentIds(RECENT_NS.roles);
+export default function UserRolesPage(): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [lastCreated, setLastCreated] = useState<UserRole | null>(null);
-  const [lookupId, setLookupId] = useState('');
-  const [activeId, setActiveId] = useState<string | undefined>();
+  const [form, setForm] = useState<FormState>(EMPTY);
+  const [page, setPage] = useState(1);
 
-  const closeDrawer = () => setDrawerOpen(false);
-
+  const { data: assignments = [], isLoading, error, refetch } = useListUserRoles();
+  const { data: roles = [] } = useListRoles();
+  const { data: users = [] } = useListUserDirectory();
   const createMutation = UserRoles.useCreate();
-  const { data: lookedUp, isLoading: lookupLoading, error: lookupError } = UserRoles.useGet(activeId);
-  const { data: roles } = useListRoles();
-  const { data: userDirectory } = useListUserDirectory();
 
-  const roleNameById = useMemo(
-    () => new Map((roles ?? []).map((r) => [r.id, r.name])),
-    [roles],
+  const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r.name ?? r.id])), [roles]);
+  const userById = useMemo(
+    () => new Map(users.map((u) => [u.id, [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id])),
+    [users],
   );
 
-  const userNameById = useMemo(
-    () =>
-      new Map(
-        (userDirectory ?? []).map((u) => [
-          u.id,
-          [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id,
-        ]),
-      ),
-    [userDirectory],
-  );
+  const closeDrawer = (): void => setDrawerOpen(false);
 
-  const recentUserLabels = useMemo(
-    () => new Map(recentUsers.entries.map((e) => [e.id, e.label])),
-    [recentUsers.entries],
-  );
-
-  const recentRoleLabels = useMemo(
-    () => new Map(recentRoles.entries.map((e) => [e.id, e.label])),
-    [recentRoles.entries],
-  );
-
-  const recentQueries = useQueries({
-    queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
-      queryKey: ['user-roles', e.id] as const,
-      queryFn: () => get<UserRole>(`/api/v1/user-roles/${e.id}`),
-      staleTime: 60_000,
-      retry: false,
-    })),
-  });
-
-  const listRows = useMemo(
-    () =>
-      recent.entries.map((e, i) => {
-        const q = i < HYDRATE_LIMIT ? recentQueries[i] : undefined;
-        const data = q?.data;
-        return {
-          id: e.id,
-          label: e.label,
-          savedAt: e.savedAt,
-          userId: data?.userId,
-          roleId: data?.roleId,
-          loading: q?.isLoading ?? false,
-          failed: !!q?.isError,
-        };
-      }),
-    [recent.entries, recentQueries],
-  );
-
-  useEffect(() => {
-    const loaded = lookedUp;
-    if (!loaded || loaded.id !== activeId) return;
-    recent.push(
-      loaded.id,
-      assignmentLabel(loaded, recentUserLabels, recentRoleLabels),
-    );
-  }, [activeId, lookedUp, recent.push, recentUserLabels, recentRoleLabels]);
-
-  const loadById = (id: string) => {
-    const trimmed = id.trim();
-    if (!trimmed) {
-      toast.error('Enter a user-role assignment ID');
-      return;
-    }
-    setActiveId(trimmed);
-    setLookupId(trimmed);
-    recent.push(trimmed);
-  };
-
-  const loadAssignment = () => loadById(lookupId);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (ev: React.FormEvent): void => {
+    ev.preventDefault();
+    if (!form.userId || !form.roleId) return;
     createMutation.mutate(
+      { userId: form.userId, roleId: form.roleId } as Partial<UserRole>,
       {
-        userId: form.userId || undefined,
-        roleId: form.roleId || undefined,
-      },
-      {
-        onSuccess: (created) => {
-          setLastCreated(created);
-          setLookupId(created.id);
-          setActiveId(created.id);
-          recent.push(
-            created.id,
-            assignmentLabel(
-              {
-                id: created.id,
-                userId: created.userId ?? form.userId,
-                roleId: created.roleId ?? form.roleId,
-              },
-              recentUserLabels,
-              recentRoleLabels,
-            ),
-          );
+        onSuccess: () => {
+          void refetch();
           closeDrawer();
-          setForm(EMPTY_FORM);
+          setForm(EMPTY);
         },
       },
     );
   };
 
-  const labelForUserId = (userId: string | undefined) =>
-    userId ? userNameById.get(userId) ?? recentUserLabels.get(userId) ?? formatEntityLabel({ id: userId }) : '—';
-
-  const labelForRoleId = (roleId: string | undefined) =>
-    roleId ? roleNameById.get(roleId) ?? recentRoleLabels.get(roleId) ?? formatEntityLabel({ id: roleId }) : '—';
-
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">User Roles</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Assign roles to users using Recent picks from the Users and Roles pages saved in this
-            browser.
-          </p>
-        </div>
-        <Button onClick={() => setDrawerOpen(true)}>New Assignment</Button>
-      </div>
-
-      <p className="text-xs text-muted-foreground">
-        API gap: User roles have no list/search directory — use Recent, create, or Advanced load by
-        ID. Users and roles also have no directory APIs; create or open them on their pages first.
-      </p>
-
-      <RecentRecords
-        title="Recent assignments"
-        emptyHint="No recent assignments yet. Create one or use Advanced load by ID — it will appear here."
-        rows={listRows}
+      <DataTable<UserRole>
+        title="User Role Assignments"
+        description="Manage which roles are assigned to each user in your organisation."
         columns={[
           {
-            key: 'user',
-            header: 'User',
+            key: 'userId',
+            label: 'User',
+            render: (r) => <span className="font-medium">{r.userId ? (userById.get(r.userId) ?? r.userId) : '—'}</span>,
+          },
+          {
+            key: 'roleId',
+            label: 'Role',
             render: (r) => {
-              if (r.loading) return '…';
-              if (r.failed) return r.label?.trim() || formatEntityLabel({ id: r.id });
-              return labelForUserId(r.userId);
+              const name = r.roleId ? (roleById.get(r.roleId) ?? r.roleId) : '—';
+              return (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                  {name}
+                </span>
+              );
             },
           },
           {
-            key: 'role',
-            header: 'Role',
-            render: (r) => {
-              if (r.loading) return '…';
-              if (r.failed) return r.label?.trim() || formatEntityLabel({ id: r.id });
-              return labelForRoleId(r.roleId);
-            },
+            key: 'id',
+            label: 'ID',
+            render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.id}</span>,
           },
           {
-            key: 'saved',
-            header: 'Saved',
-            render: (r) => new Date(r.savedAt).toLocaleString(),
-          },
-          {
-            key: 'actions',
-            header: '',
-            render: (r) => (
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant="outline" onClick={() => loadById(r.id)}>
-                  Open
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
-                  Remove
-                </Button>
-              </div>
-            ),
+            key: 'createdAt',
+            label: 'Assigned',
+            render: (r) => (r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'),
           },
         ]}
-        rowKey={(r) => r.id}
-        onClear={recent.clear}
+        rows={assignments}
+        total={assignments.length}
+        page={page}
+        loading={isLoading}
+        error={error ? 'Failed to load assignments' : null}
+        onPageChange={setPage}
+        hideSearch
+        onRefetch={() => void refetch()}
+        onAdd={() => setDrawerOpen(true)}
+        addLabel="New Assignment"
       />
-
-      <AdvancedIdLookup
-        entityLabel="user-role assignment"
-        value={lookupId}
-        onChange={setLookupId}
-        onLoad={loadAssignment}
-      />
-
-      {activeId && (
-        <FormSection title="Assignment">
-          {lookupLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : lookupError || !lookedUp ? (
-            <p className="text-sm text-destructive">Assignment not found.</p>
-          ) : (
-            <div className="grid gap-2 text-sm sm:grid-cols-2">
-              <p className="flex flex-wrap items-center gap-2 sm:col-span-2">
-                <span className="text-muted-foreground">ID:</span> {lookedUp.id}
-                <Button type="button" variant="outline" size="sm" onClick={() => copyId(lookedUp.id)}>
-                  Copy
-                </Button>
-              </p>
-              <p>
-                <span className="text-muted-foreground">User:</span> {labelForUserId(lookedUp.userId)}
-                {lookedUp.userId ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="ml-2"
-                    onClick={() => copyId(lookedUp.userId!)}
-                  >
-                    Copy ID
-                  </Button>
-                ) : null}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Role:</span> {labelForRoleId(lookedUp.roleId)}
-                {lookedUp.roleId ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="ml-2"
-                    onClick={() => copyId(lookedUp.roleId!)}
-                  >
-                    Copy ID
-                  </Button>
-                ) : null}
-              </p>
-            </div>
-          )}
-        </FormSection>
-      )}
-
-      {lastCreated && (
-        <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-1">
-          <div className="font-medium">Last created assignment</div>
-          <div>ID: {lastCreated.id}</div>
-        </div>
-      )}
 
       <FormDrawer
         open={drawerOpen}
@@ -304,24 +101,22 @@ export default function UserRolesPage() {
             <Button
               type="submit"
               form="user-role-form"
-              disabled={createMutation.isPending || !form.userId.trim() || !form.roleId.trim()}
+              disabled={createMutation.isPending || !form.userId || !form.roleId}
             >
-              {createMutation.isPending ? 'Creating…' : 'Create'}
+              {createMutation.isPending ? 'Creating…' : 'Assign'}
             </Button>
-            <Button type="button" variant="outline" onClick={closeDrawer}>
-              Cancel
-            </Button>
+            <Button type="button" variant="outline" onClick={closeDrawer}>Cancel</Button>
           </>
         }
       >
-        <form id="user-role-form" onSubmit={handleSubmit} className="space-y-5">
+        <form id="user-role-form" onSubmit={handleSubmit} className="space-y-4">
           <Field label="User" required>
-            <Select value={form.userId || undefined} onValueChange={(v) => setForm({ ...form, userId: v })}>
+            <Select value={form.userId || undefined} onValueChange={(v) => setForm((f) => ({ ...f, userId: v }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select user…" />
               </SelectTrigger>
               <SelectContent>
-                {(userDirectory ?? []).map((u) => (
+                {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
                     {[u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id}
                   </SelectItem>
@@ -330,15 +125,13 @@ export default function UserRolesPage() {
             </Select>
           </Field>
           <Field label="Role" required>
-            <Select value={form.roleId || undefined} onValueChange={(v) => setForm({ ...form, roleId: v })}>
+            <Select value={form.roleId || undefined} onValueChange={(v) => setForm((f) => ({ ...f, roleId: v }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select role…" />
               </SelectTrigger>
               <SelectContent>
-                {(roles ?? []).map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name}
-                  </SelectItem>
+                {roles.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
