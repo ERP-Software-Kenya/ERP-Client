@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
-  Banknote,
+  Archive,
   Check,
   ChevronDown,
-  CreditCard,
   Mail,
   Minus,
   Package,
@@ -19,6 +18,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Customers,
@@ -26,8 +26,20 @@ import {
   Locations,
   Products,
   Suppliers,
+  ClerkUsers,
 } from "../../api";
-import type { Customer, Location, Product, Supplier } from "../../types";
+import { get } from "../../lib/http";
+import { useAuth } from "../../context/AuthContext";
+import type {
+  Bill,
+  Customer,
+  CustomerType,
+  Location,
+  PaymentTiming,
+  Product,
+  SaleType,
+  Supplier,
+} from "../../types";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,16 +50,37 @@ import {
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatEntityLabel } from "../../lib/entityLabel";
 import {
+  createDraftSale,
   runPurchaseCheckout,
   runSalesCheckout,
   type CheckoutResult,
   type CheckoutStep,
+  type DeliveryInfo,
+  type PosPayMethod,
   type PosReceipt,
 } from "./checkout";
 import { ReceiptDocument } from "./ReceiptDocument";
+import { DebtorNoteDocument } from "./DebtorNoteDocument";
+import { StatementDocument } from "./StatementDocument";
+import { DeliveryNoteDocument } from "./DeliveryNoteDocument";
+import {
+  buildSaleDocHtml,
+  defaultPdfFileName,
+  type SaleDocKind,
+} from "./buildSaleDocHtml";
+import HeldSalesPanel from "./HeldSalesPanel";
 
 type Mode = "sales" | "purchase";
-type PayMethod = "cash" | "card";
+type PayMethod = PosPayMethod;
+type PrintDoc = "receipt" | "debtor" | "statement" | "delivery";
+
+const PAY_METHODS: Array<{ value: PosPayMethod; label: string }> = [
+  { value: "cash", label: "Cash" },
+  { value: "mpesa", label: "M-Pesa" },
+  { value: "till", label: "Till" },
+  { value: "bank", label: "Bank" },
+  { value: "other", label: "Other" },
+];
 
 interface BillLine {
   id: number;
@@ -58,6 +91,7 @@ interface BillLine {
   rate: number;
   taxPct: number;
   unitLabel: string;
+  officialRate: number;
 }
 
 interface ExtraCharge {
@@ -119,7 +153,7 @@ function ModeToggle({
         <ShoppingCart size={14} />
         Sales
       </button>
-      <button
+      {/* <button
         type="button"
         onClick={() => onChange("purchase")}
         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
@@ -130,8 +164,106 @@ function ModeToggle({
       >
         <PackagePlus size={14} />
         Purchase Receiving
-      </button>
+      </button> */}
     </div>
+  );
+}
+
+const SALE_TYPE_OPTIONS: Array<{ value: SaleType; label: string }> = [
+  { value: "normal", label: "Normal" },
+  { value: "credit", label: "Credit" },
+  { value: "black", label: "Black" },
+];
+
+function SaleTypeToggle({
+  saleType,
+  onChange,
+  canCreateBlackSale,
+}: {
+  saleType: SaleType;
+  onChange: (t: SaleType) => void;
+  canCreateBlackSale: boolean;
+}) {
+  const options = SALE_TYPE_OPTIONS.filter(
+    (o) => o.value !== "black" || canCreateBlackSale,
+  );
+  return (
+    <div className="flex items-center bg-muted rounded-lg p-1 gap-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+            saleType === o.value
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const CUSTOMER_TYPE_OPTIONS: Array<{ value: CustomerType; label: string }> = [
+  { value: "regular", label: "Regular" },
+  { value: "new", label: "New" },
+  { value: "shop", label: "Shop" },
+  { value: "big_customer", label: "Big Customer" },
+];
+
+function CustomerTypeRow({
+  customerType,
+  onChange,
+}: {
+  customerType: CustomerType;
+  onChange: (t: CustomerType) => void;
+}) {
+  return (
+    <select
+      value={customerType}
+      onChange={(e) => onChange(e.target.value as CustomerType)}
+      title="Customer type"
+      className="px-2.5 py-1.5 border border-border rounded-lg text-xs bg-card outline-none focus:border-primary max-w-[140px]"
+    >
+      {CUSTOMER_TYPE_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+const PAYMENT_TIMING_OPTIONS: Array<{ value: PaymentTiming; label: string }> = [
+  { value: "cod", label: "COD" },
+  { value: "before_delivery", label: "Before Delivery" },
+  { value: "after_delivery", label: "After Delivery" },
+  { value: "half", label: "Half" },
+];
+
+function PaymentTimingRow({
+  paymentTiming,
+  onChange,
+}: {
+  paymentTiming: PaymentTiming;
+  onChange: (t: PaymentTiming) => void;
+}) {
+  return (
+    <select
+      value={paymentTiming}
+      onChange={(e) => onChange(e.target.value as PaymentTiming)}
+      title="Payment timing"
+      className="px-2.5 py-1.5 border border-border rounded-lg text-xs bg-card outline-none focus:border-primary max-w-[150px]"
+    >
+      {PAYMENT_TIMING_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -172,19 +304,58 @@ function printReceipt() {
   window.print();
 }
 
+async function downloadSalePdf(receipt: PosReceipt, kind: SaleDocKind) {
+  const api = window.electronAPI;
+  if (!api?.savePdf) {
+    toast.error("PDF download needs the desktop app");
+    return;
+  }
+  const res = await api.savePdf({
+    html: buildSaleDocHtml(receipt, kind),
+    defaultFileName: defaultPdfFileName(receipt, kind),
+  });
+  if (res.canceled) return;
+  if (!res.success) {
+    toast.error(res.error || "Could not save PDF");
+    return;
+  }
+  toast.success("PDF saved");
+}
+
 function BillSuccessModal({
   receipt,
   steps,
+  printDoc,
+  onPrintDoc,
   onClose,
 }: {
   receipt: PosReceipt;
   steps: CheckoutStep[];
+  printDoc: PrintDoc;
+  onPrintDoc: (doc: PrintDoc) => void;
   onClose: () => void;
 }) {
   const hasGaps = steps.some(
     (s) => s.status === "failed" || s.status === "skipped",
   );
   const failed = steps.some((s) => s.status === "failed");
+  const preview =
+    printDoc === "debtor" ? (
+      <DebtorNoteDocument receipt={receipt} />
+    ) : printDoc === "statement" ? (
+      <StatementDocument receipt={receipt} />
+    ) : printDoc === "delivery" ? (
+      <DeliveryNoteDocument receipt={receipt} />
+    ) : (
+      <ReceiptDocument receipt={receipt} />
+    );
+
+  const docButtons: Array<{ id: PrintDoc; label: string }> = [
+    { id: "receipt", label: "Receipt" },
+    { id: "debtor", label: "Debtor Note" },
+    { id: "statement", label: "Statement" },
+    { id: "delivery", label: "Delivery Note" },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pos-no-print">
@@ -248,12 +419,30 @@ function BillSuccessModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {receipt.mode === "sales" && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {docButtons.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => onPrintDoc(b.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${
+                    printDoc === b.id
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          )}
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Receipt preview
+            Preview
           </p>
           <div className="rounded-xl border border-border/80 bg-muted/40 p-3 sm:p-4">
             <div className="overflow-hidden rounded-lg ring-1 ring-black/5">
-              <ReceiptDocument receipt={receipt} />
+              {preview}
             </div>
           </div>
 
@@ -267,19 +456,30 @@ function BillSuccessModal({
           )}
         </div>
 
-        <div className="flex flex-shrink-0 gap-2 border-t border-border bg-card/80 px-5 py-4 backdrop-blur">
-          <button
-            type="button"
-            onClick={printReceipt}
-            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
-          >
-            <Printer size={15} />
-            Print
-          </button>
+        <div className="flex flex-shrink-0 flex-col gap-2 border-t border-border bg-card/80 px-5 py-4 backdrop-blur">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={printReceipt}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
+            >
+              <Printer size={15} />
+              Print
+            </button>
+            {receipt.mode === "sales" && (
+              <button
+                type="button"
+                onClick={() => void downloadSalePdf(receipt, printDoc)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
+              >
+                PDF
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex-[1.4] rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+            className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
           >
             {receipt.mode === "sales" ? "New sale" : "New purchase order"}
           </button>
@@ -299,6 +499,7 @@ export default function POSTerminal() {
   const [searchVal, setSearchVal] = useState("");
   const [qty, setQty] = useState(1);
   const [payMethod, setPayMethod] = useState<PayMethod>("cash");
+  const [paymentReference, setPaymentReference] = useState("");
   const [cashTendered, setCashTendered] = useState("");
   const [customerInfo, setCustomerInfo] = useState("");
   const [customerId, setCustomerId] = useState("");
@@ -313,12 +514,34 @@ export default function POSTerminal() {
     steps: CheckoutStep[];
   } | null>(null);
   const [lastReceipt, setLastReceipt] = useState<PosReceipt | null>(null);
+  const [printDoc, setPrintDoc] = useState<PrintDoc>("receipt");
   const [checkoutResult, setCheckoutResult] = useState<CheckoutResult | null>(
     null,
   );
   const [checkingOut, setCheckingOut] = useState(false);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [saleType, setSaleType] = useState<SaleType>("normal");
+  const [customerType, setCustomerType] = useState<CustomerType>("regular");
+  const [paymentTiming, setPaymentTiming] = useState<PaymentTiming>("cod");
+  const [partialAmount, setPartialAmount] = useState("");
+  const [holding, setHolding] = useState(false);
+  const [showHeldSales, setShowHeldSales] = useState(false);
+  const [showDelivery, setShowDelivery] = useState(false);
+  const [delivery, setDelivery] = useState<DeliveryInfo>({});
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const [facilitatorMode, setFacilitatorMode] = useState<'none' | 'user' | 'name'>('none');
+  const [facilitatorUserId, setFacilitatorUserId] = useState("");
+  const [facilitatorName, setFacilitatorName] = useState("");
+  const [commissionPct, setCommissionPct] = useState("");
+  const [facilitatorSearchVal, setFacilitatorSearchVal] = useState("");
+  const [showFacilitatorSuggestions, setShowFacilitatorSuggestions] = useState(false);
+
+  const { user } = useAuth();
+  const userRoles = user?.roles ?? [];
+  const canCreateBlackSale = userRoles.some((r) =>
+    ["super_admin", "org_admin", "org_manager"].includes(r),
+  );
 
   const debouncedCustomerInfo = useDebounce(customerInfo, 300);
 
@@ -344,6 +567,18 @@ export default function POSTerminal() {
       mode === "sales" &&
       debouncedCustomerInfo.trim().length >= 2 &&
       !customerId,
+  });
+  const { data: selectedCustomer } = Customers.useGet(
+    mode === "sales" && (saleType === "credit" || saleType === "black") && customerId
+      ? customerId
+      : undefined,
+  );
+
+  const { data: facilitatorSearch } = ClerkUsers.useSearch({
+    page: 1,
+    limit: 8,
+    query: facilitatorSearchVal.trim(),
+    enabled: facilitatorMode === "user" && facilitatorSearchVal.trim().length >= 2 && !facilitatorUserId,
   });
 
   useEffect(() => {
@@ -394,6 +629,7 @@ export default function POSTerminal() {
           rate: productRate(p, mode),
           taxPct: 0,
           unitLabel: p.unit || "pcs",
+          officialRate: productRate(p, mode),
         },
       ]);
     }
@@ -441,6 +677,21 @@ export default function POSTerminal() {
   const totalTax = lines.reduce((s, l) => s + lineTax(l), 0);
   const extraTotal = extraCharges.reduce((s, c) => s + c.amount, 0);
   const grandTotal = subtotal + totalTax + extraTotal;
+  const blackMarkup = saleType === "black" ? lines.reduce((s, l) => s + (l.rate - l.officialRate) * l.qty, 0) : 0;
+  const creditLimit = Number(selectedCustomer?.creditLimit ?? 0);
+  const creditBalance = Number(selectedCustomer?.creditBalance ?? 0);
+  const creditRemaining = creditLimit - creditBalance;
+  const creditNeedsApproval =
+    saleType === "credit" &&
+    !!customerId &&
+    creditLimit > 0 &&
+    creditBalance + grandTotal > creditLimit;
+  const creditMissingCustomer = mode === "sales" && saleType === "credit" && !customerId;
+  const deliveryPayload: DeliveryInfo | undefined = showDelivery
+    ? Object.fromEntries(
+        Object.entries(delivery).filter(([, v]) => String(v ?? "").trim() !== ""),
+      )
+    : undefined;
 
   const voidBill = () => {
     setLines([]);
@@ -451,7 +702,20 @@ export default function POSTerminal() {
     setSearchVal("");
     setQty(1);
     setCashTendered("");
+    setPaymentReference("");
     setCheckoutResult(null);
+    setSaleType("normal");
+    setCustomerType("regular");
+    setPaymentTiming("cod");
+    setPartialAmount("");
+    setFacilitatorMode("none");
+    setFacilitatorUserId("");
+    setFacilitatorName("");
+    setCommissionPct("");
+    setFacilitatorSearchVal("");
+    setShowDelivery(false);
+    setDelivery({});
+    setPrintDoc("receipt");
   };
 
   const closeSuccess = () => {
@@ -468,19 +732,29 @@ export default function POSTerminal() {
       isNaN(Number(cashTendered)) ||
       Number(cashTendered) < grandTotal);
 
+  const partialAmountMissing =
+    mode === "sales" &&
+    paymentTiming === "half" &&
+    (partialAmount === "" ||
+      isNaN(Number(partialAmount)) ||
+      Number(partialAmount) <= 0);
+
+  const buildLinePayload = () =>
+    lines.map((l) => ({
+      productId: l.productId,
+      sku: l.sku,
+      name: l.name,
+      qty: l.qty,
+      unitPrice: l.rate,
+      taxPct: l.taxPct,
+    }));
+
   const generateBill = async () => {
-    if (lines.length === 0 || checkingOut || cashShort) return;
+    if (lines.length === 0 || checkingOut || cashShort || partialAmountMissing) return;
     setCheckingOut(true);
     setCheckoutResult(null);
     try {
-      const linePayload = lines.map((l) => ({
-        productId: l.productId,
-        sku: l.sku,
-        name: l.name,
-        qty: l.qty,
-        unitPrice: l.rate,
-        taxPct: l.taxPct,
-      }));
+      const linePayload = buildLinePayload();
 
       const supplier = suppliers.find((s) => s.id === supplierId);
 
@@ -494,6 +768,7 @@ export default function POSTerminal() {
               orgId,
               customerId: customerId.trim() || undefined,
               paymentMethod: payMethod,
+              paymentReference: paymentReference.trim() || undefined,
               amountReceived: cashTendered ? Number(cashTendered) : undefined,
               customerInfo,
               lines: linePayload,
@@ -501,6 +776,17 @@ export default function POSTerminal() {
               subtotal,
               taxAmount: totalTax,
               totalAmount: grandTotal,
+              saleType,
+              customerType,
+              paymentTiming,
+              partialAmount:
+                paymentTiming === "half" ? Number(partialAmount) : undefined,
+              creditLimit: selectedCustomer?.creditLimit ?? undefined,
+              creditBalance: selectedCustomer?.creditBalance ?? undefined,
+              delivery: deliveryPayload,
+              facilitatorUserId: facilitatorMode === "user" ? facilitatorUserId : undefined,
+              facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
+              commissionPct: commissionPct ? Number(commissionPct) : undefined,
             })
           : await runPurchaseCheckout({
               locationId,
@@ -519,11 +805,103 @@ export default function POSTerminal() {
 
       setCheckoutResult(result);
       if (result.primaryOk) {
+        setPrintDoc("receipt");
         setLastReceipt(result.receipt);
         setSuccess({ receipt: result.receipt, steps: result.steps });
       }
     } finally {
       setCheckingOut(false);
+    }
+  };
+
+  // Reuses the bill-create path (create -> DRAFT) via checkout.ts's createDraftSale,
+  // but never calls the COMPLETED transition — the bill stays a resumable draft.
+  const holdSale = async () => {
+    if (lines.length === 0 || holding || partialAmountMissing || !locationId) return;
+    setHolding(true);
+    setCheckoutResult(null);
+    try {
+      const result = await createDraftSale({
+        storeName: stockLocation?.name,
+        locationId: locationId || undefined,
+        locationName: stockLocation?.name,
+        inventory,
+        orgId,
+        customerId: customerId.trim() || undefined,
+        paymentMethod: payMethod,
+        paymentReference: paymentReference.trim() || undefined,
+        amountReceived: cashTendered ? Number(cashTendered) : undefined,
+        customerInfo,
+        lines: buildLinePayload(),
+        extraCharges,
+        subtotal,
+        taxAmount: totalTax,
+        totalAmount: grandTotal,
+        saleType,
+        customerType,
+        paymentTiming,
+        partialAmount: paymentTiming === "half" ? Number(partialAmount) : undefined,
+        creditLimit: selectedCustomer?.creditLimit ?? undefined,
+        creditBalance: selectedCustomer?.creditBalance ?? undefined,
+        delivery: deliveryPayload,
+        facilitatorUserId: facilitatorMode === "user" ? facilitatorUserId : undefined,
+        facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
+        commissionPct: commissionPct ? Number(commissionPct) : undefined,
+      });
+      if (result.billId) {
+        toast.success(`Sale held as draft — ${result.receipt.ref}`);
+        voidBill();
+      } else {
+        setCheckoutResult({ receipt: result.receipt, steps: result.steps, primaryOk: false });
+      }
+    } finally {
+      setHolding(false);
+    }
+  };
+
+  const resumeSale = async (billId: string) => {
+    try {
+      const bill = await get<Bill>(`/api/v1/bills/${billId}`);
+      const items = bill.items ?? [];
+      const products = await Promise.all(
+        items.map((it) =>
+          get<Product>(`/api/v1/products/${it.productId}`).catch(() => null),
+        ),
+      );
+      setLines(
+        items.map((it, idx) => {
+          const p = products[idx];
+          return {
+            id: ++lineIdSeq,
+            productId: it.productId,
+            sku: p
+              ? formatEntityLabel({ sku: p.sku, id: p.id })
+              : it.productId.slice(0, 8),
+            name: p?.name || "Item",
+            qty: it.quantity,
+            rate: it.unitPrice,
+            taxPct: it.taxRate,
+            unitLabel: p?.unit || "pcs",
+            officialRate: p ? productRate(p, mode) : it.unitPrice,
+          };
+        }),
+      );
+      setCustomerId(bill.customerId || "");
+      setCustomerInfo(
+        bill.walkInName ||
+          (bill.customerId ? `Customer ${bill.customerId.slice(0, 8)}…` : ""),
+      );
+      if (bill.locationId) setLocationId(bill.locationId);
+      setSaleType((bill.saleType as SaleType) || "normal");
+      setCustomerType((bill.customerType as CustomerType) || "regular");
+      setPaymentTiming((bill.paymentTiming as PaymentTiming) || "cod");
+      setPartialAmount(
+        bill.partialAmount != null ? String(bill.partialAmount) : "",
+      );
+      setShowHeldSales(false);
+      toast.success(`Resumed ${bill.billNumber}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to resume sale");
     }
   };
 
@@ -540,9 +918,22 @@ export default function POSTerminal() {
           badge: "bg-orange-100 text-orange-700",
         };
 
+  const modeShellCls =
+    mode === "sales" && saleType === "credit"
+      ? "ring-1 ring-inset ring-amber-400/40 bg-amber-500/[0.04]"
+      : mode === "sales" && saleType === "black"
+        ? "ring-1 ring-inset ring-slate-400/40 bg-slate-500/[0.05]"
+        : "";
+
+  const handlePrintDoc = (doc: PrintDoc) => {
+    setPrintDoc(doc);
+    // Let React paint the selected print root before opening the dialog.
+    requestAnimationFrame(() => printReceipt());
+  };
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-muted">
-      <div className="flex items-center gap-4 px-5 py-3 bg-card border-b border-border flex-shrink-0">
+    <div className={`flex h-full min-h-0 flex-col overflow-hidden bg-muted ${modeShellCls}`}>
+      <div className="flex items-center gap-4 px-5 py-3 bg-card border-b border-border flex-shrink-0 flex-wrap">
         <ModeToggle
           mode={mode}
           onChange={(m) => {
@@ -551,6 +942,17 @@ export default function POSTerminal() {
             setSupplierId("");
           }}
         />
+
+        {mode === "sales" && (
+          <>
+            <div className="w-px h-6 bg-border mx-1" />
+            <SaleTypeToggle
+              saleType={saleType}
+              onChange={setSaleType}
+              canCreateBlackSale={canCreateBlackSale}
+            />
+          </>
+        )}
 
         <div className="w-px h-6 bg-border mx-1" />
 
@@ -585,6 +987,32 @@ export default function POSTerminal() {
           </DropdownMenuContent>
         </DropdownMenu>
 
+        {mode === "sales" && (
+          <>
+            <div className="w-px h-6 bg-border mx-1" />
+            <select
+              value={payMethod}
+              onChange={(e) => setPayMethod(e.target.value as PosPayMethod)}
+              className="px-2.5 py-1.5 border border-border rounded-lg text-xs bg-card outline-none focus:border-primary max-w-[120px]"
+              title="Payment method"
+            >
+              {PAY_METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            <PaymentTimingRow
+              paymentTiming={paymentTiming}
+              onChange={setPaymentTiming}
+            />
+            <CustomerTypeRow
+              customerType={customerType}
+              onChange={setCustomerType}
+            />
+          </>
+        )}
+
         <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
           <span
             className={`px-2 py-1 rounded-md font-medium ${accentCls.badge}`}
@@ -599,8 +1027,8 @@ export default function POSTerminal() {
       //   deducted on the server). Walk-in needs a name; or pick a customer from search.
       // </div> */}
 
-      <div className="flex flex-1 gap-0 overflow-hidden">
-        <div className="w-64 flex-shrink-0 bg-card border-r border-border flex flex-col">
+      <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
+        <div className="flex w-64 min-h-0 flex-shrink-0 flex-col overflow-y-auto bg-card border-r border-border">
           <div className="p-4 border-b border-border">
             <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
               {mode === "sales" ? "Add Product" : "Receive Product"}
@@ -765,7 +1193,7 @@ export default function POSTerminal() {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex items-center justify-between px-5 py-3 bg-card border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2">
               {mode === "sales" ? (
@@ -792,18 +1220,29 @@ export default function POSTerminal() {
               >
                 <X size={13} /> Void
               </button>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg cursor-not-allowed"
-                title="Hold not wired yet"
-                disabled
-              >
-                <PauseCircle size={13} /> Hold
-              </button>
+              {mode === "sales" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void holdSale()}
+                    disabled={lines.length === 0 || holding || partialAmountMissing || !locationId}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <PauseCircle size={13} /> {holding ? "Holding…" : "Hold"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowHeldSales(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-lg hover:bg-muted transition"
+                  >
+                    <Archive size={13} /> Held Sales
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {lines.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50 gap-3">
                 {mode === "sales" ? (
@@ -821,16 +1260,10 @@ export default function POSTerminal() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted border-b border-border z-10">
                   <tr>
-                    {[
-                      "#",
-                      "SKU",
-                      "Description",
-                      "Qty",
-                      "Rate",
-                      "Tax",
-                      "Total",
-                      "",
-                    ].map((h) => (
+                    {(saleType === "black"
+                      ? ["#", "SKU", "Description", "Qty", "Official", "Charged", "Tax", "Total", ""]
+                      : ["#", "SKU", "Description", "Qty", "Rate", "Tax", "Total", ""]
+                    ).map((h) => (
                       <th
                         key={h}
                         className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap"
@@ -853,7 +1286,8 @@ export default function POSTerminal() {
                         <p className="text-foreground font-medium text-sm">
                           {line.name}
                         </p>
-                        {overrideLine === line.id ? (
+                        {saleType !== "black" &&
+                          (overrideLine === line.id ? (
                           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             <input
                               type="number"
@@ -903,7 +1337,7 @@ export default function POSTerminal() {
                           >
                             Override price / tax
                           </button>
-                        )}
+                        ))}
                       </td>
                       <td className="px-3 py-3">
                         <span className="font-semibold text-foreground">{line.qty}</span>
@@ -911,9 +1345,34 @@ export default function POSTerminal() {
                           {line.unitLabel}
                         </p>
                       </td>
-                      <td className="px-3 py-3 text-foreground">
-                        {fmt(line.rate)}
-                      </td>
+                      {saleType === "black" ? (
+                        <>
+                          <td className="px-3 py-3 text-muted-foreground tabular-nums">
+                            {fmt(line.officialRate)}
+                          </td>
+                          <td className="px-3 py-3">
+                            <input
+                              type="number"
+                              value={line.rate}
+                              onChange={(e) => {
+                                const v = parseFloat(e.target.value);
+                                setLines((ls) =>
+                                  ls.map((l) =>
+                                    l.id === line.id
+                                      ? { ...l, rate: isNaN(v) ? l.rate : v }
+                                      : l,
+                                  ),
+                                );
+                              }}
+                              className="w-24 text-sm px-2 py-1 border border-border rounded-lg outline-none focus:border-primary tabular-nums"
+                            />
+                          </td>
+                        </>
+                      ) : (
+                        <td className="px-3 py-3 text-foreground">
+                          {fmt(line.rate)}
+                        </td>
+                      )}
                       <td className="px-3 py-3 text-muted-foreground text-xs">
                         {line.taxPct > 0 ? (
                           <span>
@@ -988,35 +1447,32 @@ export default function POSTerminal() {
           )}
         </div>
 
-        <div className="w-72 flex-shrink-0 bg-card border-l border-border flex flex-col">
-          <div className="px-5 py-4 border-b border-border">
+        <div className="flex w-72 min-h-0 flex-shrink-0 flex-col overflow-hidden bg-card border-l border-border">
+          <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-border flex-shrink-0">
             <p className="text-xs font-semibold text-muted-foreground uppercase">
               {mode === "sales" ? "Checkout" : "Order Summary"}
             </p>
+            <span className="text-sm font-bold text-primary tabular-nums">
+              {fmt(grandTotal)}
+            </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-muted-foreground">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-3">
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between text-muted-foreground text-xs">
                 <span>Items</span>
-                <span className="font-medium text-foreground">
-                  {lines.length}
-                </span>
+                <span className="font-medium text-foreground">{lines.length}</span>
               </div>
-              <div className="flex justify-between text-muted-foreground">
+              <div className="flex justify-between text-muted-foreground text-xs">
                 <span>Subtotal</span>
-                <span className="font-medium text-foreground">
-                  {fmt(subtotal)}
-                </span>
+                <span className="font-medium text-foreground">{fmt(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-muted-foreground">
+              <div className="flex justify-between text-muted-foreground text-xs">
                 <span>Tax</span>
-                <span className="font-medium text-foreground">
-                  {fmt(totalTax)}
-                </span>
+                <span className="font-medium text-foreground">{fmt(totalTax)}</span>
               </div>
               {extraCharges.length > 0 && (
-                <div className="flex justify-between text-muted-foreground">
+                <div className="flex justify-between text-muted-foreground text-xs">
                   <span>Extra Charges</span>
                   <span
                     className={`font-medium ${extraTotal < 0 ? "text-red-600" : "text-foreground"}`}
@@ -1026,70 +1482,119 @@ export default function POSTerminal() {
                   </span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-foreground text-lg pt-2 border-t border-border">
-                <span>Grand Total</span>
-                <span className="text-primary">{fmt(grandTotal)}</span>
-              </div>
+              {mode === "sales" && saleType === "black" && (
+                <div className="flex justify-between text-slate-600 dark:text-slate-300 text-xs pt-0.5">
+                  <span className="font-semibold uppercase tracking-wide">Black markup</span>
+                  <span className="font-semibold tabular-nums">{fmt(blackMarkup)}</span>
+                </div>
+              )}
             </div>
 
             {mode === "sales" && (
-              <>
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                    Payment Method
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(["cash", "card"] as PayMethod[]).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setPayMethod(m)}
-                        className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-semibold transition ${
-                          payMethod === m
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border text-muted-foreground hover:border-border"
-                        }`}
+              <div className="space-y-2">
+                {payMethod === "cash" && grandTotal > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-muted-foreground">
+                      Cash Tendered
+                    </label>
+                    <input
+                      type="number"
+                      value={cashTendered}
+                      onChange={(e) => setCashTendered(e.target.value)}
+                      placeholder="Enter amount received"
+                      className="w-full px-3 py-2 border border-border rounded-lg text-sm outline-none focus:border-primary"
+                    />
+                    {cashTendered !== "" && !isNaN(Number(cashTendered)) && (
+                      <div
+                        className={`text-xs font-medium ${Number(cashTendered) < grandTotal ? "text-destructive" : "text-muted-foreground"}`}
                       >
-                        {m === "cash" ? (
-                          <Banknote size={16} />
-                        ) : (
-                          <CreditCard size={16} />
-                        )}
-                        {m.charAt(0).toUpperCase() + m.slice(1)}
-                      </button>
+                        {Number(cashTendered) < grandTotal
+                          ? `Short by ${fmt(grandTotal - Number(cashTendered))}`
+                          : `Change due: ${fmt(Number(cashTendered) - grandTotal)}`}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {payMethod !== "cash" && (
+                  <div>
+                    <label className="block mb-1 text-xs font-medium text-muted-foreground">
+                      {payMethod === "till" ? "Till number / ref" : "Payment reference"}
+                    </label>
+                    <input
+                      type="text"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                      placeholder={
+                        payMethod === "mpesa"
+                          ? "M-Pesa code"
+                          : payMethod === "till"
+                            ? "Till number"
+                            : "Reference"
+                      }
+                      className="w-full px-3 py-2 border border-border rounded-lg text-sm outline-none focus:border-primary"
+                    />
+                  </div>
+                )}
+                {paymentTiming === "half" && (
+                  <div>
+                    <input
+                      type="number"
+                      value={partialAmount}
+                      onChange={(e) => setPartialAmount(e.target.value)}
+                      placeholder="Partial amount received"
+                      className={`w-full px-3 py-2 border rounded-lg text-sm outline-none focus:border-primary ${
+                        partialAmountMissing ? "border-destructive" : "border-border"
+                      }`}
+                    />
+                    {partialAmountMissing && (
+                      <p className="mt-1 text-[10px] font-medium text-destructive">
+                        Enter a partial amount greater than 0
+                      </p>
+                    )}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowDelivery((v) => !v)}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground transition"
+                >
+                  {showDelivery ? "− Hide delivery info" : "+ Delivery info"}
+                </button>
+                {showDelivery && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        ["driverName", "Driver name"],
+                        ["companionName", "With driver"],
+                        ["vehicleNumber", "Vehicle no."],
+                        ["license", "License"],
+                        ["location", "Location"],
+                        ["distance", "Distance"],
+                        ["gps", "GPS"],
+                        ["rating", "Rating"],
+                        ["note", "Note"],
+                      ] as Array<[keyof DeliveryInfo, string]>
+                    ).map(([key, label]) => (
+                      <input
+                        key={key}
+                        type="text"
+                        value={delivery[key] ?? ""}
+                        onChange={(e) =>
+                          setDelivery((d) => ({ ...d, [key]: e.target.value }))
+                        }
+                        placeholder={label}
+                        className={`px-2 py-1.5 border border-border rounded-lg text-xs outline-none focus:border-primary ${
+                          key === "note" ? "col-span-2" : ""
+                        }`}
+                      />
                     ))}
                   </div>
-                  {payMethod === "cash" && grandTotal > 0 && (
-                    <div className="mt-3 space-y-2">
-                      <div className="text-xs text-muted-foreground">
-                        <label className="block mb-1 font-medium">
-                          Cash Tendered
-                        </label>
-                        <input
-                          type="number"
-                          value={cashTendered}
-                          onChange={(e) => setCashTendered(e.target.value)}
-                          placeholder="Enter amount received"
-                          className="w-full px-3 py-2 border border-border rounded-lg text-sm outline-none focus:border-primary"
-                        />
-                      </div>
-                      {cashTendered !== "" && !isNaN(Number(cashTendered)) && (
-                        <div
-                          className={`text-xs font-medium ${Number(cashTendered) < grandTotal ? "text-destructive" : "text-muted-foreground"}`}
-                        >
-                          {Number(cashTendered) < grandTotal
-                            ? `Short by ${fmt(grandTotal - Number(cashTendered))}`
-                            : `Change due: ${fmt(Number(cashTendered) - grandTotal)}`}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
+                )}
+              </div>
             )}
 
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1.5">
                 {mode === "sales" ? "Customer" : "Supplier Ref. / Notes"}
               </p>
               <div className="relative">
@@ -1171,20 +1676,121 @@ export default function POSTerminal() {
                   </button>
                 </div>
               )}
-            </div>
+              {mode === "sales" && saleType === "credit" && !customerId && (
+                <p className="mt-1.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                  Select a customer for credit sales
+                </p>
+              )}
+              {mode === "sales" &&
+                saleType === "credit" &&
+                customerId &&
+                selectedCustomer && (
+                  <div className="mt-2 rounded-lg border border-amber-300/50 bg-amber-500/10 px-3 py-2 space-y-1 text-[11px]">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">Limit</span>
+                      <span className="font-semibold tabular-nums">{fmt(creditLimit)}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">Balance</span>
+                      <span className="font-semibold tabular-nums">{fmt(creditBalance)}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">Remaining</span>
+                      <span className="font-semibold tabular-nums">{fmt(creditRemaining)}</span>
+                    </div>
+                    {creditNeedsApproval && (
+                      <p className="pt-1 font-semibold text-amber-800 dark:text-amber-300">
+                        Needs approval — over credit limit
+                      </p>
+                    )}
+                  </div>
+                )}
 
-            <div className={`rounded-xl p-3 border text-xs ${accentCls.light}`}>
-              <div className="flex items-center gap-1.5 font-semibold mb-0.5">
-                <Package size={12} />
-                {mode === "sales" ? "Bill stock location" : "Ordered for location"}
-              </div>
-              <p className="text-muted-foreground ml-4">
-                {stockLocation?.name ?? "Select a location from the top bar"}
-              </p>
+              {mode === "sales" && saleType === "black" && (
+                <div className="mt-3 space-y-2">
+                  <div className="p-2.5 border rounded-xl bg-muted/40 border-border/80">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-1.5">
+                      Facilitator & Commission
+                    </p>
+                    <select
+                      value={facilitatorMode}
+                      onChange={(e) =>
+                        setFacilitatorMode(e.target.value as "none" | "user" | "name")
+                      }
+                      className="mb-2 w-full px-2 py-1.5 border border-border rounded-lg text-xs bg-card outline-none focus:border-primary"
+                    >
+                      <option value="none">None</option>
+                      <option value="user">System User</option>
+                      <option value="name">Name Only</option>
+                    </select>
+
+                    {facilitatorMode === "user" && (
+                      <div className="relative mb-2">
+                        <input
+                          value={facilitatorSearchVal}
+                          onChange={(e) => {
+                            setFacilitatorSearchVal(e.target.value);
+                            setFacilitatorUserId("");
+                            setShowFacilitatorSuggestions(true);
+                          }}
+                          onFocus={() => setShowFacilitatorSuggestions(true)}
+                          placeholder="Search user..."
+                          className="w-full px-2 py-1.5 text-xs border border-border rounded-lg outline-none focus:border-primary"
+                        />
+                        {showFacilitatorSuggestions && !facilitatorUserId && (facilitatorSearch?.data?.length ?? 0) > 0 && (
+                          <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden max-h-40 overflow-y-auto">
+                            {(facilitatorSearch?.data ?? []).map((u) => (
+                              <button
+                                key={u.id}
+                                type="button"
+                                className="block w-full px-2 py-1.5 text-left text-[11px] hover:bg-muted border-b border-border last:border-0"
+                                onClick={() => {
+                                  setFacilitatorUserId(u.id);
+                                  setFacilitatorSearchVal(`${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email);
+                                  setShowFacilitatorSuggestions(false);
+                                }}
+                              >
+                                {u.firstName} {u.lastName} <span className="text-muted-foreground">{u.email}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {facilitatorMode === "name" && (
+                      <div className="mb-2">
+                        <input
+                          value={facilitatorName}
+                          onChange={(e) => setFacilitatorName(e.target.value)}
+                          placeholder="Facilitator name"
+                          className="w-full px-2 py-1.5 text-xs border border-border rounded-lg outline-none focus:border-primary"
+                        />
+                      </div>
+                    )}
+                    {facilitatorMode !== "none" && (
+                      <div>
+                        <input
+                          type="number"
+                          value={commissionPct}
+                          onChange={(e) => setCommissionPct(e.target.value)}
+                          placeholder="Commission %"
+                          className="w-full px-2 py-1.5 text-xs border border-border rounded-lg outline-none focus:border-primary"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {facilitatorMode !== "none" && commissionPct && (
+                    <div className="p-2 border border-border/80 bg-background rounded-lg flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground font-medium">Est. Commission</span>
+                      <span className="font-semibold text-primary">{fmt((blackMarkup * Number(commissionPct)) / 100)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="px-5 py-4 border-t border-border space-y-2 flex-shrink-0">
+          <div className="px-4 py-3 border-t border-border space-y-2 flex-shrink-0">
             <button
               type="button"
               onClick={() => void generateBill()}
@@ -1192,6 +1798,8 @@ export default function POSTerminal() {
                 lines.length === 0 ||
                 checkingOut ||
                 cashShort ||
+                partialAmountMissing ||
+                creditMissingCustomer ||
                 (mode === "sales" && !locationId) ||
                 (mode === "purchase" && !supplierId)
               }
@@ -1205,7 +1813,9 @@ export default function POSTerminal() {
               {checkingOut
                 ? "Processing…"
                 : mode === "sales"
-                  ? "Complete Sale"
+                  ? creditNeedsApproval
+                    ? "Request approval"
+                    : "Complete Sale"
                   : "Create Purchase Order"}
             </button>
             <div className="grid grid-cols-2 gap-2">
@@ -1241,14 +1851,30 @@ export default function POSTerminal() {
         <BillSuccessModal
           receipt={success.receipt}
           steps={success.steps}
+          printDoc={printDoc}
+          onPrintDoc={handlePrintDoc}
           onClose={closeSuccess}
         />
       )}
 
       {(success?.receipt || lastReceipt) && (
         <div className="pos-print-root" aria-hidden>
-          <ReceiptDocument receipt={success?.receipt ?? lastReceipt!} />
+          {(() => {
+            const r = success?.receipt ?? lastReceipt!;
+            if (printDoc === "debtor") return <DebtorNoteDocument receipt={r} />;
+            if (printDoc === "statement") return <StatementDocument receipt={r} />;
+            if (printDoc === "delivery") return <DeliveryNoteDocument receipt={r} />;
+            return <ReceiptDocument receipt={r} />;
+          })()}
         </div>
+      )}
+
+      {showHeldSales && (
+        <HeldSalesPanel
+          locationId={locationId}
+          onClose={() => setShowHeldSales(false)}
+          onResume={(billId) => void resumeSale(billId)}
+        />
       )}
     </div>
   );

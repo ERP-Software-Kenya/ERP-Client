@@ -58,6 +58,8 @@ const FleetTripsPage = lazy(() => import('./pages/Fleet/Trips'));
 const FleetMaintenancePage = lazy(() => import('./pages/Fleet/Maintenance'));
 const FleetExpensesPage = lazy(() => import('./pages/Fleet/Expenses'));
 const POSTerminal = lazy(() => import('./pages/pos/POSTerminal'));
+const PendingApprovals = lazy(() => import('./pages/PendingApprovals'));
+const BlackLedger = lazy(() => import('./pages/BlackLedger'));
 
 function RouteFallback() {
   return (
@@ -114,6 +116,8 @@ function App() {
             <Route path="unpublished-stock" element={<UnpublishedStockPage />} />
             <Route path="product-logs" element={<ProductLogsPage />} />
             <Route path="customers" element={<Customers />} />
+            <Route path="pending-approvals" element={<PendingApprovals />} />
+            <Route path="black-ledger" element={<BlackLedger />} />
             <Route path="orders" element={<Orders />} />
             <Route path="invoices" element={<Invoices />} />
             <Route path="vehicles" element={<VehiclesPage />} />

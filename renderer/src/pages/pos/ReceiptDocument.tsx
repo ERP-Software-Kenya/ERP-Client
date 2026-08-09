@@ -58,6 +58,22 @@ export function ReceiptDocument({ receipt }: { receipt: PosReceipt }) {
             </dd>
           </div>
         )}
+        {receipt.saleType && receipt.saleType !== 'normal' && (
+          <div className="flex justify-between gap-3">
+            <dt className="shrink-0 text-neutral-500">Sale Type</dt>
+            <dd className="text-right font-medium capitalize text-neutral-900">
+              {receipt.saleType}
+            </dd>
+          </div>
+        )}
+        {receipt.paymentTiming && receipt.paymentTiming !== 'cod' && (
+          <div className="flex justify-between gap-3">
+            <dt className="shrink-0 text-neutral-500">Payment Timing</dt>
+            <dd className="text-right font-medium capitalize text-neutral-900">
+              {receipt.paymentTiming.replace('_', ' ')}
+            </dd>
+          </div>
+        )}
       </dl>
 
       <table className="mb-4 w-full border-collapse text-[12px]">

@@ -19,12 +19,32 @@ export interface PosLineInput {
   taxPct: number;
 }
 
+export type PosPayMethod = 'cash' | 'mpesa' | 'till' | 'bank' | 'other';
+
+export interface DeliveryInfo {
+  driverName?: string;
+  companionName?: string;
+  vehicleNumber?: string;
+  license?: string;
+  location?: string;
+  distance?: string;
+  gps?: string;
+  note?: string;
+  rating?: string;
+}
+
 export interface PosReceipt {
   ref: string;
   mode: 'sales' | 'purchase';
   storeName?: string;
   partyLabel?: string;
   paymentMethod?: string;
+  paymentReference?: string;
+  saleType?: 'normal' | 'credit' | 'black';
+  paymentTiming?: 'before_delivery' | 'after_delivery' | 'half' | 'cod';
+  creditLimit?: number;
+  creditBalance?: number;
+  delivery?: DeliveryInfo;
   lines: Array<{
     sku: string;
     name: string;
@@ -56,7 +76,8 @@ export interface SalesCheckoutInput {
   inventory?: InventoryItem[];
   orgId?: string;
   customerId?: string;
-  paymentMethod: 'cash' | 'card';
+  paymentMethod: PosPayMethod;
+  paymentReference?: string;
   amountReceived?: number;
   customerInfo?: string;
   lines: PosLineInput[];
@@ -64,6 +85,16 @@ export interface SalesCheckoutInput {
   subtotal: number;
   taxAmount: number;
   totalAmount: number;
+  saleType?: 'normal' | 'credit' | 'black';
+  customerType?: 'regular' | 'new' | 'shop' | 'big_customer';
+  paymentTiming?: 'before_delivery' | 'after_delivery' | 'half' | 'cod';
+  partialAmount?: number;
+  creditLimit?: number;
+  creditBalance?: number;
+  delivery?: DeliveryInfo;
+  facilitatorUserId?: string;
+  facilitatorName?: string;
+  commissionPct?: number;
 }
 
 export interface PurchaseCheckoutInput {
@@ -144,8 +175,18 @@ function findInventory(
   return inventory?.find((i) => i.productId === productId && i.locationId === locationId);
 }
 
-function toBillPaymentMethod(method: 'cash' | 'card'): PaymentMethod {
-  return method === 'card' ? 'CARD' : 'CASH';
+function toBillPaymentMethod(method: PosPayMethod): PaymentMethod {
+  switch (method) {
+    case 'mpesa':
+    case 'till':
+      return 'UPI';
+    case 'bank':
+      return 'NET_BANKING';
+    case 'other':
+      return 'CHEQUE';
+    default:
+      return 'CASH';
+  }
 }
 
 /** Apply add/remove for each line; one CheckoutStep per line (honest failures). */
@@ -197,11 +238,18 @@ async function runStockLines(
   return steps;
 }
 
+export interface DraftSaleResult {
+  /** Present only when the bill made it to DRAFT; steps carry the failure reason otherwise. */
+  billId?: string;
+  receipt: PosReceipt;
+  steps: CheckoutStep[];
+}
+
 /**
- * Sales: POST bill (INITIATED) → PATCH DRAFT → PATCH COMPLETED.
- * Stock is deducted on the server when COMPLETED — no client stock-remove.
+ * Shared "create bill (INITIATED) → mark DRAFT" path, used by both `runSalesCheckout`
+ * (which continues on to COMPLETED) and `holdSale` in POSTerminal.tsx (which stops here).
  */
-export async function runSalesCheckout(input: SalesCheckoutInput): Promise<CheckoutResult> {
+export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftSaleResult> {
   const steps: CheckoutStep[] = [];
   const walkInName =
     input.customerInfo?.trim() ||
@@ -214,6 +262,12 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
       input.customerInfo?.trim() ||
       (input.customerId ? `Customer ${input.customerId.slice(0, 8)}…` : 'Walk-in'),
     paymentMethod: input.paymentMethod,
+    paymentReference: input.paymentReference?.trim() || undefined,
+    saleType: input.saleType,
+    paymentTiming: input.paymentTiming,
+    creditLimit: input.creditLimit,
+    creditBalance: input.creditBalance,
+    delivery: input.delivery,
     lines: buildReceiptLines(input.lines),
     extraCharges: input.extraCharges,
     subtotal: input.subtotal,
@@ -229,11 +283,11 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
       status: 'failed',
       message: 'Select a stock location — required for sales bills',
     });
-    return { receipt, steps, primaryOk: false };
+    return { receipt, steps };
   }
   if (input.lines.length === 0) {
     steps.push({ name: 'Validate lines', status: 'failed', message: 'Cart is empty' });
-    return { receipt, steps, primaryOk: false };
+    return { receipt, steps };
   }
   if (!input.customerId?.trim() && !walkInName) {
     steps.push({
@@ -241,7 +295,15 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
       status: 'failed',
       message: 'Walk-in name or customer is required',
     });
-    return { receipt, steps, primaryOk: false };
+    return { receipt, steps };
+  }
+  if (input.paymentTiming === 'half' && !(Number(input.partialAmount) > 0)) {
+    steps.push({
+      name: 'Validate payment timing',
+      status: 'failed',
+      message: 'Enter a partial amount greater than 0 for half payment',
+    });
+    return { receipt, steps };
   }
 
   steps.push({
@@ -266,6 +328,12 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
     );
   }
   if (input.storeName) notesParts.push(`Store: ${input.storeName}`);
+  if (input.paymentReference?.trim()) {
+    notesParts.push(`Pay ref: ${input.paymentReference.trim()}`);
+  }
+  if (input.delivery?.driverName) {
+    notesParts.push(`Driver: ${input.delivery.driverName}`);
+  }
 
   const createAttempt = await tryStep(
     'Create bill',
@@ -275,6 +343,10 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
         customerId: input.customerId?.trim() || undefined,
         walkInName: input.customerId?.trim() ? undefined : walkInName,
         notes: notesParts.length ? notesParts.join(' · ') : undefined,
+        saleType: input.saleType,
+        customerType: input.customerType,
+        paymentTiming: input.paymentTiming,
+        partialAmount: input.paymentTiming === 'half' ? input.partialAmount : undefined,
         items: input.lines.map((l) => ({
           productId: l.productId,
           quantity: l.qty,
@@ -296,7 +368,7 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
           'Server 500 on bill create — usually createdById fallback (BillsController has no ClerkAuthGuard). Needs core-apis fix; client payload is valid.',
       });
     }
-    return { receipt, steps, primaryOk: false };
+    return { receipt, steps };
   }
 
   const billId = createAttempt.result.id;
@@ -311,6 +383,19 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
   );
   steps.push(draftAttempt.step);
   if (draftAttempt.step.status === 'failed') {
+    return { receipt, steps };
+  }
+
+  return { receipt, steps, billId };
+}
+
+/**
+ * Sales: POST bill (INITIATED) → PATCH DRAFT → PATCH COMPLETED.
+ * Stock is deducted on the server when COMPLETED — no client stock-remove.
+ */
+export async function runSalesCheckout(input: SalesCheckoutInput): Promise<CheckoutResult> {
+  const { receipt, steps, billId } = await createDraftSale(input);
+  if (!billId) {
     return { receipt, steps, primaryOk: false };
   }
 
