@@ -20,6 +20,7 @@ import type {
   VehicleTypeRef, VehicleBrandRef, FuelTypeRef, MaintenanceTypeRef,
   SalesSummaryData, RevenueTrendPoint, TopProduct, TopCustomer,
   PurchaseSummaryData, PurchaseTrendPoint, TopSupplier,
+  InventorySummaryData, StockByLocationPoint,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -908,6 +909,20 @@ export const Analytics = {
     return useQuery<TopSupplier[]>({
       queryKey: ['analytics', 'top-suppliers', limit],
       queryFn:  () => get<TopSupplier[]>('/api/v1/analytics/top-suppliers', { limit }),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useInventorySummary() {
+    return useQuery<InventorySummaryData>({
+      queryKey: ['analytics', 'inventory-summary'],
+      queryFn:  () => get<InventorySummaryData>('/api/v1/analytics/inventory-summary'),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useStockByLocation() {
+    return useQuery<StockByLocationPoint[]>({
+      queryKey: ['analytics', 'stock-by-location'],
+      queryFn:  () => get<StockByLocationPoint[]>('/api/v1/analytics/stock-by-location'),
       staleTime: 5 * 60 * 1000,
     });
   },

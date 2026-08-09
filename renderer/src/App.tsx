@@ -14,7 +14,6 @@ const CreateOrganization = lazy(() => import('./pages/CreateOrganization'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const PurchaseDashboard = lazy(() => import('./pages/dashboards/PurchaseDashboard'));
 const InventoryDashboard = lazy(() => import('./pages/dashboards/InventoryDashboard'));
-const WarehouseDashboard = lazy(() => import('./pages/dashboards/WarehouseDashboard'));
 const SalesDashboard = lazy(() => import('./pages/dashboards/SalesDashboard'));
 const Products = lazy(() => import('./pages/Products'));
 const InventoryPage = lazy(() => import('./pages/Inventory'));
@@ -102,7 +101,6 @@ function App() {
             <Route path="purchase-orders/:id/receive" element={<PurchaseOrderReceive />} />
             <Route path="dashboard/purchase" element={<PurchaseDashboard />} />
             <Route path="dashboard/inventory" element={<InventoryDashboard />} />
-            <Route path="dashboard/warehouse" element={<WarehouseDashboard />} />
             <Route path="dashboard/sales" element={<SalesDashboard />} />
             <Route path="pos" element={<POSTerminal />} />
             <Route path="bills" element={<Bills />} />

@@ -89,7 +89,6 @@ export const MODULES: ModuleGroup[] = [
       { key: 'dashboard-sales', title: 'Sales', path: '/dashboard/sales', icon: TrendingUp },
       { key: 'dashboard-purchase', title: 'Purchase', path: '/dashboard/purchase', icon: ShoppingCart },
       { key: 'dashboard-inventory', title: 'Inventory', path: '/dashboard/inventory', icon: Boxes },
-      { key: 'dashboard-warehouse', title: 'Warehouse', path: '/dashboard/warehouse', icon: Warehouse },
     ],
   },
   {

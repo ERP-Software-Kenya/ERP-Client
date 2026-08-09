@@ -821,3 +821,19 @@ export interface TopSupplier {
   totalSpend: number;
   poCount: number;
 }
+
+export interface InventorySummaryData {
+  totalSkus: number;
+  lowStockCount: number;
+  zeroStockCount: number;
+  totalValuation: number;
+}
+
+export interface StockByLocationPoint {
+  locationId: string;
+  locationName: string;
+  locationType: string;
+  totalStock: number;
+  productCount: number;
+  valuation: number;
+}
