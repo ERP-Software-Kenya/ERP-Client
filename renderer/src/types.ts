@@ -481,6 +481,8 @@ export interface Customer {
   updatedAt?: string;
 }
 
+export type EExpenseStatus = 'pending' | 'approved' | 'rejected';
+
 export interface Expense {
   id: string;
   organizationId?: string;
@@ -489,6 +491,8 @@ export interface Expense {
   amount?: number;
   expenseDate?: string;
   description?: string;
+  status?: EExpenseStatus;
+  submittedBy?: string;
   createdAt?: string;
 }
 
