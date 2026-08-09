@@ -1,3 +1,4 @@
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import { app, BrowserWindow, dialog, Menu, ipcMain } from 'electron';
 import { version as APP_VERSION } from '../../package.json';
@@ -61,6 +62,56 @@ function registerAppIpc(): void {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   });
+
+  ipcMain.handle(
+    'app:save-pdf',
+    async (
+      _event,
+      payload: { html: string; defaultFileName?: string },
+    ): Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }> => {
+      let pdfWin: BrowserWindow | null = null;
+      try {
+        const html = payload?.html?.trim();
+        if (!html) return { success: false, error: 'Missing HTML for PDF' };
+
+        pdfWin = new BrowserWindow({
+          show: false,
+          width: 800,
+          height: 1100,
+          webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+          },
+        });
+
+        await pdfWin.loadURL(
+          `data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
+        );
+        // Let layout settle before rasterizing.
+        await new Promise((r) => setTimeout(r, 120));
+
+        const pdf = await pdfWin.webContents.printToPDF({
+          printBackground: true,
+          pageSize: 'A4',
+          margins: { marginType: 'default' },
+        });
+
+        const { canceled, filePath } = await dialog.showSaveDialog({
+          title: 'Save PDF',
+          defaultPath: payload.defaultFileName || 'document.pdf',
+          filters: [{ name: 'PDF', extensions: ['pdf'] }],
+        });
+        if (canceled || !filePath) return { success: false, canceled: true };
+
+        await fs.writeFile(filePath, pdf);
+        return { success: true, filePath };
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : String(e) };
+      } finally {
+        pdfWin?.destroy();
+      }
+    },
+  );
 }
 
 async function createWindow(): Promise<void> {

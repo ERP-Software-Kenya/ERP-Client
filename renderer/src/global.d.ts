@@ -30,6 +30,15 @@ declare global {
       ) => () => void;
       onUpdateDownloaded: (cb: (info: { version: string }) => void) => () => void;
       onUpdateError: (cb: (msg: string) => void) => () => void;
+      savePdf: (payload: {
+        html: string;
+        defaultFileName?: string;
+      }) => Promise<{
+        success: boolean;
+        filePath?: string;
+        canceled?: boolean;
+        error?: string;
+      }>;
     };
   }
 }

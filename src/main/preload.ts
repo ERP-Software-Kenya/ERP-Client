@@ -80,6 +80,14 @@ const electronAPI = {
     ipcRenderer.on('update:error', h);
     return () => ipcRenderer.removeListener('update:error', h);
   },
+
+  savePdf: (payload: { html: string; defaultFileName?: string }) =>
+    ipcRenderer.invoke('app:save-pdf', payload) as Promise<{
+      success: boolean;
+      filePath?: string;
+      canceled?: boolean;
+      error?: string;
+    }>,
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

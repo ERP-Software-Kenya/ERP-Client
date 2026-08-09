@@ -503,11 +503,19 @@ export interface CreditApprovalRequest {
   customerId: string;
   billId: string;
   requestedAmount: number;
+  /** Alias some responses may use instead of requestedAmount */
+  amount?: number;
   requestedById: string;
   status: CreditApprovalStatus | string;
   decidedById?: string | null;
   decidedAt?: string | null;
   createdAt: string;
+  bill?: {
+    billNumber?: string;
+    walkInName?: string | null;
+    customerId?: string | null;
+    customer?: { name?: string | null } | null;
+  } | null;
 }
 
 export type CommissionStatus = 'owed' | 'paid';

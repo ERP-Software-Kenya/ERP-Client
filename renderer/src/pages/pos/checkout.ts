@@ -19,12 +19,32 @@ export interface PosLineInput {
   taxPct: number;
 }
 
+export type PosPayMethod = 'cash' | 'mpesa' | 'till' | 'bank' | 'other';
+
+export interface DeliveryInfo {
+  driverName?: string;
+  companionName?: string;
+  vehicleNumber?: string;
+  license?: string;
+  location?: string;
+  distance?: string;
+  gps?: string;
+  note?: string;
+  rating?: string;
+}
+
 export interface PosReceipt {
   ref: string;
   mode: 'sales' | 'purchase';
   storeName?: string;
   partyLabel?: string;
   paymentMethod?: string;
+  paymentReference?: string;
+  saleType?: 'normal' | 'credit' | 'black';
+  paymentTiming?: 'before_delivery' | 'after_delivery' | 'half' | 'cod';
+  creditLimit?: number;
+  creditBalance?: number;
+  delivery?: DeliveryInfo;
   lines: Array<{
     sku: string;
     name: string;
@@ -56,7 +76,8 @@ export interface SalesCheckoutInput {
   inventory?: InventoryItem[];
   orgId?: string;
   customerId?: string;
-  paymentMethod: 'cash' | 'card';
+  paymentMethod: PosPayMethod;
+  paymentReference?: string;
   amountReceived?: number;
   customerInfo?: string;
   lines: PosLineInput[];
@@ -68,6 +89,12 @@ export interface SalesCheckoutInput {
   customerType?: 'regular' | 'new' | 'shop' | 'big_customer';
   paymentTiming?: 'before_delivery' | 'after_delivery' | 'half' | 'cod';
   partialAmount?: number;
+  creditLimit?: number;
+  creditBalance?: number;
+  delivery?: DeliveryInfo;
+  facilitatorUserId?: string;
+  facilitatorName?: string;
+  commissionPct?: number;
 }
 
 export interface PurchaseCheckoutInput {
@@ -148,8 +175,18 @@ function findInventory(
   return inventory?.find((i) => i.productId === productId && i.locationId === locationId);
 }
 
-function toBillPaymentMethod(method: 'cash' | 'card'): PaymentMethod {
-  return method === 'card' ? 'CARD' : 'CASH';
+function toBillPaymentMethod(method: PosPayMethod): PaymentMethod {
+  switch (method) {
+    case 'mpesa':
+    case 'till':
+      return 'UPI';
+    case 'bank':
+      return 'NET_BANKING';
+    case 'other':
+      return 'CHEQUE';
+    default:
+      return 'CASH';
+  }
 }
 
 /** Apply add/remove for each line; one CheckoutStep per line (honest failures). */
@@ -225,6 +262,12 @@ export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftS
       input.customerInfo?.trim() ||
       (input.customerId ? `Customer ${input.customerId.slice(0, 8)}…` : 'Walk-in'),
     paymentMethod: input.paymentMethod,
+    paymentReference: input.paymentReference?.trim() || undefined,
+    saleType: input.saleType,
+    paymentTiming: input.paymentTiming,
+    creditLimit: input.creditLimit,
+    creditBalance: input.creditBalance,
+    delivery: input.delivery,
     lines: buildReceiptLines(input.lines),
     extraCharges: input.extraCharges,
     subtotal: input.subtotal,
@@ -285,6 +328,12 @@ export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftS
     );
   }
   if (input.storeName) notesParts.push(`Store: ${input.storeName}`);
+  if (input.paymentReference?.trim()) {
+    notesParts.push(`Pay ref: ${input.paymentReference.trim()}`);
+  }
+  if (input.delivery?.driverName) {
+    notesParts.push(`Driver: ${input.delivery.driverName}`);
+  }
 
   const createAttempt = await tryStep(
     'Create bill',
