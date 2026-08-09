@@ -656,6 +656,29 @@ export interface VehicleMaintenance {
   status: 'Completed' | 'Scheduled' | 'In Progress';
 }
 
+// ── Fleet Reference Data ──────────────────────────────────────────────────────
+
+export interface VehicleTypeRef {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface VehicleBrandRef {
+  id: string;
+  brandName: string;
+}
+
+export interface FuelTypeRef {
+  id: string;
+  name: string;
+}
+
+export interface MaintenanceTypeRef {
+  id: string;
+  name: string;
+}
+
 // ── Fleet Management — real API shapes (core-apis feat/vehicle-and-transportation-management) ──
 
 export type FleetVehicleStatus = 'available' | 'in_transit' | 'maintenance' | 'idle' | 'out_of_service';

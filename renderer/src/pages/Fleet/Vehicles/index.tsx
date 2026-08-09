@@ -1,62 +1,17 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { DataTable, type Column } from '../../../components/DataTable';
 import { FormDrawer, Field } from '../../../components/FormDrawer';
 import { ViewDrawer } from '../../../components/ViewDrawer';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { FleetVehicles } from '../../../api';
+import { FormSelect } from '../../../components/FormSelect';
+import { FleetVehicles, VehicleTypes, VehicleBrands, FuelTypes } from '../../../api';
 import { usePagination } from '../../../hooks/usePagination';
 import { VehicleStatusBadge } from '../index';
 import type { FleetVehicle, FleetVehicleStatus } from '../../../types';
-import { toast } from 'sonner';
 
 const VEHICLE_STATUSES: FleetVehicleStatus[] = ['available', 'in_transit', 'maintenance', 'idle', 'out_of_service'];
-
-const SEED_SQL = `-- Run once in your Postgres console to seed reference data
-INSERT INTO core.vehicle_types (name, description) VALUES
-  ('Truck', 'Heavy-duty truck'), ('Van', 'Light delivery van'),
-  ('Car', 'Passenger car'), ('Bus', 'Passenger bus'), ('Trailer', 'Semi-trailer')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO core.vehicle_brands (brand_name) VALUES
-  ('Toyota'), ('Ford'), ('Mercedes'), ('Volvo'), ('Tata')
-ON CONFLICT DO NOTHING;
-
-INSERT INTO core.fuel_types (name) VALUES
-  ('Diesel'), ('Petrol'), ('CNG'), ('Electric')
-ON CONFLICT DO NOTHING;
-
--- Fetch UUIDs to use in the form:
-SELECT id, name FROM core.vehicle_types;
-SELECT id, brand_name FROM core.vehicle_brands;
-SELECT id, name FROM core.fuel_types;`;
-
-function SeedPanel() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 text-sm">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 text-amber-600 font-medium"
-      >
-        <span>Vehicle Types, Brands & Fuel Types must be seeded — click for SQL</span>
-        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
-      {open && (
-        <div className="px-4 pb-4">
-          <pre className="text-xs bg-background border border-border rounded-lg p-3 overflow-x-auto text-foreground whitespace-pre-wrap">{SEED_SQL}</pre>
-          <Button variant="outline" size="sm" className="mt-2"
-            onClick={() => { void navigator.clipboard.writeText(SEED_SQL); toast.success('SQL copied'); }}>
-            <Copy size={14} className="mr-1" /> Copy SQL
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 interface FormState {
   vehicleNumber: string;
@@ -69,7 +24,10 @@ interface FormState {
   status: FleetVehicleStatus;
 }
 
-const EMPTY: FormState = { vehicleNumber: '', vinNumber: '', vehicleTypeId: '', brandId: '', fuelTypeId: '', model: '', color: '', status: 'available' };
+const EMPTY: FormState = {
+  vehicleNumber: '', vinNumber: '', vehicleTypeId: '', brandId: '',
+  fuelTypeId: '', model: '', color: '', status: 'available',
+};
 
 const COLUMNS: Column<FleetVehicle>[] = [
   { key: 'vehicleNumber', label: 'Vehicle #',
@@ -80,7 +38,7 @@ const COLUMNS: Column<FleetVehicle>[] = [
   { key: 'status', label: 'Status', render: (v) => <VehicleStatusBadge status={v.status} /> },
 ];
 
-export default function FleetVehiclesPage() {
+export default function FleetVehiclesPage(): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<FleetVehicle | null>(null);
   const [viewRow, setViewRow] = useState<FleetVehicle | null>(null);
@@ -96,42 +54,62 @@ export default function FleetVehiclesPage() {
   const rows  = data?.items ?? [];
   const total = data?.total ?? 0;
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY); setDrawerOpen(true); };
-  const openEdit = (row: FleetVehicle) => {
+  const { data: vehicleTypes = [], isLoading: typesLoading } = VehicleTypes.useList();
+  const { data: vehicleBrands = [], isLoading: brandsLoading } = VehicleBrands.useList();
+  const { data: fuelTypes = [], isLoading: fuelLoading } = FuelTypes.useList();
+
+  const typeOptions  = vehicleTypes.map((t) => ({ value: t.id, label: t.name }));
+  const brandOptions = vehicleBrands.map((b) => ({ value: b.id, label: b.brandName }));
+  const fuelOptions  = fuelTypes.map((f) => ({ value: f.id, label: f.name }));
+  const statusOptions = VEHICLE_STATUSES.map((s) => ({ value: s, label: s.replace(/_/g, ' ') }));
+
+  const openCreate = (): void => { setEditing(null); setForm(EMPTY); setDrawerOpen(true); };
+  const openEdit = (row: FleetVehicle): void => {
     setEditing(row);
-    setForm({ vehicleNumber: row.vehicleNumber, vinNumber: row.vinNumber ?? '', vehicleTypeId: row.vehicleTypeId, brandId: row.brandId, fuelTypeId: row.fuelTypeId, model: row.model ?? '', color: row.color ?? '', status: (row.status as FleetVehicleStatus) ?? 'available' });
+    setForm({
+      vehicleNumber: row.vehicleNumber,
+      vinNumber:     row.vinNumber ?? '',
+      vehicleTypeId: row.vehicleTypeId,
+      brandId:       row.brandId,
+      fuelTypeId:    row.fuelTypeId,
+      model:         row.model ?? '',
+      color:         row.color ?? '',
+      status:        (row.status as FleetVehicleStatus) ?? 'available',
+    });
     setDrawerOpen(true);
   };
-  const closeDrawer = () => setDrawerOpen(false);
+  const closeDrawer = (): void => setDrawerOpen(false);
 
-  const handleSubmit = (ev: React.FormEvent) => {
+  const handleSubmit = (ev: React.FormEvent): void => {
     ev.preventDefault();
-    if (!form.vehicleNumber.trim() || !form.vehicleTypeId.trim() || !form.brandId.trim() || !form.fuelTypeId.trim()) return;
+    if (!form.vehicleNumber.trim() || !form.vehicleTypeId || !form.brandId || !form.fuelTypeId) return;
     const body: Partial<FleetVehicle> = {
       vehicleNumber: form.vehicleNumber.trim(),
       vinNumber:     form.vinNumber.trim() || undefined,
-      vehicleTypeId: form.vehicleTypeId.trim(),
-      brandId:       form.brandId.trim(),
-      fuelTypeId:    form.fuelTypeId.trim(),
+      vehicleTypeId: form.vehicleTypeId,
+      brandId:       form.brandId,
+      fuelTypeId:    form.fuelTypeId,
       model:         form.model.trim() || undefined,
       color:         form.color.trim() || undefined,
       status:        form.status,
     };
     if (editing) {
-      // UpdateVehicleRequest accepts: vehicleNumber, vinNumber, vehicleTypeId, status
-      updateMutation.mutate({ id: editing.id, body: { vehicleNumber: body.vehicleNumber, vinNumber: body.vinNumber, vehicleTypeId: body.vehicleTypeId, status: body.status } }, { onSuccess: closeDrawer });
-    } else { createMutation.mutate(body, { onSuccess: closeDrawer }); }
+      updateMutation.mutate(
+        { id: editing.id, body: { vehicleNumber: body.vehicleNumber, vinNumber: body.vinNumber, vehicleTypeId: body.vehicleTypeId, status: body.status } },
+        { onSuccess: closeDrawer },
+      );
+    } else {
+      createMutation.mutate(body, { onSuccess: closeDrawer });
+    }
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
-      <SeedPanel />
-
       <DataTable
         title="Vehicles"
-        description="Manage your fleet vehicles — CRUD wired to /api/v1/vehicles"
+        description="Manage your fleet vehicles"
         columns={COLUMNS}
         rows={rows}
         total={total}
@@ -172,37 +150,71 @@ export default function FleetVehiclesPage() {
       >
         <form id="vehicle-form" onSubmit={handleSubmit} className="space-y-5">
           <Field label="Vehicle Number" required>
-            <Input value={form.vehicleNumber} onChange={(e) => setForm((f) => ({ ...f, vehicleNumber: e.target.value }))}
-              placeholder="e.g. VH-001" required disabled={!!editing} />
+            <Input
+              value={form.vehicleNumber}
+              onChange={(e) => setForm((f) => ({ ...f, vehicleNumber: e.target.value }))}
+              placeholder="e.g. VH-001"
+              required
+              disabled={!!editing}
+            />
           </Field>
           <Field label="VIN Number">
-            <Input value={form.vinNumber} onChange={(e) => setForm((f) => ({ ...f, vinNumber: e.target.value }))}
-              placeholder="17-character VIN" maxLength={17} className="font-mono" />
+            <Input
+              value={form.vinNumber}
+              onChange={(e) => setForm((f) => ({ ...f, vinNumber: e.target.value }))}
+              placeholder="17-character VIN"
+              maxLength={17}
+              className="font-mono"
+            />
           </Field>
-          <Field label="Vehicle Type ID (UUID)" required hint="From core.vehicle_types — see SQL above">
-            <Input value={form.vehicleTypeId} onChange={(e) => setForm((f) => ({ ...f, vehicleTypeId: e.target.value }))}
-              placeholder="Paste UUID" required className="font-mono text-xs" />
+          <Field label="Vehicle Type" required>
+            <FormSelect
+              value={form.vehicleTypeId}
+              onChange={(val) => setForm((f) => ({ ...f, vehicleTypeId: val }))}
+              options={typeOptions}
+              placeholder="Select vehicle type…"
+              loading={typesLoading}
+            />
           </Field>
-          <Field label="Brand ID (UUID)" required hint="From core.vehicle_brands — see SQL above">
-            <Input value={form.brandId} onChange={(e) => setForm((f) => ({ ...f, brandId: e.target.value }))}
-              placeholder="Paste UUID" required className="font-mono text-xs" />
+          <Field label="Brand" required>
+            <FormSelect
+              value={form.brandId}
+              onChange={(val) => setForm((f) => ({ ...f, brandId: val }))}
+              options={brandOptions}
+              placeholder="Select brand…"
+              loading={brandsLoading}
+            />
           </Field>
-          <Field label="Fuel Type ID (UUID)" required hint="From core.fuel_types — see SQL above">
-            <Input value={form.fuelTypeId} onChange={(e) => setForm((f) => ({ ...f, fuelTypeId: e.target.value }))}
-              placeholder="Paste UUID" required className="font-mono text-xs" />
+          <Field label="Fuel Type" required>
+            <FormSelect
+              value={form.fuelTypeId}
+              onChange={(val) => setForm((f) => ({ ...f, fuelTypeId: val }))}
+              options={fuelOptions}
+              placeholder="Select fuel type…"
+              loading={fuelLoading}
+            />
           </Field>
           <Field label="Model">
-            <Input value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} placeholder="e.g. Cascadia 2021" />
+            <Input
+              value={form.model}
+              onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
+              placeholder="e.g. Cascadia 2021"
+            />
           </Field>
           <Field label="Color">
-            <Input value={form.color} onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))} placeholder="e.g. White" />
+            <Input
+              value={form.color}
+              onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+              placeholder="e.g. White"
+            />
           </Field>
           {editing && (
             <Field label="Status">
-              <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as FleetVehicleStatus }))}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                {VEHICLE_STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-              </select>
+              <FormSelect
+                value={form.status}
+                onChange={(val) => setForm((f) => ({ ...f, status: val as FleetVehicleStatus }))}
+                options={statusOptions}
+              />
             </Field>
           )}
         </form>

@@ -5,6 +5,7 @@ import { ViewDrawer } from '../../../components/ViewDrawer';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
+import { FormSelect } from '../../../components/FormSelect';
 import { FleetTrips, FleetVehicles, FleetDrivers, Customers } from '../../../api';
 import { usePagination } from '../../../hooks/usePagination';
 import { TripStatusBadge } from '../index';
@@ -12,6 +13,9 @@ import type { FleetTrip, FleetTripStatus } from '../../../types';
 
 const TRIP_STATUSES: FleetTripStatus[] = ['scheduled', 'in_transit', 'completed', 'cancelled', 'delayed'];
 const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+
+const STATUS_OPTIONS  = TRIP_STATUSES.map((s) => ({ value: s, label: s.replace(/_/g, ' ') }));
+const PRIORITY_OPTIONS = PRIORITIES.map((p) => ({ value: p, label: p }));
 
 interface FormState {
   tripNumber: string;
@@ -47,7 +51,7 @@ const COLUMNS: Column<FleetTrip>[] = [
     render: (t) => <span className="capitalize text-muted-foreground text-xs">{t.priority}</span> },
 ];
 
-export default function FleetTripsPage() {
+export default function FleetTripsPage(): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<FleetTrip | null>(null);
   const [viewRow, setViewRow] = useState<FleetTrip | null>(null);
@@ -63,13 +67,17 @@ export default function FleetTripsPage() {
   const rows  = data?.items ?? [];
   const total = data?.total ?? 0;
 
-  const { data: vehicles = [] } = FleetVehicles.useList();
-  const { data: drivers  = [] } = FleetDrivers.useList();
+  const { data: vehicles = [], isLoading: vehiclesLoading } = FleetVehicles.useList();
+  const { data: drivers = [], isLoading: driversLoading }   = FleetDrivers.useList();
   const { data: customersResult } = Customers.useSearch({ enabled: true });
   const customers = customersResult?.items ?? [];
 
-  const openCreate = () => { setEditing(null); setForm(EMPTY); setDrawerOpen(true); };
-  const openEdit = (row: FleetTrip) => {
+  const vehicleOptions  = vehicles.map((v) => ({ value: v.id, label: v.vehicleNumber + (v.model ? ` — ${v.model}` : '') }));
+  const driverOptions   = drivers.map((d) => ({ value: d.id, label: `${d.firstName} ${d.lastName}` }));
+  const customerOptions = customers.map((c) => ({ value: c.id, label: c.name ?? c.id }));
+
+  const openCreate = (): void => { setEditing(null); setForm(EMPTY); setDrawerOpen(true); };
+  const openEdit = (row: FleetTrip): void => {
     setEditing(row);
     setForm({
       tripNumber:        row.tripNumber,
@@ -86,12 +94,15 @@ export default function FleetTripsPage() {
     });
     setDrawerOpen(true);
   };
-  const closeDrawer = () => setDrawerOpen(false);
+  const closeDrawer = (): void => setDrawerOpen(false);
 
-  const handleSubmit = (ev: React.FormEvent) => {
+  const handleSubmit = (ev: React.FormEvent): void => {
     ev.preventDefault();
     if (editing) {
-      updateMutation.mutate({ id: editing.id, body: { tripStatus: form.tripStatus, remarks: form.remarks || undefined } as Partial<FleetTrip> }, { onSuccess: closeDrawer });
+      updateMutation.mutate(
+        { id: editing.id, body: { tripStatus: form.tripStatus, remarks: form.remarks || undefined } as Partial<FleetTrip> },
+        { onSuccess: closeDrawer },
+      );
     } else {
       if (!form.tripNumber.trim() || !form.vehicleId || !form.driverId || !form.customerId || !form.startDatetime) return;
       const body: Partial<FleetTrip> = {
@@ -158,63 +169,96 @@ export default function FleetTripsPage() {
           {editing ? (
             <>
               <Field label="Status">
-                <select value={form.tripStatus} onChange={(e) => setForm((f) => ({ ...f, tripStatus: e.target.value as FleetTripStatus }))}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  {TRIP_STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
-                </select>
+                <FormSelect
+                  value={form.tripStatus}
+                  onChange={(val) => setForm((f) => ({ ...f, tripStatus: val as FleetTripStatus }))}
+                  options={STATUS_OPTIONS}
+                />
               </Field>
               <Field label="Remarks">
-                <Input value={form.remarks} onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))} placeholder="Optional remarks" />
+                <Input
+                  value={form.remarks}
+                  onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
+                  placeholder="Optional remarks"
+                />
               </Field>
             </>
           ) : (
             <>
               <Field label="Trip Number" required>
-                <Input value={form.tripNumber} onChange={(e) => setForm((f) => ({ ...f, tripNumber: e.target.value }))} placeholder="e.g. TRIP-2024-001" required />
+                <Input
+                  value={form.tripNumber}
+                  onChange={(e) => setForm((f) => ({ ...f, tripNumber: e.target.value }))}
+                  placeholder="e.g. TRIP-2024-001"
+                  required
+                />
               </Field>
               <Field label="Vehicle" required>
-                <select value={form.vehicleId} onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" required>
-                  <option value="">Select vehicle…</option>
-                  {vehicles.map((v) => <option key={v.id} value={v.id}>{v.vehicleNumber}{v.model ? ` — ${v.model}` : ''}</option>)}
-                </select>
+                <FormSelect
+                  value={form.vehicleId}
+                  onChange={(val) => setForm((f) => ({ ...f, vehicleId: val }))}
+                  options={vehicleOptions}
+                  placeholder="Select vehicle…"
+                  loading={vehiclesLoading}
+                />
               </Field>
               <Field label="Driver" required>
-                <select value={form.driverId} onChange={(e) => setForm((f) => ({ ...f, driverId: e.target.value }))}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" required>
-                  <option value="">Select driver…</option>
-                  {drivers.map((d) => <option key={d.id} value={d.id}>{d.firstName} {d.lastName}</option>)}
-                </select>
+                <FormSelect
+                  value={form.driverId}
+                  onChange={(val) => setForm((f) => ({ ...f, driverId: val }))}
+                  options={driverOptions}
+                  placeholder="Select driver…"
+                  loading={driversLoading}
+                />
               </Field>
               <Field label="Customer" required>
-                {customers.length > 0 ? (
-                  <select value={form.customerId} onChange={(e) => setForm((f) => ({ ...f, customerId: e.target.value }))}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" required>
-                    <option value="">Select customer…</option>
-                    {customers.map((c) => <option key={c.id} value={c.id}>{c.name ?? c.id}</option>)}
-                  </select>
-                ) : (
-                  <Input value={form.customerId} onChange={(e) => setForm((f) => ({ ...f, customerId: e.target.value }))}
-                    placeholder="Paste customer UUID" required className="font-mono text-xs" />
-                )}
+                <FormSelect
+                  value={form.customerId}
+                  onChange={(val) => setForm((f) => ({ ...f, customerId: val }))}
+                  options={customerOptions}
+                  placeholder="Select customer…"
+                />
               </Field>
               <Field label="Pickup Location" required>
-                <Input value={form.pickupLocation} onChange={(e) => setForm((f) => ({ ...f, pickupLocation: e.target.value }))} placeholder="e.g. Mumbai Warehouse, Gate 3" required />
+                <Input
+                  value={form.pickupLocation}
+                  onChange={(e) => setForm((f) => ({ ...f, pickupLocation: e.target.value }))}
+                  placeholder="e.g. Mumbai Warehouse, Gate 3"
+                  required
+                />
               </Field>
               <Field label="Drop Location" required>
-                <Input value={form.dropLocation} onChange={(e) => setForm((f) => ({ ...f, dropLocation: e.target.value }))} placeholder="e.g. Delhi Distribution Center" required />
+                <Input
+                  value={form.dropLocation}
+                  onChange={(e) => setForm((f) => ({ ...f, dropLocation: e.target.value }))}
+                  placeholder="e.g. Delhi Distribution Center"
+                  required
+                />
               </Field>
               <Field label="Start Date & Time" required>
-                <Input type="datetime-local" value={form.startDatetime} onChange={(e) => setForm((f) => ({ ...f, startDatetime: e.target.value }))} required />
+                <Input
+                  type="datetime-local"
+                  value={form.startDatetime}
+                  onChange={(e) => setForm((f) => ({ ...f, startDatetime: e.target.value }))}
+                  required
+                />
               </Field>
               <Field label="Estimated Distance (km)">
-                <Input type="number" min="0" step="0.1" value={form.estimatedDistance} onChange={(e) => setForm((f) => ({ ...f, estimatedDistance: e.target.value }))} placeholder="e.g. 1400" />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={form.estimatedDistance}
+                  onChange={(e) => setForm((f) => ({ ...f, estimatedDistance: e.target.value }))}
+                  placeholder="e.g. 1400"
+                />
               </Field>
               <Field label="Priority">
-                <select value={form.priority} onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
+                <FormSelect
+                  value={form.priority}
+                  onChange={(val) => setForm((f) => ({ ...f, priority: val }))}
+                  options={PRIORITY_OPTIONS}
+                />
               </Field>
             </>
           )}
