@@ -161,7 +161,38 @@ export const Bills = {
 };
 
 export const PaymentTransactions = createResource<PaymentTransaction>('/api/v1/payment-transactions', 'payment-transactions', 'Payment');
-export const Notifications = createResource<Notification>('/api/v1/notifications', 'notifications', 'Notification');
+const notificationsBase = createResource<Notification>('/api/v1/notifications', 'notifications', 'Notification');
+
+export const Notifications = {
+  ...notificationsBase,
+  useUnreadCount() {
+    return useQuery({
+      queryKey: ['notifications', 'unread-count'],
+      queryFn: () => get<{ count: number }>('/api/v1/notifications/unread-count'),
+      refetchInterval: 30_000,
+      staleTime: 15_000,
+    });
+  },
+  useMarkAllRead() {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: () => put<{ ok: boolean }>('/api/v1/notifications/mark-all-read', {}),
+      onSuccess: () => {
+        void qc.invalidateQueries({ queryKey: ['notifications'] });
+      },
+    });
+  },
+  useMarkRead() {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) =>
+        put<Notification>(`/api/v1/notifications/${id}`, { readAt: new Date().toISOString() }),
+      onSuccess: () => {
+        void qc.invalidateQueries({ queryKey: ['notifications'] });
+      },
+    });
+  },
+};
 export const ItemReturns = createResource<ItemReturn>('/api/v1/item-returns', 'item-returns', 'Return');
 export const ReportGenerationLogs = createResource<ReportGenerationLog>('/api/v1/report-generation-logs', 'report-generation-logs', 'Report log');
 export const Orders = createCreateOnlyResource<Order>('/api/v1/orders', 'orders', 'Order');
