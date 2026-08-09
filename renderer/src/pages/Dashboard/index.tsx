@@ -321,6 +321,7 @@ function OverviewTab() {
   const { data: customersData } = Customers.useSearch({ limit: 1 });
   const { data: valuation } = useInventoryValuation();
   const { data: notifs, isLoading: notifsLoading } = Notifications.useSearch({ limit: 8 });
+  const markReadMutation = Notifications.useMarkRead();
   const { data: pendingPOs, isLoading: pendingLoading } = PurchaseOrders.useSearch({
     limit: 6,
     filters: { status: 'draft' },
@@ -371,6 +372,11 @@ function OverviewTab() {
               <div className="flex items-center gap-2">
                 <Bell size={15} className="text-muted-foreground" />
                 <span className="font-semibold text-sm">Notifications</span>
+                {notifList.filter((nn) => !nn.readAt).length > 0 && (
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-0.5 text-[10px] font-bold text-destructive-foreground leading-none">
+                    {notifList.filter((nn) => !nn.readAt).length}
+                  </span>
+                )}
               </div>
               <Link to="/notifications" className="text-xs text-primary hover:underline flex items-center gap-1">
                 View all <ChevronRight size={12} />
@@ -385,15 +391,21 @@ function OverviewTab() {
                   <p className="text-sm text-muted-foreground">All caught up</p>
                 </div>
               ) : (
-                notifList.map((n, i) => (
-                  <div key={n.id} className="flex items-start gap-3 px-4 py-3 hover:bg-accent/50 transition-colors" style={{ animationDelay: `${i * 50}ms` }}>
-                    <div className={cn('mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0', n.read ? 'bg-muted' : 'bg-primary animate-pulse')} />
+                notifList.map((nn, i) => (
+                  <button
+                    key={nn.id}
+                    type="button"
+                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-accent/50 transition-colors text-left"
+                    style={{ animationDelay: `${i * 50}ms` }}
+                    onClick={() => { if (!nn.readAt) markReadMutation.mutate(nn.id); }}
+                  >
+                    <div className={cn('mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0', nn.readAt ? 'bg-muted' : 'bg-primary animate-pulse')} />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{n.title ?? 'Notification'}</p>
-                      {n.message && <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{n.message}</p>}
+                      <p className={cn('text-sm truncate', nn.readAt ? 'font-normal text-muted-foreground' : 'font-medium')}>{nn.title ?? 'Notification'}</p>
+                      {nn.body && <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{nn.body}</p>}
                     </div>
-                    <span className="text-xs text-muted-foreground flex-shrink-0 mt-0.5">{relativeTime(n.created_at)}</span>
-                  </div>
+                    <span className="text-xs text-muted-foreground flex-shrink-0 mt-0.5">{relativeTime(nn.createdAt)}</span>
+                  </button>
                 ))
               )}
             </div>

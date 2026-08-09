@@ -1,56 +1,60 @@
 import { useState } from 'react';
 import { DataTable, Column } from '../../components/DataTable';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { FormDrawer } from '../../components/FormDrawer';
-import { ViewDrawer } from '../../components/ViewDrawer';
 import { Button } from '../../components/ui/button';
 import { Notifications } from '../../api';
 import { usePagination } from '../../hooks/usePagination';
 import type { Notification } from '../../types';
 
 export default function NotificationsPage() {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editing, setEditing] = useState<Notification | null>(null);
-  const [viewRow, setViewRow] = useState<Notification | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Notification | null>(null);
 
-  const updateMutation = Notifications.useUpdate();
+  const markReadMutation = Notifications.useMarkRead();
+  const markAllReadMutation = Notifications.useMarkAllRead();
   const removeMutation = Notifications.useDelete();
   const { page, setPage } = usePagination();
   const { data, isLoading, error, refetch } = Notifications.useSearch({ page });
 
-  const openEdit = (row: Notification) => {
-    setEditing(row);
-    setDrawerOpen(true);
-  };
-
-  const closeDrawer = () => setDrawerOpen(false);
-
-  const toggleRead = () => {
-    if (!editing) return;
-    updateMutation.mutate(
-      { id: editing.id, body: { read: !editing.read } },
-      { onSuccess: closeDrawer },
-    );
-  };
-
   const columns: Column<Notification>[] = [
     { key: 'title', label: 'Title' },
-    { key: 'message', label: 'Message' },
+    { key: 'body', label: 'Message' },
     { key: 'type', label: 'Type' },
-    { key: 'read', label: 'Read', render: (row) => (row.read ? 'Yes' : 'No') },
-    { key: 'created_at', label: 'Created', render: (row) => row.created_at ? new Date(row.created_at).toLocaleString() : '—' },
+    {
+      key: 'readAt',
+      label: 'Status',
+      render: (row) => row.readAt ? (
+        <span className="text-xs text-muted-foreground">Read</span>
+      ) : (
+        <span className="flex items-center gap-1 text-xs font-medium text-primary">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse inline-block" />
+          Unread
+        </span>
+      ),
+    },
+    {
+      key: 'createdAt',
+      label: 'Received',
+      render: (row) => row.createdAt ? new Date(row.createdAt).toLocaleString() : '—',
+    },
   ];
 
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
-      <p className="text-xs text-muted-foreground">
-        API gap: no free-text search; org filter omitted (Core <code className="text-[10px]">orgId</code> ≠
-        entity <code className="text-[10px]">organizationId</code>). Type filter deferred (no shared enum).
-      </p>
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => markAllReadMutation.mutate()}
+          disabled={markAllReadMutation.isPending}
+        >
+          Mark all as read
+        </Button>
+      </div>
+
       <DataTable
         title="Notifications"
-        description="System-generated notifications. Mark as read or delete."
+        description="System-generated notifications. Click a row to mark it as read."
         columns={columns}
         rows={data?.items ?? []}
         total={data?.total ?? 0}
@@ -61,35 +65,9 @@ export default function NotificationsPage() {
         hideSearch
         onRefetch={() => void refetch()}
         isAdmin={true}
-        onView={(row) => setViewRow(row)}
-        onEdit={openEdit}
+        onEdit={(row) => { if (!row.readAt) markReadMutation.mutate(row.id); }}
         onDelete={(row) => setDeleteTarget(row)}
       />
-
-      <ViewDrawer
-        open={viewRow != null}
-        title="View Notification"
-        data={viewRow as Record<string, unknown> | null}
-        onClose={() => setViewRow(null)}
-      />
-
-      <FormDrawer
-        open={drawerOpen}
-        onClose={closeDrawer}
-        title={editing?.title ?? 'Notification'}
-        footer={
-          <>
-            <Button type="button" variant="outline" onClick={closeDrawer}>
-              Close
-            </Button>
-            <Button type="button" onClick={toggleRead} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? 'Saving…' : editing?.read ? 'Mark as Unread' : 'Mark as Read'}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-muted-foreground">{editing?.message}</p>
-      </FormDrawer>
 
       <ConfirmDialog
         open={!!deleteTarget}
