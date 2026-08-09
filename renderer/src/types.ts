@@ -571,6 +571,21 @@ export interface PlatformUser {
 
 // ── Clerk User Management ───────────────────────────────────────────────────
 
+export enum EInvitationStatus {
+  Pending  = 'pending',
+  Accepted = 'accepted',
+  Revoked  = 'revoked',
+}
+
+export interface ClerkInvitation {
+  id: string;
+  emailAddress: string;
+  status: EInvitationStatus;
+  roles?: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface ClerkUser {
   /** Alias of clerkUserId — added client-side so rows satisfy DataTable's `{ id: string }`. */
   id: string;

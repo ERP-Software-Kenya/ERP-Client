@@ -13,7 +13,7 @@ import type {
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
   Country, State, City,
   CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
-  ClerkUserListResponse, ClerkUserRolesResponse,
+  ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
   PageAccessConfig,
   FleetVehicle, FleetDriver, FleetTrip, FleetMaintenance, FleetExpense,
@@ -598,7 +598,8 @@ export function useRemoveLocationImage() {
 
 // ── Clerk User Management ───────────────────────────────────────────────────
 
-const CLERK_USERS_KEY = 'clerk-users';
+const CLERK_USERS_KEY       = 'clerk-users';
+const CLERK_INVITATIONS_KEY = 'clerk-invitations';
 
 /** Backend returns clerkUserId only — add `id` so rows satisfy DataTable's `{ id: string }`. */
 function withId(res: ClerkUserListResponse): ClerkUserListResponse {
@@ -656,8 +657,32 @@ export const ClerkUsers = {
       onSuccess: () => {
         toast.success('Invitation sent');
         queryClient.invalidateQueries({ queryKey: [CLERK_USERS_KEY] });
+        queryClient.invalidateQueries({ queryKey: [CLERK_INVITATIONS_KEY] });
       },
       onError: (err: Error) => toast.error(err.message || 'Failed to send invitation'),
+    });
+  },
+
+  /** GET /api/v1/users/clerk/invitations?status= */
+  useListInvitations(status?: EInvitationStatus) {
+    return useQuery({
+      queryKey: [CLERK_INVITATIONS_KEY, status ?? 'all'],
+      queryFn: () =>
+        get<ClerkInvitation[]>('/api/v1/users/clerk/invitations', status ? { status } : {}),
+      staleTime: 30_000,
+    });
+  },
+
+  /** DELETE /api/v1/users/clerk/invitations/:invitationId */
+  useRevokeInvitation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (invitationId: string) => del<void>(`/api/v1/users/clerk/invitations/${invitationId}`),
+      onSuccess: () => {
+        toast.success('Invitation revoked');
+        queryClient.invalidateQueries({ queryKey: [CLERK_INVITATIONS_KEY] });
+      },
+      onError: (err: Error) => toast.error(err.message || 'Failed to revoke invitation'),
     });
   },
 
