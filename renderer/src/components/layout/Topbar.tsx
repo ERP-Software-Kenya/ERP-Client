@@ -1,7 +1,30 @@
-import { ChevronDown, LogOut, Moon, Sun } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { Notifications } from '../../api';
+
+function NotificationBell() {
+  const { data } = Notifications.useUnreadCount();
+  const count = data?.count ?? 0;
+  const navigate = useNavigate();
+
+  return (
+    <button
+      type="button"
+      onClick={() => navigate('/notifications')}
+      className="relative p-2 rounded-full hover:bg-accent text-muted-foreground"
+      title="Notifications"
+    >
+      <Bell size={20} />
+      {count > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-0.5 text-[10px] font-bold text-destructive-foreground leading-none">
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+    </button>
+  );
+}
 
 export default function Topbar() {
   const { theme, setTheme } = useTheme();
@@ -21,6 +44,8 @@ export default function Topbar() {
       >
         {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
       </button>
+
+      <NotificationBell />
 
       <details className="relative border-l border-border pl-3">
         <summary className="flex items-center gap-2.5 cursor-pointer list-none rounded-lg px-1.5 py-1 hover:bg-accent/60 [&::-webkit-details-marker]:hidden">

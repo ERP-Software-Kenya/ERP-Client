@@ -316,11 +316,13 @@ export interface PaymentTransaction {
 
 export interface Notification {
   id: string;
+  userId?: string;
+  orgId?: string;
   title?: string;
-  message?: string;
+  body?: string;
   type?: string;
-  read?: boolean;
-  created_at?: string;
+  readAt?: string | null;
+  createdAt?: string;
 }
 
 // Verified 2026-07-31: entity field names match, but CreateItemReturnRequest has
