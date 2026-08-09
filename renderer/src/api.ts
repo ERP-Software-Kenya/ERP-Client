@@ -860,6 +860,7 @@ export const MaintenanceTypes = {
   },
 };
 
+<<<<<<< HEAD
 // ── Analytics ─────────────────────────────────────────────────────────────────
 
 export const Analytics = {
@@ -928,6 +929,8 @@ export const Analytics = {
   },
 };
 
+=======
+>>>>>>> origin/feature/fleet-reference-data-dropdowns
 // ── Fleet Management ──────────────────────────────────────────────────────────
 
 export const FleetVehicles = createResource<FleetVehicle>('/api/v1/vehicles', 'fleet-vehicles', 'Vehicle');
