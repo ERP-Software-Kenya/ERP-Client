@@ -17,6 +17,7 @@ import type {
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
   PageAccessConfig,
   FleetVehicle, FleetDriver, FleetTrip, FleetMaintenance, FleetExpense,
+  VehicleTypeRef, VehicleBrandRef, FuelTypeRef, MaintenanceTypeRef,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -746,6 +747,48 @@ export const ClerkUsers = {
     return useQuery<ClerkOrganization[]>({
       queryKey: [CLERK_USERS_KEY, 'organizations'],
       queryFn: () => get<ClerkOrganization[]>('/api/v1/users/clerk/organizations'),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+};
+
+// ── Fleet Reference Data ──────────────────────────────────────────────────────
+
+export const VehicleTypes = {
+  useList() {
+    return useQuery<VehicleTypeRef[]>({
+      queryKey: ['vehicle-types'],
+      queryFn: () => get<VehicleTypeRef[]>('/api/v1/vehicles/vehicle-types/list'),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+};
+
+export const VehicleBrands = {
+  useList() {
+    return useQuery<VehicleBrandRef[]>({
+      queryKey: ['vehicle-brands'],
+      queryFn: () => get<VehicleBrandRef[]>('/api/v1/vehicles/vehicle-brands/list'),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+};
+
+export const FuelTypes = {
+  useList() {
+    return useQuery<FuelTypeRef[]>({
+      queryKey: ['fuel-types'],
+      queryFn: () => get<FuelTypeRef[]>('/api/v1/vehicles/fuel-types/list'),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+};
+
+export const MaintenanceTypes = {
+  useList() {
+    return useQuery<MaintenanceTypeRef[]>({
+      queryKey: ['maintenance-types'],
+      queryFn: () => get<MaintenanceTypeRef[]>('/api/v1/maintenance/maintenance-types/list'),
       staleTime: 5 * 60 * 1000,
     });
   },

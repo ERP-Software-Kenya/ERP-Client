@@ -4,10 +4,16 @@ import { FormDrawer, Field } from '../../../components/FormDrawer';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
+import { FormSelect } from '../../../components/FormSelect';
 import { FleetExpensesApi, FleetVehicles, FleetTrips } from '../../../api';
 import type { FleetExpense, FleetExpenseType } from '../../../types';
 
 const EXPENSE_TYPES: FleetExpenseType[] = ['fuel', 'toll', 'parking', 'insurance', 'tax', 'washing', 'repair', 'other'];
+
+const EXPENSE_TYPE_OPTIONS = EXPENSE_TYPES.map((t) => ({
+  value: t,
+  label: t.charAt(0).toUpperCase() + t.slice(1),
+}));
 
 const TYPE_BADGE: Record<FleetExpenseType, string> = {
   fuel:      'bg-blue-500/10 text-blue-500',
@@ -31,7 +37,7 @@ interface FormState {
 
 const EMPTY: FormState = { vehicleId: '', expenseType: 'fuel', amount: '', expenseDate: '', description: '', tripId: '' };
 
-export default function FleetExpensesPage() {
+export default function FleetExpensesPage(): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [submitted, setSubmitted] = useState<FleetExpense[]>([]);
@@ -39,18 +45,37 @@ export default function FleetExpensesPage() {
 
   const createMutation = FleetExpensesApi.useCreate();
   const deleteMutation = FleetExpensesApi.useDelete();
-  const { data: vehicles = [] } = FleetVehicles.useList();
+  const { data: vehicles = [], isLoading: vehiclesLoading } = FleetVehicles.useList();
   const { data: tripsResult }   = FleetTrips.useSearch({ limit: 100 });
   const trips = tripsResult?.items ?? [];
 
-  const closeDrawer = () => setDrawerOpen(false);
+  const vehicleOptions = vehicles.map((v) => ({ value: v.id, label: v.vehicleNumber + (v.model ? ` — ${v.model}` : '') }));
+  const tripOptions    = [
+    { value: '', label: 'No linked trip' },
+    ...trips.map((t) => ({ value: t.id, label: t.tripNumber })),
+  ];
 
-  const handleSubmit = (ev: React.FormEvent) => {
+  const closeDrawer = (): void => setDrawerOpen(false);
+
+  const handleSubmit = (ev: React.FormEvent): void => {
     ev.preventDefault();
     if (!form.vehicleId || !form.amount || !form.expenseDate) return;
     createMutation.mutate(
-      { vehicleId: form.vehicleId, expenseType: form.expenseType, amount: parseFloat(form.amount), expenseDate: form.expenseDate, description: form.description.trim() || undefined, tripId: form.tripId || undefined } as Partial<FleetExpense>,
-      { onSuccess: (result) => { setSubmitted((prev) => [result as FleetExpense, ...prev]); setForm(EMPTY); closeDrawer(); } },
+      {
+        vehicleId:   form.vehicleId,
+        expenseType: form.expenseType,
+        amount:      parseFloat(form.amount),
+        expenseDate: form.expenseDate,
+        description: form.description.trim() || undefined,
+        tripId:      form.tripId || undefined,
+      } as Partial<FleetExpense>,
+      {
+        onSuccess: (result) => {
+          setSubmitted((prev) => [result as FleetExpense, ...prev]);
+          setForm(EMPTY);
+          closeDrawer();
+        },
+      },
     );
   };
 
@@ -115,8 +140,10 @@ export default function FleetExpensesPage() {
                     </td>
                     <td className="px-4 py-2 text-muted-foreground max-w-[180px] truncate">{exp.description ?? '—'}</td>
                     <td className="px-4 py-2 text-right">
-                      <button onClick={() => setDeleteTarget(exp)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors">
+                      <button
+                        onClick={() => setDeleteTarget(exp)}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                      >
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -151,33 +178,53 @@ export default function FleetExpensesPage() {
       >
         <form id="expense-form" onSubmit={handleSubmit} className="space-y-4">
           <Field label="Vehicle" required>
-            <select value={form.vehicleId} onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" required>
-              <option value="">Select vehicle…</option>
-              {vehicles.map((v) => <option key={v.id} value={v.id}>{v.vehicleNumber}{v.model ? ` — ${v.model}` : ''}</option>)}
-            </select>
+            <FormSelect
+              value={form.vehicleId}
+              onChange={(val) => setForm((f) => ({ ...f, vehicleId: val }))}
+              options={vehicleOptions}
+              placeholder="Select vehicle…"
+              loading={vehiclesLoading}
+            />
           </Field>
           <Field label="Expense Type" required>
-            <select value={form.expenseType} onChange={(e) => setForm((f) => ({ ...f, expenseType: e.target.value as FleetExpenseType }))}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              {EXPENSE_TYPES.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-            </select>
+            <FormSelect
+              value={form.expenseType}
+              onChange={(val) => setForm((f) => ({ ...f, expenseType: val as FleetExpenseType }))}
+              options={EXPENSE_TYPE_OPTIONS}
+            />
           </Field>
           <Field label="Amount (₹)" required>
-            <Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} placeholder="e.g. 2500.00" required />
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.amount}
+              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+              placeholder="e.g. 2500.00"
+              required
+            />
           </Field>
           <Field label="Expense Date" required>
-            <Input type="date" value={form.expenseDate} onChange={(e) => setForm((f) => ({ ...f, expenseDate: e.target.value }))} required />
+            <Input
+              type="date"
+              value={form.expenseDate}
+              onChange={(e) => setForm((f) => ({ ...f, expenseDate: e.target.value }))}
+              required
+            />
           </Field>
           <Field label="Description">
-            <Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Optional notes" />
+            <Input
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="Optional notes"
+            />
           </Field>
           <Field label="Trip (optional)">
-            <select value={form.tripId} onChange={(e) => setForm((f) => ({ ...f, tripId: e.target.value }))}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="">No linked trip</option>
-              {trips.map((t) => <option key={t.id} value={t.id}>{t.tripNumber}</option>)}
-            </select>
+            <FormSelect
+              value={form.tripId}
+              onChange={(val) => setForm((f) => ({ ...f, tripId: val }))}
+              options={tripOptions}
+            />
           </Field>
         </form>
       </FormDrawer>
@@ -192,7 +239,7 @@ export default function FleetExpensesPage() {
         onConfirm={() => {
           if (deleteTarget) {
             deleteMutation.mutate(deleteTarget.id, {
-              onSuccess: () => { setSubmitted((prev) => prev.filter((e) => e.id !== deleteTarget.id)); setDeleteTarget(null); },
+              onSuccess: () => { setSubmitted((prev) => prev.filter((ex) => ex.id !== deleteTarget.id)); setDeleteTarget(null); },
             });
           }
         }}
