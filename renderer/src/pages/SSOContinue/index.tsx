@@ -117,6 +117,13 @@ export default function SSOContinue() {
     }
   };
 
+  const handleBackToSignIn = () => {
+    // Login redirects back here while clerk.client.signUp.status is 'missing_requirements' —
+    // clear the pending attempt first or the navigation just bounces straight back.
+    clerk.client?.resetSignUp();
+    navigate('/login');
+  };
+
   const handleResendEmailCode = async () => {
     const signUp = clerk.client?.signUp;
     if (!signUp) return;
@@ -170,7 +177,7 @@ export default function SSOContinue() {
                 Resend code
               </button>
               {' · '}
-              <button type="button" className="text-primary underline underline-offset-2" onClick={() => navigate('/login')}>
+              <button type="button" className="text-primary underline underline-offset-2" onClick={handleBackToSignIn}>
                 Back to sign in
               </button>
             </p>
@@ -223,7 +230,7 @@ export default function SSOContinue() {
             {loading ? 'Saving…' : 'Continue'}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
-            <button type="button" className="text-primary underline underline-offset-2" onClick={() => navigate('/login')}>
+            <button type="button" className="text-primary underline underline-offset-2" onClick={handleBackToSignIn}>
               Back to sign in
             </button>
           </p>
