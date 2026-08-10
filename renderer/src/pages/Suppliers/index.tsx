@@ -14,7 +14,6 @@ const STATUS_OPTIONS = ['active', 'inactive'];
 
 interface FormState {
   name: string;
-  code: string;
   email: string;
   phone: string;
   address: string;
@@ -25,7 +24,6 @@ interface FormState {
 
 const EMPTY_FORM: FormState = {
   name: '',
-  code: '',
   email: '',
   phone: '',
   address: '',
@@ -57,13 +55,12 @@ export default function SuppliersPage() {
     setEditing(row);
     setForm({
       name: row.name ?? '',
-      code: row.code ?? '',
       email: row.email ?? '',
       phone: row.phone ?? '',
       address: row.address ?? '',
       contactPerson: row.contactPerson ?? '',
       taxId: row.taxId ?? '',
-      status: row.status ?? 'active',
+      status: row.isActive === false ? 'inactive' : 'active',
     });
     setDrawerOpen(true);
   };
@@ -74,13 +71,12 @@ export default function SuppliersPage() {
     e.preventDefault();
     const body: Partial<Supplier> = {
       name: form.name,
-      code: form.code || undefined,
       email: form.email || undefined,
       phone: form.phone || undefined,
       address: form.address || undefined,
       contactPerson: form.contactPerson || undefined,
       taxId: form.taxId || undefined,
-      status: form.status,
+      isActive: form.status !== 'inactive',
     };
     if (editing) {
       updateMutation.mutate({ id: editing.id, body }, { onSuccess: closeDrawer });
@@ -91,11 +87,10 @@ export default function SuppliersPage() {
 
   const columns: Column<Supplier>[] = [
     { key: 'name', label: 'Name' },
-    { key: 'code', label: 'Code' },
     { key: 'phone', label: 'Phone', render: (row) => row.phone || '—' },
     { key: 'contactPerson', label: 'Contact', render: (row) => row.contactPerson || '—' },
     { key: 'email', label: 'Email' },
-    { key: 'status', label: 'Status' },
+    { key: 'isActive', label: 'Status', render: (row) => (row.isActive === false ? 'Inactive' : 'Active') },
   ];
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
@@ -153,9 +148,6 @@ export default function SuppliersPage() {
               required
               autoFocus
             />
-          </Field>
-          <Field label="Code">
-            <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
           </Field>
           <Field label="Email">
             <Input
