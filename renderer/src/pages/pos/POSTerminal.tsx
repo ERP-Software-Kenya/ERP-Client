@@ -49,6 +49,7 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatEntityLabel } from "../../lib/entityLabel";
+import { CustomerFormDrawer } from "../../components/CustomerFormDrawer";
 import {
   createDraftSale,
   runPurchaseCheckout,
@@ -520,6 +521,7 @@ export default function POSTerminal() {
   );
   const [checkingOut, setCheckingOut] = useState(false);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [saleType, setSaleType] = useState<SaleType>("normal");
   const [customerType, setCustomerType] = useState<CustomerType>("regular");
   const [paymentTiming, setPaymentTiming] = useState<PaymentTiming>("cod");
@@ -1626,7 +1628,7 @@ export default function POSTerminal() {
                 {mode === "sales" &&
                   showCustomerSuggestions &&
                   !customerId &&
-                  (customerSearch?.items?.length ?? 0) > 0 && (
+                  debouncedCustomerInfo.trim().length >= 2 && (
                     <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-card shadow-lg overflow-hidden">
                       {(customerSearch?.items ?? []).map((c: Customer) => (
                         <button
@@ -1642,6 +1644,7 @@ export default function POSTerminal() {
                                 id: c.id,
                               }),
                             );
+                            setCustomerType((c.customerType as CustomerType) || "regular");
                             setShowCustomerSuggestions(false);
                           }}
                         >
@@ -1655,9 +1658,43 @@ export default function POSTerminal() {
                           ) : null}
                         </button>
                       ))}
+                      {(customerSearch?.items?.length ?? 0) === 0 && (
+                        <button
+                          type="button"
+                          className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                          onClick={() => {
+                            setShowCreateCustomer(true);
+                            setShowCustomerSuggestions(false);
+                          }}
+                        >
+                          No customer found for &quot;{customerInfo.trim()}&quot; —{" "}
+                          <span className="font-medium text-primary">
+                            + Create customer
+                          </span>
+                        </button>
+                      )}
                     </div>
                   )}
               </div>
+              {mode === "sales" && (
+                <CustomerFormDrawer
+                  open={showCreateCustomer}
+                  initialName={customerInfo.trim()}
+                  onClose={() => setShowCreateCustomer(false)}
+                  onSaved={(customer) => {
+                    setCustomerId(customer.id);
+                    setCustomerInfo(
+                      formatEntityLabel({
+                        name: customer.name,
+                        phone: customer.phone,
+                        id: customer.id,
+                      }),
+                    );
+                    setCustomerType((customer.customerType as CustomerType) || "new");
+                    setShowCreateCustomer(false);
+                  }}
+                />
+              )}
               {mode === "sales" && customerId && (
                 <div className="mt-1.5 flex items-center justify-between gap-2">
                   <p className="text-[10px] text-muted-foreground truncate">

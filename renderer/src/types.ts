@@ -174,15 +174,14 @@ export interface InventoryItem {
 export interface Supplier {
   id: string;
   name: string;
-  code?: string;
   email?: string;
   phone?: string;
   address?: string;
   contactPerson?: string;
   taxId?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type PurchaseOrderStatus = 'draft' | 'ordered' | 'partially_received' | 'received' | 'cancelled';
@@ -493,6 +492,7 @@ export interface Customer {
   gstin?: string;
   creditLimit?: number | null;
   creditBalance?: number;
+  customerType?: CustomerType | string | null;
   createdAt?: string;
   updatedAt?: string;
 }
