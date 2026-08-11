@@ -551,13 +551,7 @@ export interface CommissionPayable {
   createdAt: string;
 }
 
-  facilitatorUserId?: string | null;
-  facilitatorName?: string | null;
-  amount: number;
-  status: CommissionStatus | string;
-  paidAt?: string | null;
-  createdAt: string;
-}
+
 export type EExpenseStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Expense {
