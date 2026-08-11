@@ -17,7 +17,6 @@ import type {
   CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
   ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
-  CreditApprovalRequest, CommissionPayable,
   PageAccessConfig,
   FleetVehicle, FleetDriver, FleetTrip, FleetMaintenance, FleetExpense,
   VehicleTypeRef, VehicleBrandRef, FuelTypeRef, MaintenanceTypeRef,
