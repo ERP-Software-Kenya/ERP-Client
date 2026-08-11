@@ -96,6 +96,7 @@ export interface SalesCheckoutInput {
   facilitatorUserId?: string;
   facilitatorName?: string;
   commissionPct?: number;
+  existingBillId?: string;
 }
 
 export interface PurchaseCheckoutInput {
@@ -247,6 +248,75 @@ export interface DraftSaleResult {
 }
 
 /**
+ * Updates an existing DRAFT bill (from Held Sales) instead of creating a new one.
+ */
+async function updateDraftSale(
+  billId: string,
+  input: SalesCheckoutInput,
+  walkInName: string | undefined,
+  steps: CheckoutStep[],
+  notesParts: string[],
+): Promise<{ billId: string; bill?: Bill; steps: CheckoutStep[] }> {
+  const headerAttempt = await tryStep(
+    'Update held bill',
+    () =>
+      put<Bill>(`/api/v1/bills/${billId}`, {
+        locationId: input.locationId,
+        customerId: input.customerId?.trim() || undefined,
+        walkInName: input.customerId?.trim() ? undefined : walkInName,
+        notes: notesParts.length ? notesParts.join(' · ') : undefined,
+        saleType: input.saleType,
+        customerType: input.customerType,
+        paymentTiming: input.paymentTiming,
+        partialAmount: input.paymentTiming === 'half' ? input.partialAmount : undefined,
+        facilitatorUserId: input.facilitatorUserId,
+        facilitatorName: input.facilitatorName,
+        commissionPct: input.commissionPct,
+      }),
+    (b) => b.id,
+  );
+  steps.push(headerAttempt.step);
+  if (headerAttempt.step.status === 'failed') {
+    return { billId: '', steps };
+  }
+
+  const loadAttempt = await tryStep('Load held bill items', () => get<Bill>(`/api/v1/bills/${billId}`));
+  steps.push(loadAttempt.step);
+  if (loadAttempt.step.status === 'failed') {
+    return { billId: '', steps };
+  }
+
+  for (const item of loadAttempt.result?.items ?? []) {
+    const removeAttempt = await tryStep(`Remove old item ${item.id.slice(0, 8)}…`, () =>
+      del(`/api/v1/bills/${billId}/items/${item.id}`),
+    );
+    steps.push(removeAttempt.step);
+  }
+
+  let latestBill: Bill | undefined = headerAttempt.result;
+  for (const l of input.lines) {
+    const addAttempt = await tryStep(
+      `Add item: ${l.name || l.sku || l.productId.slice(0, 8)}`,
+      () =>
+        post<Bill>(`/api/v1/bills/${billId}/items`, {
+          productId: l.productId,
+          quantity: l.qty,
+          unitPrice: l.unitPrice,
+          taxRate: l.taxPct,
+        }),
+      (b) => b.id,
+    );
+    steps.push(addAttempt.step);
+    if (addAttempt.step.status === 'failed') {
+      return { billId: '', steps };
+    }
+    if (addAttempt.result) latestBill = addAttempt.result;
+  }
+
+  return { billId, bill: latestBill, steps };
+}
+
+/**
  * Shared "create bill (INITIATED) → mark DRAFT" path, used by both `runSalesCheckout`
  * (which continues on to COMPLETED) and `holdSale` in POSTerminal.tsx (which stops here).
  */
@@ -336,6 +406,12 @@ export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftS
     notesParts.push(`Driver: ${input.delivery.driverName}`);
   }
 
+  if (input.existingBillId) {
+    const updateAttempt = await updateDraftSale(input.existingBillId, input, walkInName, steps, notesParts);
+    if (!updateAttempt.billId) return { receipt, steps };
+    return { receipt, steps, billId: updateAttempt.billId };
+  }
+
   const createAttempt = await tryStep(
     'Create bill',
     () =>
@@ -344,10 +420,6 @@ export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftS
         customerId: input.customerId?.trim() || undefined,
         walkInName: input.customerId?.trim() ? undefined : walkInName,
         notes: notesParts.length ? notesParts.join(' · ') : undefined,
-        saleType: input.saleType,
-        customerType: input.customerType,
-        paymentTiming: input.paymentTiming,
-        partialAmount: input.paymentTiming === 'half' ? input.partialAmount : undefined,
         items: input.lines.map((l) => ({
           productId: l.productId,
           quantity: l.qty,

@@ -281,6 +281,8 @@ export default function POSTerminal() {
   const [partialAmount, setPartialAmount] = useState("");
   const [holding, setHolding] = useState(false);
   const [showHeldSales, setShowHeldSales] = useState(false);
+  /** Bill id being edited via Resume — checkout completes THIS bill instead of creating a new one. */
+  const [activeDraftBillId, setActiveDraftBillId] = useState<string | null>(null);
   const [showDelivery, setShowDelivery] = useState(false);
   const [delivery, setDelivery] = useState<DeliveryInfo>({});
   const searchRef = useRef<HTMLInputElement>(null);
@@ -486,6 +488,7 @@ export default function POSTerminal() {
     setShowDelivery(false);
     setDelivery({});
     setPrintDoc("receipt");
+    setActiveDraftBillId(null);
   };
 
   const handleModeChange = (m: Mode) => {
@@ -563,6 +566,7 @@ export default function POSTerminal() {
               facilitatorUserId: facilitatorMode === "user" ? facilitatorUserId : undefined,
               facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
               commissionPct: commissionPct ? Number(commissionPct) : undefined,
+              existingBillId: activeDraftBillId ?? undefined,
             })
           : await runPurchaseCheckout({
               locationId,
@@ -623,6 +627,7 @@ export default function POSTerminal() {
         facilitatorUserId: facilitatorMode === "user" ? facilitatorUserId : undefined,
         facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
         commissionPct: commissionPct ? Number(commissionPct) : undefined,
+        existingBillId: activeDraftBillId ?? undefined,
       });
       if (result.billId) {
         toast.success(`Sale held as draft — ${result.receipt.ref}`);
@@ -675,6 +680,7 @@ export default function POSTerminal() {
         bill.partialAmount != null ? String(bill.partialAmount) : "",
       );
       setShowHeldSales(false);
+      setActiveDraftBillId(bill.id);
       toast.success(`Resumed ${bill.billNumber}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to resume sale");

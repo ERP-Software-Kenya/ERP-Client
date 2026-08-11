@@ -329,6 +329,13 @@ export interface UpdateBillInput {
   walkInPhone?: string | null;
   walkInGstin?: string | null;
   notes?: string | null;
+  saleType?: SaleType | string;
+  customerType?: CustomerType | string;
+  paymentTiming?: PaymentTiming | string;
+  partialAmount?: number;
+  facilitatorUserId?: string;
+  facilitatorName?: string;
+  commissionPct?: number;
 }
 
 // Verified 2026-07-31: CreatePaymentTransactionRequest has no @AutoMap; domain
