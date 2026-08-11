@@ -1,4 +1,4 @@
-import { patch, post } from '../../lib/http';
+import { patch, post, put, get, del } from '../../lib/http';
 import type { Bill, InventoryItem, PaymentMethod, SaleType, CustomerType, PaymentTiming } from '../../types';
 
 export type CheckoutStepStatus = 'ok' | 'failed' | 'skipped';
@@ -40,8 +40,8 @@ export interface PosReceipt {
   partyLabel?: string;
   paymentMethod?: string;
   paymentReference?: string;
-  saleType?: 'normal' | 'credit' | 'black';
-  paymentTiming?: 'before_delivery' | 'after_delivery' | 'half' | 'cod';
+  saleType?: SaleType | string;
+  paymentTiming?: PaymentTiming | string;
   creditLimit?: number;
   creditBalance?: number;
   delivery?: DeliveryInfo;
@@ -169,13 +169,6 @@ function buildReceiptLines(lines: PosLineInput[]) {
   });
 }
 
-function findInventory(
-  inventory: InventoryItem[] | undefined,
-  productId: string,
-  locationId: string,
-): InventoryItem | undefined {
-  return inventory?.find((i) => i.productId === productId && i.locationId === locationId);
-}
 
 function toBillPaymentMethod(method: PosPayMethod): PaymentMethod {
   switch (method) {
@@ -189,55 +182,6 @@ function toBillPaymentMethod(method: PosPayMethod): PaymentMethod {
     default:
       return 'CASH';
   }
-}
-
-/** Apply add/remove for each line; one CheckoutStep per line (honest failures). */
-async function runStockLines(
-  op: 'add' | 'remove',
-  lines: PosLineInput[],
-  locationId: string | undefined,
-  inventory: InventoryItem[] | undefined,
-  referenceId?: string,
-): Promise<CheckoutStep[]> {
-  const label = op === 'remove' ? 'Stock remove' : 'Stock add';
-  if (!locationId) {
-    return [
-      skipped(
-        label,
-        'Skipped — pick a stock location (Locations). Orders use Stores; inventory uses Locations.',
-      ),
-    ];
-  }
-  if (!inventory?.length) {
-    return [skipped(label, 'Skipped — no inventory list loaded')];
-  }
-
-  const steps: CheckoutStep[] = [];
-  for (const line of lines) {
-    const inv = findInventory(inventory, line.productId, locationId);
-    const name = `${label}: ${line.name || line.sku || line.productId.slice(0, 8)}`;
-    if (!inv) {
-      steps.push({
-        name,
-        status: 'failed',
-        message: 'No inventory row for this product at selected location. Create one under Inventory first.',
-      });
-      continue;
-    }
-    const attempt = await tryStep(name, () =>
-      post(`/api/v1/stock-movements/${op}`, {
-        inventoryId: inv.id,
-        locationId,
-        productId: line.productId,
-        quantity: line.qty,
-        referenceId,
-        referenceType: referenceId ? 'pos' : undefined,
-        notes: `POS ${op}`,
-      }),
-    );
-    steps.push(attempt.step);
-  }
-  return steps;
 }
 
 export interface DraftSaleResult {

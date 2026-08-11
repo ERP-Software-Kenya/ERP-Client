@@ -921,9 +921,8 @@ export default function POSTerminal() {
 
       {showHeldSales && (
         <HeldSalesPanel
-          locationId={locationId}
           onClose={() => setShowHeldSales(false)}
-          onResume={(billId) => void resumeSale(billId)}
+          onResume={(bill) => void resumeSale(bill.id)}
         />
       )}
     </div>

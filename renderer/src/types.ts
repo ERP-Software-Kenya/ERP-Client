@@ -267,14 +267,14 @@ export interface Bill {
   walkInGstin?: string | null;
   status: BillStatus | string;
   paymentMethod?: PaymentMethod | string | null;
-  saleType: SaleType | string;
+  saleType?: SaleType | string;
   customerType?: CustomerType | string | null;
   paymentTiming?: PaymentTiming | string | null;
   partialAmount?: number | null;
-  blackAmount: number;
+  blackAmount?: number;
   facilitatorUserId?: string | null;
   facilitatorName?: string | null;
-  commissionAmount: number;
+  commissionAmount?: number;
   subtotal: number;
   taxAmount: number;
   discountAmount: number;
@@ -284,15 +284,6 @@ export interface Bill {
   createdAt?: string;
   updatedAt?: string | null;
   items?: BillItem[];
-  // ── Sales v2 fields ──
-  saleType?: SaleType | string;
-  customerType?: CustomerType | string | null;
-  paymentTiming?: PaymentTiming | string | null;
-  partialAmount?: number | null;
-  blackAmount?: number;
-  facilitatorUserId?: string | null;
-  facilitatorName?: string | null;
-  commissionAmount?: number;
 }
 
 export interface CreateBillItemInput {
@@ -524,9 +515,6 @@ export interface Customer {
   customerType?: CustomerType | string | null;
   createdAt?: string;
   updatedAt?: string;
-  // ── Sales v2 credit fields ──
-  creditLimit?: number | null;
-  creditBalance?: number;
 }
 
 export type CreditApprovalStatus = 'pending' | 'approved' | 'rejected';

@@ -1,9 +1,7 @@
-import { useState } from "react";
 import { format } from "date-fns";
 import { Bills } from "../../api";
 import type { Bill } from "../../types";
 import { ListRestart, Loader2, X } from "lucide-react";
-import { toast } from "sonner";
 
 interface Props {
   onResume: (bill: Bill) => void;
