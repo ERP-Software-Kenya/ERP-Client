@@ -551,35 +551,6 @@ export interface CommissionPayable {
   createdAt: string;
 }
 
-export type CreditApprovalStatus = 'pending' | 'approved' | 'rejected';
-
-export interface CreditApprovalRequest {
-  id: string;
-  organizationId: string;
-  customerId: string;
-  billId: string;
-  requestedAmount: number;
-  /** Alias some responses may use instead of requestedAmount */
-  amount?: number;
-  requestedById: string;
-  status: CreditApprovalStatus | string;
-  decidedById?: string | null;
-  decidedAt?: string | null;
-  createdAt: string;
-  bill?: {
-    billNumber?: string;
-    walkInName?: string | null;
-    customerId?: string | null;
-    customer?: { name?: string | null } | null;
-  } | null;
-}
-
-export type CommissionStatus = 'owed' | 'paid';
-
-export interface CommissionPayable {
-  id: string;
-  organizationId: string;
-  billId: string;
   facilitatorUserId?: string | null;
   facilitatorName?: string | null;
   amount: number;
