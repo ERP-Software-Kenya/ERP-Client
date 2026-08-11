@@ -11,6 +11,8 @@ import type {
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
+  SaleType, CustomerType, PaymentTiming,
+  CreditApprovalRequest, CommissionPayable,
   Country, State, City,
   CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
   ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,

@@ -49,6 +49,8 @@ const UserRoles = lazy(() => import('./pages/UserRoles'));
 const Users = lazy(() => import('./pages/Users'));
 const UserDetail = lazy(() => import('./pages/UserDetail'));
 const PageAccessPage = lazy(() => import('./pages/PageAccess'));
+const PendingApprovals = lazy(() => import('./pages/credit-approvals/PendingApprovals'));
+const BlackLedger = lazy(() => import('./pages/credit-approvals/BlackLedger'));
 const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
 const VehicleDetailPage = lazy(() => import('./pages/VehicleDetailPage'));
 const FleetDashboard = lazy(() => import('./pages/Fleet'));
@@ -58,8 +60,6 @@ const FleetTripsPage = lazy(() => import('./pages/Fleet/Trips'));
 const FleetMaintenancePage = lazy(() => import('./pages/Fleet/Maintenance'));
 const FleetExpensesPage = lazy(() => import('./pages/Fleet/Expenses'));
 const POSTerminal = lazy(() => import('./pages/pos/POSTerminal'));
-const PendingApprovals = lazy(() => import('./pages/PendingApprovals'));
-const BlackLedger = lazy(() => import('./pages/BlackLedger'));
 
 function RouteFallback() {
   return (
@@ -120,6 +120,8 @@ function App() {
             <Route path="black-ledger" element={<BlackLedger />} />
             <Route path="orders" element={<Orders />} />
             <Route path="invoices" element={<Invoices />} />
+            <Route path="approvals/pending" element={<PendingApprovals />} />
+            <Route path="approvals/black-ledger" element={<BlackLedger />} />
             <Route path="vehicles" element={<VehiclesPage />} />
             <Route path="vehicles/:id" element={<VehicleDetailPage />} />
             <Route path="fleet" element={<FleetDashboard />} />

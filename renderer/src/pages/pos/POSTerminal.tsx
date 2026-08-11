@@ -43,7 +43,7 @@ import {
   defaultPdfFileName,
   type SaleDocKind,
 } from "./buildSaleDocHtml";
-import HeldSalesPanel from "./HeldSalesPanel";
+import { HeldSalesPanel } from "./HeldSalesPanel";
 import { productRate, type BillLine, type ExtraCharge, type Mode, type PrintDoc } from "./posHelpers";
 import { PosToolbar } from "./components/PosToolbar";
 import { ProductSearchPanel } from "./components/ProductSearchPanel";
