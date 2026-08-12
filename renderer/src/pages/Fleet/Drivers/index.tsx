@@ -10,6 +10,7 @@ import { usePagination } from '../../../hooks/usePagination';
 import { DriverStatusBadge } from '../index';
 import { loadErrorMessage } from '../../../lib/api-error';
 import type { FleetDriver, FleetDriverStatus } from '../../../types';
+type FormState = {
   firstName: string;
   lastName: string;
   phone: string;
