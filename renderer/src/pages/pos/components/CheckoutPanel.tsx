@@ -52,6 +52,7 @@ export interface CheckoutPanelProps {
   creditBalance: number;
   creditRemaining: number;
   creditNeedsApproval: boolean;
+  creditMissingLimit: boolean;
 
   facilitatorMode: "none" | "user" | "name";
   onFacilitatorModeChange: (m: "none" | "user" | "name") => void;
@@ -76,6 +77,7 @@ export interface CheckoutPanelProps {
   onPrintReceipt: () => void;
   hasReceipt: boolean;
   accentBtnCls: string;
+  hasStockIssues?: boolean;
 }
 
 export function CheckoutPanel({
@@ -118,6 +120,7 @@ export function CheckoutPanel({
   creditBalance,
   creditRemaining,
   creditNeedsApproval,
+  creditMissingLimit,
   facilitatorMode,
   onFacilitatorModeChange,
   facilitatorSearchVal,
@@ -139,6 +142,7 @@ export function CheckoutPanel({
   onPrintReceipt,
   hasReceipt,
   accentBtnCls,
+  hasStockIssues,
 }: CheckoutPanelProps) {
   const [facilitatorSectionOpen, setFacilitatorSectionOpen] = useState(false);
 
@@ -363,6 +367,11 @@ export function CheckoutPanel({
               Select a customer for credit sales
             </p>
           )}
+          {mode === "sales" && saleType === "credit" && customerId && creditMissingLimit && (
+            <p className="mt-1.5 text-[10px] font-medium text-destructive">
+              Customer has no credit limit — set one on the Customers page before completing
+            </p>
+          )}
           {mode === "sales" && saleType === "credit" && customerId && selectedCustomer && (
             <div className="mt-2 rounded-lg border border-amber-300/50 bg-amber-500/10 px-3 py-2 space-y-1 text-[11px]">
               <div className="flex justify-between gap-2">
@@ -481,6 +490,11 @@ export function CheckoutPanel({
       </div>
 
       <div className="px-4 py-3 border-t border-border space-y-2 flex-shrink-0">
+        {hasStockIssues && mode === "sales" && (
+          <p className="text-[10px] font-medium text-red-600 text-center">
+            Fix stock issues in the cart before completing
+          </p>
+        )}
         <button
           type="button"
           onClick={onGenerateBill}

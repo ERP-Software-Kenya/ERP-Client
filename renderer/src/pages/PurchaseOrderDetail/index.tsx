@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
 import { Locations, Products, PurchaseOrders, Suppliers } from '../../api';
+import { getErrorMessage } from '../../lib/api-error';
 import type { PurchaseOrder, PurchaseOrderStatus } from '../../types';
 
 const STATUS_CONFIG: Record<PurchaseOrderStatus, { label: string; cls: string; dot: string }> = {
@@ -154,7 +155,7 @@ export default function PurchaseOrderDetail() {
   if (error || !po) {
     return (
       <div className="flex items-center justify-center h-48 text-sm text-red-500">
-        Failed to load purchase order.
+        {getErrorMessage(error, 'Unable to load purchase order.')}
       </div>
     );
   }

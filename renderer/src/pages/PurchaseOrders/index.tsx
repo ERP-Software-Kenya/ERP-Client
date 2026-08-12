@@ -6,6 +6,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { PurchaseOrders, Locations, Suppliers } from "../../api";
 import { usePagination } from "../../hooks/usePagination";
 import { truncateId } from "../../lib/entityLabel";
+import { loadErrorMessage } from "../../lib/api-error";
 import type { PurchaseOrder, PurchaseOrderStatus } from "../../types";
 import type { ExtraAction } from "../../components/RowActionsMenu";
 
@@ -66,9 +67,7 @@ export default function PurchaseOrdersPage() {
 
   const { data, isLoading, isError, error, refetch } = PurchaseOrders.useSearch({ page, filters });
 
-  const listError = isError
-    ? `Unable to load purchase orders.${error instanceof Error && error.message ? ` (${error.message})` : ""}`
-    : null;
+  const listError = isError ? loadErrorMessage(error, "purchase orders") : null;
 
   const columns: Column<PurchaseOrder>[] = [
     {

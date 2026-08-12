@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
@@ -45,6 +45,13 @@ import {
 } from "./buildSaleDocHtml";
 import { HeldSalesPanel } from "./HeldSalesPanel";
 import { productRate, type BillLine, type ExtraCharge, type Mode, type PrintDoc } from "./posHelpers";
+import {
+  buildLocationStockMap,
+  cartQtyForProduct,
+  getStockInfo,
+  lineExceedsStock,
+  saleHasStockIssues,
+} from "./posStock";
 import { PosToolbar } from "./components/PosToolbar";
 import { ProductSearchPanel } from "./components/ProductSearchPanel";
 import { CartTable } from "./components/CartTable";
@@ -82,12 +89,14 @@ function BillSuccessModal({
   printDoc,
   onPrintDoc,
   onClose,
+  pendingCreditApproval,
 }: {
   receipt: PosReceipt;
   steps: CheckoutStep[];
   printDoc: PrintDoc;
   onPrintDoc: (doc: PrintDoc) => void;
   onClose: () => void;
+  pendingCreditApproval?: boolean;
 }) {
   const hasGaps = steps.some(
     (s) => s.status === "failed" || s.status === "skipped",
@@ -126,9 +135,11 @@ function BillSuccessModal({
           <div className="flex items-start gap-3">
             <div
               className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ${
-                receipt.synced && !failed
-                  ? "bg-emerald-500/15 text-emerald-500"
-                  : "bg-amber-500/15 text-amber-500"
+                pendingCreditApproval
+                  ? "bg-amber-500/15 text-amber-600"
+                  : receipt.synced && !failed
+                    ? "bg-emerald-500/15 text-emerald-500"
+                    : "bg-amber-500/15 text-amber-500"
               }`}
             >
               <Check size={22} strokeWidth={2.5} />
@@ -138,15 +149,21 @@ function BillSuccessModal({
                 id="pos-success-title"
                 className="text-lg font-semibold tracking-tight text-foreground"
               >
-                {receipt.mode === "sales"
-                  ? "Sale complete"
-                  : "Purchase order created"}
+                {pendingCreditApproval
+                  ? "Sent for approval"
+                  : receipt.mode === "sales"
+                    ? "Sale complete"
+                    : "Purchase order created"}
               </h2>
               <p className="mt-0.5 font-mono text-xs text-muted-foreground truncate">
                 {receipt.ref}
               </p>
               <div className="mt-2">
-                {receipt.synced && !failed ? (
+                {pendingCreditApproval ? (
+                  <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    Held as draft — awaiting manager
+                  </span>
+                ) : receipt.synced && !failed ? (
                   <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
                     Synced to server
                   </span>
@@ -173,32 +190,43 @@ function BillSuccessModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {receipt.mode === "sales" && (
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {docButtons.map((b) => (
-                <button
-                  key={b.id}
-                  type="button"
-                  onClick={() => onPrintDoc(b.id)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${
-                    printDoc === b.id
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {b.label}
-                </button>
-              ))}
-            </div>
+          {pendingCreditApproval ? (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              This credit sale exceeds the customer&apos;s limit. The bill is saved as a
+              draft and queued for an Org Admin or Manager on{" "}
+              <span className="font-medium text-foreground">Pending Approvals</span>.
+              Stock is not deducted until approved.
+            </p>
+          ) : (
+            <>
+              {receipt.mode === "sales" && (
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {docButtons.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => onPrintDoc(b.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition ${
+                        printDoc === b.id
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Preview
+              </p>
+              <div className="rounded-xl border border-border/80 bg-muted/40 p-3 sm:p-4">
+                <div className="overflow-hidden rounded-lg ring-1 ring-black/5">
+                  {preview}
+                </div>
+              </div>
+            </>
           )}
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Preview
-          </p>
-          <div className="rounded-xl border border-border/80 bg-muted/40 p-3 sm:p-4">
-            <div className="overflow-hidden rounded-lg ring-1 ring-black/5">
-              {preview}
-            </div>
-          </div>
 
           {hasGaps && (
             <div className="mt-4">
@@ -211,31 +239,37 @@ function BillSuccessModal({
         </div>
 
         <div className="flex flex-shrink-0 flex-col gap-2 border-t border-border bg-card/80 px-5 py-4 backdrop-blur">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={printReceipt}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
-            >
-              <Printer size={15} />
-              Print
-            </button>
-            {receipt.mode === "sales" && (
+          {!pendingCreditApproval && (
+            <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => void downloadSalePdf(receipt, printDoc)}
+                onClick={printReceipt}
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
               >
-                PDF
+                <Printer size={15} />
+                Print
               </button>
-            )}
-          </div>
+              {receipt.mode === "sales" && (
+                <button
+                  type="button"
+                  onClick={() => void downloadSalePdf(receipt, printDoc)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
+                >
+                  PDF
+                </button>
+              )}
+            </div>
+          )}
           <button
             type="button"
             onClick={onClose}
             className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
           >
-            {receipt.mode === "sales" ? "New sale" : "New purchase order"}
+            {pendingCreditApproval
+              ? "New sale"
+              : receipt.mode === "sales"
+                ? "New sale"
+                : "New purchase order"}
           </button>
         </div>
       </div>
@@ -266,6 +300,7 @@ export default function POSTerminal() {
   const [success, setSuccess] = useState<{
     receipt: PosReceipt;
     steps: CheckoutStep[];
+    pendingCreditApproval?: boolean;
   } | null>(null);
   const [lastReceipt, setLastReceipt] = useState<PosReceipt | null>(null);
   const [printDoc, setPrintDoc] = useState<PrintDoc>("receipt");
@@ -353,6 +388,26 @@ export default function POSTerminal() {
   );
   const orgId = stockLocation?.organizationId;
 
+  const stockMap = useMemo(
+    () => buildLocationStockMap(inventory, locationId),
+    [inventory, locationId],
+  );
+
+  const getProductStock = useCallback(
+    (productId: string) =>
+      getStockInfo(stockMap, productId, mode === "sales" ? saleType : "normal"),
+    [stockMap, saleType, mode],
+  );
+
+  const lineOverStock = useCallback(
+    (line: BillLine) =>
+      mode === "sales" && lineExceedsStock(lines, line, stockMap, saleType),
+    [mode, lines, stockMap, saleType],
+  );
+
+  const hasStockIssues =
+    mode === "sales" && saleHasStockIssues(lines, stockMap, saleType);
+
   const suggestions: Product[] = useMemo(() => {
     if (!searchVal.trim()) return [];
     const items = productSearch?.items ?? [];
@@ -368,11 +423,41 @@ export default function POSTerminal() {
   }, [productSearch, searchVal]);
 
   const addProduct = (p: Product) => {
+    let addQty = qty;
+
+    if (mode === "sales") {
+      const stock = getProductStock(p.id);
+      const inCart = cartQtyForProduct(lines, p.id);
+      if (!stock.found) {
+        toast.error("No stock record at this location — add inventory first");
+        return;
+      }
+      if (stock.available <= 0) {
+        toast.error(
+          saleType === "black"
+            ? "No black stock available for this product"
+            : "Out of stock at this location",
+        );
+        return;
+      }
+      const room = stock.available - inCart;
+      if (room <= 0) {
+        toast.error(`Already at max stock (${stock.available} available)`);
+        return;
+      }
+      if (addQty > room) {
+        toast.warning(`Only ${room} more available — adding ${room}`);
+        addQty = room;
+      }
+    }
+
     const sku = formatEntityLabel({ sku: p.sku, id: p.id });
     const existing = lines.find((l) => l.productId === p.id);
     if (existing) {
       setLines((ls) =>
-        ls.map((l) => (l.productId === p.id ? { ...l, qty: l.qty + qty } : l)),
+        ls.map((l) =>
+          l.productId === p.id ? { ...l, qty: l.qty + addQty } : l,
+        ),
       );
     } else {
       setLines((ls) => [
@@ -382,7 +467,7 @@ export default function POSTerminal() {
           productId: p.id,
           sku,
           name: p.name || "Unnamed product",
-          qty,
+          qty: addQty,
           rate: productRate(p, mode),
           taxPct: 0,
           unitLabel: p.unit || "pcs",
@@ -404,7 +489,24 @@ export default function POSTerminal() {
 
   const handleLineQtyChange = (lineId: number, newQty: number) => {
     setLines((ls) =>
-      ls.map((l) => (l.id === lineId ? { ...l, qty: Math.max(1, newQty) } : l)),
+      ls.map((l) => {
+        if (l.id !== lineId) return l;
+        let qty = Math.max(1, newQty);
+        if (mode === "sales") {
+          const stock = getStockInfo(stockMap, l.productId, saleType);
+          const others = cartQtyForProduct(ls, l.productId, lineId);
+          const maxForLine = Math.max(1, stock.available - others);
+          if (!stock.found) {
+            toast.error("No stock record for this product at this location");
+            return l;
+          }
+          if (qty > maxForLine) {
+            toast.warning(`Max ${maxForLine} for this line (${stock.available} available total)`);
+            qty = maxForLine;
+          }
+        }
+        return { ...l, qty };
+      }),
     );
   };
 
@@ -459,6 +561,12 @@ export default function POSTerminal() {
     creditLimit > 0 &&
     creditBalance + grandTotal > creditLimit;
   const creditMissingCustomer = mode === "sales" && saleType === "credit" && !customerId;
+  const creditMissingLimit =
+    mode === "sales" &&
+    saleType === "credit" &&
+    !!customerId &&
+    selectedCustomer != null &&
+    (selectedCustomer.creditLimit == null || Number(selectedCustomer.creditLimit) <= 0);
   const deliveryPayload: DeliveryInfo | undefined = showDelivery
     ? Object.fromEntries(
         Object.entries(delivery).filter(([, v]) => String(v ?? "").trim() !== ""),
@@ -587,7 +695,11 @@ export default function POSTerminal() {
       if (result.primaryOk) {
         setPrintDoc("receipt");
         setLastReceipt(result.receipt);
-        setSuccess({ receipt: result.receipt, steps: result.steps });
+        setSuccess({
+          receipt: result.receipt,
+          steps: result.steps,
+          pendingCreditApproval: result.pendingCreditApproval,
+        });
       }
     } finally {
       setCheckingOut(false);
@@ -753,6 +865,8 @@ export default function POSTerminal() {
     cashShort ||
     partialAmountMissing ||
     creditMissingCustomer ||
+    creditMissingLimit ||
+    hasStockIssues ||
     (mode === "sales" && !locationId) ||
     (mode === "purchase" && !supplierId);
 
@@ -784,6 +898,8 @@ export default function POSTerminal() {
       <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
         <ProductSearchPanel
           mode={mode}
+          saleType={saleType}
+          getStockInfo={getProductStock}
           searchRef={searchRef}
           searchVal={searchVal}
           onSearchChange={setSearchVal}
@@ -803,6 +919,9 @@ export default function POSTerminal() {
         <CartTable
           mode={mode}
           saleType={saleType}
+          getStockInfo={getProductStock}
+          lineOverStock={lineOverStock}
+          hasStockIssues={hasStockIssues}
           lines={lines}
           extraCharges={extraCharges}
           onQtyChange={handleLineQtyChange}
@@ -870,6 +989,7 @@ export default function POSTerminal() {
           creditBalance={creditBalance}
           creditRemaining={creditRemaining}
           creditNeedsApproval={creditNeedsApproval}
+          creditMissingLimit={creditMissingLimit}
           facilitatorMode={facilitatorMode}
           onFacilitatorModeChange={setFacilitatorMode}
           facilitatorSearchVal={facilitatorSearchVal}
@@ -893,6 +1013,7 @@ export default function POSTerminal() {
           checkingOut={checkingOut}
           onPrintReceipt={printReceipt}
           hasReceipt={!!lastReceipt || !!success}
+          hasStockIssues={hasStockIssues}
           accentBtnCls={accentCls.btn}
         />
       </div>
@@ -904,6 +1025,7 @@ export default function POSTerminal() {
           printDoc={printDoc}
           onPrintDoc={handlePrintDoc}
           onClose={closeSuccess}
+          pendingCreditApproval={success.pendingCreditApproval}
         />
       )}
 

@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/input';
 import { PaymentTransactions, Organizations } from '../../api';
 import { usePagination } from '../../hooks/usePagination';
 import { formatEntityLabel } from '../../lib/entityLabel';
+import { loadErrorMessage } from '../../lib/api-error';
 import type { PaymentTransaction } from '../../types';
 
 const STATUS_FILTERS = ['ALL', 'PENDING', 'COMPLETED', 'FAILED'] as const;
@@ -52,9 +53,7 @@ export default function PaymentTransactionsPage() {
     page,
     filters,
   });
-  const listError = isError
-    ? `Unable to load payments.${error instanceof Error && error.message ? ` (${error.message})` : ''}`
-    : null;
+  const listError = isError ? loadErrorMessage(error, 'payments') : null;
 
   const { data: orgs } = Organizations.useList();
   const orgName = useMemo(() => {

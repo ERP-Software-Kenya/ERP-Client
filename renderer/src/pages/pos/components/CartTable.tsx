@@ -2,6 +2,8 @@ import { AlertCircle, Archive, Minus, PackagePlus, PauseCircle, Pencil, Plus, Sh
 import type { SaleType } from "../../../types";
 import type { CheckoutResult } from "../checkout";
 import { fmt, lineTax, lineTotal, type BillLine, type ExtraCharge, type Mode } from "../posHelpers";
+import { type StockInfo } from "../posStock";
+import { StockBadge } from "./StockBadge";
 import { StepList } from "./StepList";
 
 const TAXES_LIST = [
@@ -13,6 +15,9 @@ const TAXES_LIST = [
 export interface CartTableProps {
   mode: Mode;
   saleType: SaleType;
+  getStockInfo: (productId: string) => StockInfo;
+  lineOverStock: (line: BillLine) => boolean;
+  hasStockIssues: boolean;
   lines: BillLine[];
   extraCharges: ExtraCharge[];
   onQtyChange: (lineId: number, qty: number) => void;
@@ -40,6 +45,9 @@ export interface CartTableProps {
 export function CartTable({
   mode,
   saleType,
+  getStockInfo,
+  lineOverStock,
+  hasStockIssues,
   lines,
   extraCharges,
   onQtyChange,
@@ -130,8 +138,8 @@ export function CartTable({
             <thead className="sticky top-0 bg-muted border-b border-border z-10">
               <tr>
                 {(saleType === "black"
-                  ? ["#", "SKU", "Description", "Qty", "Official", "Charged", "Tax", "Total", ""]
-                  : ["#", "SKU", "Description", "Qty", "Rate", "Tax", "Total", ""]
+                  ? ["#", "SKU", "Description", "Qty", "Official", "Charged", "Stock", "Tax", "Total", ""]
+                  : ["#", "SKU", "Description", "Qty", "Rate", "Stock", "Tax", "Total", ""]
                 ).map((h) => (
                   <th
                     key={h}
@@ -143,8 +151,17 @@ export function CartTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {lines.map((line, idx) => (
-                <tr key={line.id} className="hover:bg-muted/60 group">
+              {lines.map((line, idx) => {
+                const stock =
+                  mode === "sales" || mode === "purchase"
+                    ? getStockInfo(line.productId)
+                    : null;
+                const overStock = mode === "sales" && lineOverStock(line);
+                return (
+                <tr
+                  key={line.id}
+                  className={`hover:bg-muted/60 group ${overStock ? "bg-red-50/80 dark:bg-red-950/20" : ""}`}
+                >
                   <td className="px-3 py-3 text-muted-foreground text-xs">{idx + 1}</td>
                   <td className="px-3 py-3 font-mono text-xs text-muted-foreground">
                     {line.sku}
@@ -243,6 +260,21 @@ export function CartTable({
                   ) : (
                     <td className="px-3 py-3 text-foreground">{fmt(line.rate)}</td>
                   )}
+                  {mode === "sales" && stock && (
+                    <td className="px-3 py-3">
+                      <StockBadge info={stock} saleType={saleType} />
+                      {overStock && (
+                        <p className="mt-1 text-[10px] font-medium text-red-600">
+                          Need {line.qty}, only {stock.available} available
+                        </p>
+                      )}
+                    </td>
+                  )}
+                  {mode === "purchase" && stock && (
+                    <td className="px-3 py-3">
+                      <StockBadge info={stock} saleType="normal" />
+                    </td>
+                  )}
                   <td className="px-3 py-3 text-muted-foreground text-xs">
                     {line.taxPct > 0 ? (
                       <span>
@@ -266,12 +298,14 @@ export function CartTable({
                     </button>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
               {extraCharges.map((ec) => (
                 <tr key={ec.id} className="bg-muted/40">
                   <td />
                   <td />
                   <td className="px-3 py-2 text-xs text-muted-foreground italic">{ec.label}</td>
+                  <td />
                   <td />
                   <td />
                   <td />
@@ -296,6 +330,17 @@ export function CartTable({
           </table>
         )}
       </div>
+
+      {mode === "sales" && hasStockIssues && lines.length > 0 && (
+        <div className="border-t border-red-200 bg-red-50 px-5 py-2.5 flex-shrink-0">
+          <div className="flex items-start gap-2">
+            <AlertCircle size={14} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-xs font-medium text-red-800">
+              Some lines exceed available stock — reduce quantities or remove items before completing.
+            </p>
+          </div>
+        </div>
+      )}
 
       {showCheckoutFailureBanner && checkoutResult && (
         <div className="border-t border-amber-200 bg-amber-50 px-5 py-3 flex-shrink-0">

@@ -1,4 +1,5 @@
 import { patch, post, put, get, del } from '../../lib/http';
+import { getErrorMessage, parseCreditApprovalError } from '../../lib/api-error';
 import type { Bill, InventoryItem, PaymentMethod, SaleType, CustomerType, PaymentTiming } from '../../types';
 
 export type CheckoutStepStatus = 'ok' | 'failed' | 'skipped';
@@ -66,6 +67,10 @@ export interface CheckoutResult {
   steps: CheckoutStep[];
   /** True when a printable receipt was issued (always for valid cart). */
   primaryOk: boolean;
+  /** Bill saved as draft and sent to Pending Approvals (credit over limit). */
+  pendingCreditApproval?: boolean;
+  approvalRequestId?: string;
+  billId?: string;
 }
 
 export interface SalesCheckoutInput {
@@ -424,25 +429,54 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
     return { receipt, steps, primaryOk: false };
   }
 
-  const completeAttempt = await tryStep(
-    'Complete bill',
-    () =>
-      patch<Bill>(`/api/v1/bills/${billId}/status`, {
-        status: 'COMPLETED',
-        paymentMethod: toBillPaymentMethod(input.paymentMethod),
-      }),
-    (b) => b.id,
-  );
-  steps.push(completeAttempt.step);
-
-  if (completeAttempt.step.status !== 'ok') {
-    return { receipt, steps, primaryOk: false };
+  let completeBill: Bill | undefined;
+  try {
+    completeBill = await patch<Bill>(`/api/v1/bills/${billId}/status`, {
+      status: 'COMPLETED',
+      paymentMethod: toBillPaymentMethod(input.paymentMethod),
+    });
+    steps.push({
+      name: 'Complete bill',
+      status: 'ok',
+      entityId: completeBill.id,
+      message: 'Completed',
+    });
+  } catch (e) {
+    const approval = parseCreditApprovalError(e);
+    if (approval.isPendingApproval) {
+      steps.push({
+        name: 'Complete bill',
+        status: 'skipped',
+        message: getErrorMessage(e),
+        entityId: billId,
+      });
+      steps.push({
+        name: 'Credit approval',
+        status: 'ok',
+        message: 'Sale held as draft — manager must approve on Pending Approvals',
+        entityId: approval.approvalRequestId ?? billId,
+      });
+      return {
+        receipt,
+        steps,
+        primaryOk: true,
+        pendingCreditApproval: true,
+        approvalRequestId: approval.approvalRequestId,
+        billId,
+      };
+    }
+    steps.push({
+      name: 'Complete bill',
+      status: 'failed',
+      message: getErrorMessage(e),
+    });
+    return { receipt, steps, primaryOk: false, billId };
   }
 
   // Extras inflate local receipt total beyond server bill — do not claim full sync.
   receipt.synced = input.extraCharges.length === 0;
-  if (completeAttempt.result?.billNumber) {
-    receipt.ref = completeAttempt.result.billNumber;
+  if (completeBill?.billNumber) {
+    receipt.ref = completeBill.billNumber;
   }
   steps.push({
     name: 'Inventory',

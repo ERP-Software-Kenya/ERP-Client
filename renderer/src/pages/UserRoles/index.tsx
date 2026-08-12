@@ -4,6 +4,7 @@ import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { UserRoles, useListUserRoles, useListRoles, useListUserDirectory } from '../../api';
+import { loadErrorMessage } from '../../lib/api-error';
 import type { UserRole } from '../../types';
 
 interface FormState {
@@ -84,7 +85,7 @@ export default function UserRolesPage(): React.JSX.Element {
         total={assignments.length}
         page={page}
         loading={isLoading}
-        error={error ? 'Failed to load assignments' : null}
+        error={error ? loadErrorMessage(error, 'assignments') : null}
         onPageChange={setPage}
         hideSearch
         onRefetch={() => void refetch()}

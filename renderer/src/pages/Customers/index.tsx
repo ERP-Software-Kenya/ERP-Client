@@ -6,7 +6,7 @@ import { ViewDrawer } from '../../components/ViewDrawer';
 import { Customers, Organizations } from '../../api';
 import { usePagination } from '../../hooks/usePagination';
 import { formatEntityLabel } from '../../lib/entityLabel';
-import type { Customer } from '../../types';
+import { loadErrorMessage } from '../../lib/api-error';
 
 export default function CustomersPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -26,9 +26,7 @@ export default function CustomersPage() {
   const { data, isLoading, isError, error, refetch } = Customers.useSearch({
     search: debouncedSearch,
   });
-  const listError = isError
-    ? `Unable to load customers.${error instanceof Error && error.message ? ` (${error.message})` : ''}`
-    : null;
+  const listError = isError ? loadErrorMessage(error, 'customers') : null;
   const customerRows = listError ? [] : (data?.items ?? []);
   const customerCount = customerRows.length;
 
