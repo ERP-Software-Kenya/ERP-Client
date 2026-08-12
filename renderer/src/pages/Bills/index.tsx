@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/input';
 import { Bills, Customers, Locations } from '../../api';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatEntityLabel, truncateId } from '../../lib/entityLabel';
+import { loadErrorMessage } from '../../lib/api-error';
 import type { Bill, BillStatus, CreateBillInput, Customer } from '../../types';
 
 const STATUS_FILTERS: Array<BillStatus | 'ALL'> = [
@@ -88,9 +89,7 @@ export default function BillsPage() {
   }, [statusFilter, locationFilter]);
 
   const { data, isLoading, isError, error, refetch } = Bills.useSearch({ filters });
-  const listError = isError
-    ? `Unable to load bills.${error instanceof Error && error.message ? ` (${error.message})` : ''}`
-    : null;
+  const listError = isError ? loadErrorMessage(error, 'bills') : null;
   const billRows = listError ? [] : (data?.items ?? []);
   const billCount = billRows.length;
 

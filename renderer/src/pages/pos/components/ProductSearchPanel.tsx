@@ -1,7 +1,9 @@
 import type { RefObject } from "react";
 import { ChevronDown, Minus, Package, Plus, Receipt, Scan, X } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { Product, Supplier } from "../../../types";
+import type { Product, SaleType, Supplier } from "../../../types";
+import { StockBadge } from "./StockBadge";
+import type { StockInfo } from "../posStock";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +28,8 @@ const QUICK_CHARGES: QuickCharge[] = [
 
 export interface ProductSearchPanelProps {
   mode: Mode;
+  saleType: SaleType;
+  getStockInfo: (productId: string) => StockInfo;
   searchRef: RefObject<HTMLInputElement | null>;
   searchVal: string;
   onSearchChange: (v: string) => void;
@@ -44,6 +48,8 @@ export interface ProductSearchPanelProps {
 
 export function ProductSearchPanel({
   mode,
+  saleType,
+  getStockInfo,
   searchRef,
   searchVal,
   onSearchChange,
@@ -91,30 +97,52 @@ export function ProductSearchPanel({
 
         {suggestions.length > 0 && (
           <div className="mt-1 border border-border rounded-lg overflow-hidden shadow-lg bg-card z-10 relative">
-            {suggestions.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => onAddProduct(p)}
-                className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-primary/10 border-b border-border last:border-0 transition"
-              >
-                <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Package size={13} className="text-muted-foreground" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-foreground truncate">
-                    {p.name}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground font-mono">
-                    {formatEntityLabel({ sku: p.sku, id: p.id })}
-                  </p>
-                  <span className="text-[10px] font-semibold text-primary">
-                    {fmt(productRate(p, mode))}
-                  </span>
-                </div>
-              </button>
-            ))}
+            {suggestions.map((p) => {
+              const stock =
+                mode === "sales" || mode === "purchase"
+                  ? getStockInfo(p.id)
+                  : null;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => onAddProduct(p)}
+                  className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-primary/10 border-b border-border last:border-0 transition"
+                >
+                  <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Package size={13} className="text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {p.name}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      {formatEntityLabel({ sku: p.sku, id: p.id })}
+                    </p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] font-semibold text-primary">
+                        {fmt(productRate(p, mode))}
+                      </span>
+                      {stock && (
+                        <StockBadge
+                          info={stock}
+                          saleType={mode === "sales" ? saleType : "normal"}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
+        )}
+
+        {mode === "sales" && suggestions.length > 0 && (
+          <p className="mt-2 text-[10px] text-muted-foreground leading-snug">
+            {saleType === "black"
+              ? "Badge shows black pool qty at this location."
+              : "Badge shows sellable qty (on hand minus reserved)."}
+          </p>
         )}
 
         <div className="flex items-center gap-2 mt-3">

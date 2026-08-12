@@ -163,6 +163,8 @@ export interface InventoryItem {
   productId: string;
   quantityOnHand: number;
   quantityReserved: number;
+  /** Black / unpublished pool — used for black sales stock checks */
+  quantityUnpublished?: number;
   reorderLevel: number;
   maxStock?: number;
   averageCost?: number;

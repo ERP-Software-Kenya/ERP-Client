@@ -227,3 +227,17 @@ export const MODULES: ModuleGroup[] = [
 ];
 
 export const ALL_ITEMS: ModuleItem[] = MODULES.flatMap((g) => g.items);
+
+/** Longest matching MODULES path for a location, or null if the URL is not in the nav. */
+export function pageKeyForPath(pathname: string): string | null {
+  const normalized = pathname.replace(/\/$/, '') || '/';
+  let best: { path: string; key: string } | null = null;
+  for (const item of ALL_ITEMS) {
+    const path = item.path.replace(/\/$/, '') || '/';
+    const matches = normalized === path || (path !== '/' && normalized.startsWith(`${path}/`));
+    if (matches && (!best || path.length > best.path.length)) {
+      best = { path, key: item.key };
+    }
+  }
+  return best?.key ?? null;
+}

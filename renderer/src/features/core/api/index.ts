@@ -81,17 +81,6 @@ export const PlatformConfigurations = createCreateOnlyResource<PlatformConfigura
  * used on the Users page). GET /api/v1/users/directory.
  */
 
-export const Inventory = {
-  ...inventoryBase,
-  useByProduct(productId: string | undefined) {
-    return useQuery({
-      queryKey: ['inventory', 'by-product', productId],
-      queryFn: () => get<InventoryItem[]>(`/api/v1/inventory/by-product/${productId}`),
-      enabled: !!productId,
-    });
-  }
-};
-
 export function useInventoryValuation() {
   return useQuery({
     queryKey: ['inventory', 'valuation'],

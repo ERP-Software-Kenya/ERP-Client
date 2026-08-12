@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import { Bills } from "../../api";
 import type { Bill } from "../../types";
 import { ListRestart, Loader2, X } from "lucide-react";
@@ -43,9 +42,18 @@ export function HeldSalesPanel({ onResume, onClose }: Props) {
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <p className="font-semibold">{b.walkInName || `Customer ${b.customerId?.slice(0, 8)}`}</p>
-                    <p className="text-xs text-muted-foreground">{format(new Date(b.createdAt!), "MMM d, h:mm a")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(b.createdAt!).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </p>
                   </div>
-                  <span className="font-semibold text-primary">₹{b.totalAmount}</span>
+                  <span className="font-semibold text-primary tabular-nums">
+                    {fmt(Number(b.totalAmount))}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between mt-3">
                   <span className="text-xs text-muted-foreground">{b.items?.length || 0} items</span>

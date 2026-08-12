@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, ReactNode } fro
 import { toast } from 'sonner';
 import { clerk } from '../lib/clerk';
 import { clearCachedMe, readCachedMe, warmApi, writeCachedMe } from '../lib/auth-cache';
+import { getErrorMessage } from '../lib/api-error';
 import { configureApi } from '../api';
 import { AuthService, MeResponse } from '../services/auth.service';
 import AuthBootScreen, { AuthBootPhase } from '../components/auth/AuthBootScreen';
@@ -122,11 +123,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (signingOut.current || epoch !== authEpoch.current) return;
         // Keep a valid cached session through transient API cold-starts / blips.
         if (cached) {
-          toast.error(error instanceof Error ? error.message : 'Could not refresh your account');
+          toast.error(getErrorMessage(error, 'Could not refresh your account'));
           return;
         }
         clearCachedMe();
-        toast.error(error instanceof Error ? error.message : 'Failed to load your account');
+        toast.error(getErrorMessage(error, 'Failed to load your account'));
         // Callback form skips Clerk's default hard navigate to "/".
         await clerk.signOut(() => undefined);
         setUser(null);
@@ -192,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch((error) => {
         if (!mounted) return;
         console.error('Clerk failed to load', error);
-        toast.error(error instanceof Error ? error.message : 'Auth failed to start');
+        toast.error(getErrorMessage(error, 'Auth failed to start'));
         setLoading(false);
         setBootPhase(null);
       });
@@ -232,7 +233,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Update ref every render so the event listener always has the latest closure.
   logoutRef.current = logout;
 
-  // Listen for 401/403 events dispatched by http.ts and force-logout immediately.
+  // Listen for 401 events dispatched by http.ts and force-logout immediately.
+  // 403 is a permission miss — stay signed in.
   useEffect(() => {
     if (DEV_BYPASS) return;
     const handler = () => {

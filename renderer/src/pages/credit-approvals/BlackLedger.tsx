@@ -1,5 +1,4 @@
 import { CreditApprovals } from "../../api";
-import { format } from "date-fns";
 import { CheckCircle2, Loader2, HandCoins } from "lucide-react";
 import { formatEntityLabel } from "../../lib/entityLabel";
 
@@ -39,7 +38,12 @@ export default function BlackLedger() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <p className="font-semibold text-sm">Bill {b.billNumber}</p>
-                      <p className="text-xs text-muted-foreground">{format(new Date(b.createdAt!), "PPp")}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(b.createdAt!).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-slate-800 text-lg">₹{b.totalAmount}</p>
@@ -73,7 +77,11 @@ export default function BlackLedger() {
                     <div className="mt-1">
                       {c.status === 'paid' ? (
                         <span className="text-[10px] font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">
-                          PAID on {format(new Date(c.paidAt!), "MMM d")}
+                          PAID on{" "}
+                          {new Date(c.paidAt!).toLocaleString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          })}
                         </span>
                       ) : (
                         <span className="text-[10px] font-semibold px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">

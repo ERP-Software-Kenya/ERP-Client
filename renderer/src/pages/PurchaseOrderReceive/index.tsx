@@ -7,6 +7,7 @@ import {
   Info,
 } from 'lucide-react';
 import { Locations, Products, PurchaseOrders, Suppliers } from '../../api';
+import { getErrorMessage } from '../../lib/api-error';
 import type { PurchaseOrderStatus } from '../../types';
 
 const STATUS_CONFIG: Record<PurchaseOrderStatus, { label: string; cls: string }> = {
@@ -96,7 +97,7 @@ export default function PurchaseOrderReceive() {
   if (error || !po) {
     return (
       <div className="flex items-center justify-center h-48 text-sm text-red-500">
-        Failed to load purchase order.
+        {getErrorMessage(error, 'Unable to load purchase order.')}
       </div>
     );
   }

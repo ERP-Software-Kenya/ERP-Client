@@ -8,10 +8,8 @@ import { Input } from '../../../components/ui/input';
 import { FleetDrivers } from '../../../api';
 import { usePagination } from '../../../hooks/usePagination';
 import { DriverStatusBadge } from '../index';
+import { loadErrorMessage } from '../../../lib/api-error';
 import type { FleetDriver, FleetDriverStatus } from '../../../types';
-
-
-interface FormState {
   firstName: string;
   lastName: string;
   phone: string;
@@ -95,7 +93,7 @@ export default function FleetDriversPage() {
         total={total}
         page={page}
         loading={isLoading}
-        error={isError ? `Failed to load drivers: ${error instanceof Error ? error.message : 'Unknown error'}` : null}
+        error={isError ? loadErrorMessage(error, 'drivers') : null}
         onPageChange={setPage}
         onSearchChange={setSearch}
         onRefetch={() => void refetch()}

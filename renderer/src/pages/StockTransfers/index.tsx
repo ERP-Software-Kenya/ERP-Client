@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { StockTransfers, Products, Locations, Inventory, useCompleteStockTransfer } from '../../api';
 import { usePagination } from '../../hooks/usePagination';
+import { loadErrorMessage } from '../../lib/api-error';
 import type { StockTransfer } from '../../types';
 
 function TransferStatusBadge({ status }: { status?: string }) {
@@ -40,7 +41,7 @@ export default function StockTransfersPage() {
     page, limit: 15, filters: debouncedSearch ? { search: debouncedSearch } : undefined,
   });
 
-  const listError = isError ? `Unable to load transfers.${error instanceof Error && error.message ? ` (${error.message})` : ''}` : null;
+  const listError = isError ? loadErrorMessage(error, 'transfers') : null;
   const transferRows = listError ? [] : (data?.items ?? []);
   const total = data?.total ?? 0;
 

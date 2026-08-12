@@ -122,7 +122,7 @@ export function DataTable<T extends { id: string }>({
       <div className="flex-1 overflow-auto rounded-lg border border-border bg-card custom-scrollbar">
         {error && (
           <div className="p-6 text-center text-destructive">
-            <p>Failed to load: {error}</p>
+            <p>{error}</p>
             {onRefetch && (
               <Button variant="ghost" size="sm" className="mt-3" onClick={onRefetch}>
                 Retry

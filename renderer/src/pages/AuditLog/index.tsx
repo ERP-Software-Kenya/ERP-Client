@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Activity } from 'lucide-react';
 import { DataTable } from '../../components/DataTable';
 import { useListActivityLogs } from '../../api';
+import { loadErrorMessage } from '../../lib/api-error';
 import type { ActivityLog } from '../../types';
 
 export default function AuditLog(): React.JSX.Element {
@@ -55,7 +56,7 @@ export default function AuditLog(): React.JSX.Element {
         total={logs.length}
         page={page}
         loading={isLoading}
-        error={error ? 'Failed to load audit logs' : null}
+        error={error ? loadErrorMessage(error, 'audit logs') : null}
         onPageChange={setPage}
         hideSearch
         onRefetch={() => void refetch()}

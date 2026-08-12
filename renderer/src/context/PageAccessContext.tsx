@@ -5,6 +5,7 @@ import { useAuth } from './AuthContext';
 interface PageAccessContextType {
   canAccess: (pageKey: string) => boolean;
   isLoading: boolean;
+  hasConfigs: boolean;
 }
 
 const PageAccessContext = createContext<PageAccessContextType | null>(null);
@@ -37,7 +38,7 @@ export function PageAccessProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <PageAccessContext.Provider value={{ canAccess, isLoading }}>
+    <PageAccessContext.Provider value={{ canAccess, isLoading, hasConfigs: configs.length > 0 }}>
       {children}
     </PageAccessContext.Provider>
   );

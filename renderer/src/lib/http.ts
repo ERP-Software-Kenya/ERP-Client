@@ -1,5 +1,13 @@
+import { toast } from 'sonner';
+import { formatApiErrorBody } from './api-error';
+
 export class HttpError extends Error {
-  constructor(public readonly status: number, message: string) {
+  constructor(
+    public readonly status: number,
+    message: string,
+    /** Parsed JSON error body when the API returns one (e.g. credit approval payload). */
+    public readonly body?: Record<string, unknown>,
+  ) {
     super(message);
     this.name = 'HttpError';
   }
@@ -35,29 +43,50 @@ async function jsonHeaders(): Promise<Record<string, string>> {
   return { 'Content-Type': 'application/json', ...(await authHeader()) };
 }
 
-async function readErrorBody(resp: Response): Promise<string> {
-  const text = await resp.text().catch(() => '');
-  if (!text) return `HTTP ${resp.status} — ${resp.statusText}`;
-  try {
-    const json = JSON.parse(text) as { message?: string; error?: string };
-    return json.message ?? json.error ?? text;
-  } catch {
-    return text;
+// 401 = session dead → logout. 403 = permission miss → stay signed in.
+let last403At = 0;
+
+function checkAuth(status: number, message?: string): void {
+  if (status === 401) {
+    document.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    return;
+  }
+  if (status === 403) {
+    const now = Date.now();
+    if (now - last403At > 2000) {
+      last403At = now;
+      toast.error(message?.trim() || "You don't have permission to do that");
+    }
   }
 }
 
-// Fires a DOM event so AuthContext can log the user out without a direct import dependency.
-function checkAuth(resp: Response): void {
-  if (resp.status === 401 || resp.status === 403) {
-    document.dispatchEvent(new CustomEvent('auth:unauthorized'));
+function parseErrorJson(text: string): Record<string, unknown> | undefined {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('{')) return undefined;
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined;
+  } catch {
+    return undefined;
   }
+}
+
+async function request<T>(resp: Response): Promise<T> {
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    const json = text ? parseErrorJson(text) : undefined;
+    const message = text
+      ? formatApiErrorBody(json ?? text, `HTTP ${resp.status} — ${resp.statusText}`)
+      : `HTTP ${resp.status} — ${resp.statusText}`;
+    checkAuth(resp.status, message);
+    throw new HttpError(resp.status, message, json);
+  }
+  return readJsonBody<T>(resp);
 }
 
 export async function get<T>(path: string, params?: QueryParams): Promise<T> {
   const resp = await fetch(buildUrl(path, params), { headers: await jsonHeaders() });
-  checkAuth(resp);
-  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
-  return readJsonBody<T>(resp);
+  return request<T>(resp);
 }
 
 export async function post<T>(path: string, body?: unknown): Promise<T> {
@@ -66,9 +95,7 @@ export async function post<T>(path: string, body?: unknown): Promise<T> {
     headers: await jsonHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  checkAuth(resp);
-  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
-  return readJsonBody<T>(resp);
+  return request<T>(resp);
 }
 
 export async function put<T>(path: string, body?: unknown): Promise<T> {
@@ -77,9 +104,7 @@ export async function put<T>(path: string, body?: unknown): Promise<T> {
     headers: await jsonHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  checkAuth(resp);
-  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
-  return readJsonBody<T>(resp);
+  return request<T>(resp);
 }
 
 export async function patch<T>(path: string, body?: unknown): Promise<T> {
@@ -88,9 +113,7 @@ export async function patch<T>(path: string, body?: unknown): Promise<T> {
     headers: await jsonHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  checkAuth(resp);
-  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
-  return readJsonBody<T>(resp);
+  return request<T>(resp);
 }
 
 async function readJsonBody<T>(resp: Response): Promise<T> {
@@ -101,13 +124,10 @@ async function readJsonBody<T>(resp: Response): Promise<T> {
 
 export async function del(path: string): Promise<void> {
   const resp = await fetch(buildUrl(path), { method: 'DELETE', headers: await jsonHeaders() });
-  checkAuth(resp);
-  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
+  await request<void>(resp);
 }
 
 export async function uploadForm<T>(path: string, form: FormData): Promise<T> {
   const resp = await fetch(buildUrl(path), { method: 'POST', headers: await authHeader(), body: form });
-  checkAuth(resp);
-  if (!resp.ok) throw new HttpError(resp.status, await readErrorBody(resp));
-  return resp.json() as Promise<T>;
+  return request<T>(resp);
 }

@@ -33,6 +33,17 @@ export const Locations = createResource<Location>('/api/v1/locations', 'location
 
 const inventoryBase = createResource<InventoryItem>('/api/v1/inventory', 'inventory', 'Inventory item');
 
+export const Inventory = {
+  ...inventoryBase,
+  useByProduct(productId: string | undefined) {
+    return useQuery({
+      queryKey: ['inventory', 'by-product', productId],
+      queryFn: () => get<InventoryItem[]>(`/api/v1/inventory/by-product/${productId}`),
+      enabled: !!productId,
+    });
+  },
+};
+
 export function useCategoryParents(enabled = true) {
   return useQuery({
     queryKey: ['categories', 'parents'],
