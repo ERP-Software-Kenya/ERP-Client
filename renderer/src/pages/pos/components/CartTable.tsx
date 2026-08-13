@@ -1,16 +1,10 @@
-import { AlertCircle, Archive, Minus, PackagePlus, PauseCircle, Pencil, Plus, ShoppingCart, Trash2, X } from "lucide-react";
+import { AlertCircle, Archive, Minus, PackagePlus, PauseCircle, Plus, ShoppingCart, Trash2, X } from "lucide-react";
 import type { SaleType } from "../../../types";
 import type { CheckoutResult } from "../checkout";
 import { fmt, lineTax, lineTotal, type BillLine, type ExtraCharge, type Mode } from "../posHelpers";
 import { type StockInfo } from "../posStock";
 import { StockBadge } from "./StockBadge";
 import { StepList } from "./StepList";
-
-const TAXES_LIST = [
-  { name: "VAT 16%", pct: 16 },
-  { name: "VAT 8%", pct: 8 },
-  { name: "None", pct: 0 },
-];
 
 export interface CartTableProps {
   mode: Mode;
@@ -21,17 +15,9 @@ export interface CartTableProps {
   lines: BillLine[];
   extraCharges: ExtraCharge[];
   onQtyChange: (lineId: number, qty: number) => void;
-  onBlackRateChange: (lineId: number, rate: number) => void;
+  onRateChange: (lineId: number, rate: number) => void;
   onRemoveLine: (id: number) => void;
   onRemoveCharge: (id: number) => void;
-  overrideLine: number | null;
-  overridePrice: string;
-  overrideTax: string;
-  onStartOverride: (line: BillLine) => void;
-  onOverridePriceChange: (v: string) => void;
-  onOverrideTaxChange: (v: string) => void;
-  onApplyOverride: (id: number) => void;
-  onCancelOverride: () => void;
   onVoidBill: () => void;
   onHoldSale: () => void;
   holding: boolean;
@@ -51,17 +37,9 @@ export function CartTable({
   lines,
   extraCharges,
   onQtyChange,
-  onBlackRateChange,
+  onRateChange,
   onRemoveLine,
   onRemoveCharge,
-  overrideLine,
-  overridePrice,
-  overrideTax,
-  onStartOverride,
-  onOverridePriceChange,
-  onOverrideTaxChange,
-  onApplyOverride,
-  onCancelOverride,
   onVoidBill,
   onHoldSale,
   holding,
@@ -167,56 +145,7 @@ export function CartTable({
                     {line.sku}
                   </td>
                   <td className="px-3 py-3">
-                    <div className="flex items-start gap-1.5">
-                      <p className="text-foreground font-medium text-sm">{line.name}</p>
-                      {saleType !== "black" && overrideLine !== line.id && (
-                        <button
-                          type="button"
-                          onClick={() => onStartOverride(line)}
-                          title="Override price / tax"
-                          className="mt-0.5 flex-shrink-0 text-muted-foreground/60 hover:text-amber-600 transition"
-                        >
-                          <Pencil size={11} />
-                        </button>
-                      )}
-                    </div>
-                    {saleType !== "black" && overrideLine === line.id && (
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <input
-                          type="number"
-                          value={overridePrice}
-                          onChange={(e) => onOverridePriceChange(e.target.value)}
-                          placeholder={`Rate (${line.rate})`}
-                          className="w-24 text-xs px-2 py-1 border border-amber-300 rounded outline-none focus:border-amber-500 bg-amber-50"
-                        />
-                        <select
-                          value={overrideTax}
-                          onChange={(e) => onOverrideTaxChange(e.target.value)}
-                          className="text-xs px-2 py-1 border border-amber-300 rounded outline-none bg-amber-50"
-                        >
-                          <option value="">Tax as-is ({line.taxPct}%)</option>
-                          {TAXES_LIST.map((t) => (
-                            <option key={t.pct} value={t.pct}>
-                              {t.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => onApplyOverride(line.id)}
-                          className="px-2 py-1 bg-amber-500 text-white text-xs rounded hover:bg-amber-600"
-                        >
-                          Apply
-                        </button>
-                        <button
-                          type="button"
-                          onClick={onCancelOverride}
-                          className="text-muted-foreground hover:text-muted-foreground"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    )}
+                    <p className="text-foreground font-medium text-sm">{line.name}</p>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-1">
@@ -251,14 +180,26 @@ export function CartTable({
                           value={line.rate}
                           onChange={(e) => {
                             const v = parseFloat(e.target.value);
-                            if (!isNaN(v)) onBlackRateChange(line.id, v);
+                            if (!isNaN(v) && v >= 0) onRateChange(line.id, v);
                           }}
                           className="w-24 text-sm px-2 py-1 border border-border rounded-lg outline-none focus:border-primary tabular-nums"
                         />
                       </td>
                     </>
                   ) : (
-                    <td className="px-3 py-3 text-foreground">{fmt(line.rate)}</td>
+                    <td className="px-3 py-3">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={line.rate}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v) && v >= 0) onRateChange(line.id, v);
+                        }}
+                        className="w-24 text-sm px-2 py-1 border border-border rounded-lg outline-none focus:border-primary tabular-nums"
+                      />
+                    </td>
                   )}
                   {mode === "sales" && stock && (
                     <td className="px-3 py-3">

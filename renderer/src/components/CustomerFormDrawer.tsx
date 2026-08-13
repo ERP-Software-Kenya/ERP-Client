@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { FormDrawer, Field } from './FormDrawer';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Customers } from '../api';
+import { Customers, BillingSettings } from '../api';
 import type { Customer, CustomerType } from '../types';
 
 const CUSTOMER_TYPE_OPTIONS: Array<{ value: CustomerType; label: string }> = [
@@ -19,10 +19,21 @@ interface FormState {
   gstin: string;
   creditLimit: string;
   customerType: CustomerType;
+  discountPercent: string;
+  skipOverLimitApproval: '' | 'true' | 'false';
 }
 
 function emptyForm(initialName?: string): FormState {
-  return { name: initialName ?? '', email: '', phone: '', gstin: '', creditLimit: '', customerType: 'new' };
+  return {
+    name: initialName ?? '',
+    email: '',
+    phone: '',
+    gstin: '',
+    creditLimit: '',
+    customerType: 'new',
+    discountPercent: '',
+    skipOverLimitApproval: '',
+  };
 }
 
 function formFromCustomer(customer: Customer): FormState {
@@ -33,6 +44,9 @@ function formFromCustomer(customer: Customer): FormState {
     gstin: customer.gstin ?? '',
     creditLimit: customer.creditLimit != null ? String(customer.creditLimit) : '',
     customerType: (customer.customerType as CustomerType) || 'regular',
+    discountPercent: customer.discountPercent != null ? String(customer.discountPercent) : '',
+    skipOverLimitApproval:
+      customer.skipOverLimitApproval == null ? '' : customer.skipOverLimitApproval ? 'true' : 'false',
   };
 }
 
@@ -48,6 +62,7 @@ export function CustomerFormDrawer({ open, onClose, editing, initialName, onSave
   const [form, setForm] = useState<FormState>(() => (editing ? formFromCustomer(editing) : emptyForm(initialName)));
   const createMutation = Customers.useCreate();
   const updateMutation = Customers.useUpdate();
+  const { data: typeRules = [] } = BillingSettings.useCustomerTypeRules();
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   useEffect(() => {
@@ -60,6 +75,7 @@ export function CustomerFormDrawer({ open, onClose, editing, initialName, onSave
     if (!form.name.trim()) return;
 
     const trimmedCreditLimit = form.creditLimit.trim();
+    const trimmedDiscount = form.discountPercent.trim();
     const body = {
       name: form.name.trim(),
       email: form.email.trim() || undefined,
@@ -67,6 +83,8 @@ export function CustomerFormDrawer({ open, onClose, editing, initialName, onSave
       gstin: form.gstin.trim() || undefined,
       creditLimit: trimmedCreditLimit ? Number(trimmedCreditLimit) : undefined,
       customerType: form.customerType,
+      discountPercent: trimmedDiscount === '' ? null : Number(trimmedDiscount),
+      skipOverLimitApproval: form.skipOverLimitApproval === '' ? null : form.skipOverLimitApproval === 'true',
     };
 
     if (editing) {
@@ -112,6 +130,11 @@ export function CustomerFormDrawer({ open, onClose, editing, initialName, onSave
             step="0.01"
             value={form.creditLimit}
             onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
+            placeholder={
+              typeRules.find((r) => r.customerType === form.customerType)?.defaultCreditLimit != null
+                ? `Type default: ${typeRules.find((r) => r.customerType === form.customerType)?.defaultCreditLimit}`
+                : undefined
+            }
           />
         </Field>
         <Field label="Customer Type">
@@ -125,6 +148,28 @@ export function CustomerFormDrawer({ open, onClose, editing, initialName, onSave
                 {o.label}
               </option>
             ))}
+          </select>
+        </Field>
+        <Field label="Discount % override">
+          <Input
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            value={form.discountPercent}
+            onChange={(e) => setForm({ ...form, discountPercent: e.target.value })}
+            placeholder="Inherit from type"
+          />
+        </Field>
+        <Field label="Skip over-limit approval">
+          <select
+            value={form.skipOverLimitApproval}
+            onChange={(e) => setForm({ ...form, skipOverLimitApproval: e.target.value as FormState['skipOverLimitApproval'] })}
+            className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card outline-none focus:border-primary"
+          >
+            <option value="">Inherit from type</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
           </select>
         </Field>
       </form>

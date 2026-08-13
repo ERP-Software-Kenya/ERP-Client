@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { ChevronDown, Minus, Package, Plus, Receipt, Scan, X } from "lucide-react";
+import { ChevronDown, Package, Receipt, Scan, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Product, SaleType, Supplier } from "../../../types";
 import { StockBadge } from "./StockBadge";
@@ -14,17 +14,10 @@ import {
 import { formatEntityLabel } from "../../../lib/entityLabel";
 import { fmt, productRate, type Mode } from "../posHelpers";
 
-export interface QuickCharge {
+export interface QuickChargeTile {
   label: string;
   amount: number;
 }
-
-const QUICK_CHARGES: QuickCharge[] = [
-  { label: "Delivery Fee", amount: 200 },
-  { label: "Packaging", amount: 50 },
-  { label: "Store Credit", amount: -100 },
-  { label: "Discount", amount: -50 },
-];
 
 export interface ProductSearchPanelProps {
   mode: Mode;
@@ -36,10 +29,9 @@ export interface ProductSearchPanelProps {
   onEnter: () => void;
   suggestions: Product[];
   onAddProduct: (p: Product) => void;
-  qty: number;
-  onQtyChange: (q: number) => void;
   onAddBtn: () => void;
-  onAddQuickCharge: (c: QuickCharge) => void;
+  onAddQuickCharge: (c: QuickChargeTile) => void;
+  quickCharges: QuickChargeTile[];
   supplierId: string;
   onSupplierChange: (id: string) => void;
   suppliers: Supplier[];
@@ -56,10 +48,9 @@ export function ProductSearchPanel({
   onEnter,
   suggestions,
   onAddProduct,
-  qty,
-  onQtyChange,
   onAddBtn,
   onAddQuickCharge,
+  quickCharges,
   supplierId,
   onSupplierChange,
   suppliers,
@@ -145,49 +136,22 @@ export function ProductSearchPanel({
           </p>
         )}
 
-        <div className="flex items-center gap-2 mt-3">
-          <div className="flex items-center border border-border rounded-lg overflow-hidden flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => onQtyChange(Math.max(1, qty - 1))}
-              className="px-2.5 py-2 hover:bg-muted text-muted-foreground transition"
-            >
-              <Minus size={13} />
-            </button>
-            <input
-              type="number"
-              value={qty}
-              min={1}
-              onChange={(e) =>
-                onQtyChange(Math.max(1, parseInt(e.target.value, 10) || 1))
-              }
-              className="w-12 text-center text-sm font-semibold border-x border-border py-2 outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => onQtyChange(qty + 1)}
-              className="px-2.5 py-2 hover:bg-muted text-muted-foreground transition"
-            >
-              <Plus size={13} />
-            </button>
-          </div>
-          <button
-            type="button"
-            onClick={onAddBtn}
-            className={`flex-1 py-2 rounded-lg text-white text-sm font-semibold transition ${accentBtnCls}`}
-          >
-            Add
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onAddBtn}
+          className={`mt-3 w-full py-2 rounded-lg text-white text-sm font-semibold transition ${accentBtnCls}`}
+        >
+          Add
+        </button>
       </div>
 
-      {mode === "sales" && (
+      {mode === "sales" && quickCharges.length > 0 && (
         <div className="p-4 border-b border-border">
           <p className="text-xs font-semibold text-muted-foreground uppercase mb-2">
             Quick Charges
           </p>
           <div className="grid grid-cols-2 gap-1.5">
-            {QUICK_CHARGES.map((c) => (
+            {quickCharges.map((c) => (
               <button
                 key={c.label}
                 type="button"

@@ -515,8 +515,30 @@ export interface Customer {
   creditLimit?: number | null;
   creditBalance?: number;
   customerType?: CustomerType | string | null;
+  discountPercent?: number | null;
+  skipOverLimitApproval?: boolean | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface QuickCharge {
+  id: string;
+  organizationId: string;
+  label: string;
+  amount: number;
+  enabled: boolean;
+  sortOrder: number;
+  createdAt?: string;
+}
+
+export interface CustomerTypeRule {
+  id: string;
+  organizationId: string;
+  customerType: CustomerType | string;
+  discountPercent: number;
+  defaultCreditLimit?: number | null;
+  skipOverLimitApproval: boolean;
+  createdAt?: string;
 }
 
 export type CreditApprovalStatus = 'pending' | 'approved' | 'rejected';
@@ -532,6 +554,9 @@ export interface CreditApprovalRequest {
   decidedById?: string | null;
   decidedAt?: string | null;
   createdAt: string;
+  bill?: Bill | null;
+  /** Legacy alias used by older Pending Approvals UI. */
+  amount?: number;
 }
 
 export type CommissionStatus = 'owed' | 'paid';

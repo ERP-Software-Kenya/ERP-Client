@@ -48,6 +48,7 @@ export interface CheckoutPanelProps {
   onCustomerCreated: (customer: Customer) => void;
 
   selectedCustomer: Customer | undefined;
+  customerType?: string;
   creditLimit: number;
   creditBalance: number;
   creditRemaining: number;
@@ -116,6 +117,7 @@ export function CheckoutPanel({
   onCloseCreateCustomer,
   onCustomerCreated,
   selectedCustomer,
+  customerType,
   creditLimit,
   creditBalance,
   creditRemaining,
@@ -305,7 +307,11 @@ export function CheckoutPanel({
               }}
               onFocus={() => mode === "sales" && onShowCustomerSuggestions(true)}
               placeholder={
-                mode === "sales" ? "Walk-in name or search customer…" : "Supplier invoice / LPO no."
+                mode === "sales"
+                  ? saleType === "credit"
+                    ? "Search creditor…"
+                    : "Walk-in name or search customer…"
+                  : "Supplier invoice / LPO no."
               }
               className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-primary"
             />
@@ -352,6 +358,11 @@ export function CheckoutPanel({
             <div className="mt-1.5 flex items-center justify-between gap-2">
               <p className="text-[10px] text-muted-foreground truncate">
                 Linked: {formatEntityLabel({ name: customerInfo, id: customerId })}
+                {(customerType || selectedCustomer?.customerType) && (
+                  <span className="ml-1.5 rounded bg-muted px-1.5 py-0.5 font-semibold uppercase tracking-wide text-[9px] text-foreground">
+                    {String(customerType || selectedCustomer?.customerType).replace(/_/g, " ")}
+                  </span>
+                )}
               </p>
               <button
                 type="button"
@@ -374,6 +385,12 @@ export function CheckoutPanel({
           )}
           {mode === "sales" && saleType === "credit" && customerId && selectedCustomer && (
             <div className="mt-2 rounded-lg border border-amber-300/50 bg-amber-500/10 px-3 py-2 space-y-1 text-[11px]">
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground">Type</span>
+                <span className="font-semibold capitalize">
+                  {String(customerType || selectedCustomer.customerType || "regular").replace(/_/g, " ")}
+                </span>
+              </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Limit</span>
                 <span className="font-semibold tabular-nums">{fmt(creditLimit)}</span>
@@ -495,21 +512,31 @@ export function CheckoutPanel({
             Fix stock issues in the cart before completing
           </p>
         )}
-        <button
-          type="button"
-          onClick={onGenerateBill}
-          disabled={generateDisabled}
-          className={`w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed ${accentBtnCls}`}
-        >
-          {mode === "sales" ? <Receipt size={16} /> : <PackagePlus size={16} />}
-          {checkingOut
-            ? "Processing…"
-            : mode === "sales"
-              ? creditNeedsApproval
-                ? "Request approval"
-                : "Complete Sale"
-              : "Create Purchase Order"}
-        </button>
+        {mode === "sales" && creditNeedsApproval ? (
+          <button
+            type="button"
+            onClick={onGenerateBill}
+            disabled={generateDisabled}
+            className="w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed bg-amber-600 hover:bg-amber-700"
+          >
+            <Receipt size={16} />
+            {checkingOut ? "Processing…" : "Send for Approval"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onGenerateBill}
+            disabled={generateDisabled}
+            className={`w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed ${accentBtnCls}`}
+          >
+            {mode === "sales" ? <Receipt size={16} /> : <PackagePlus size={16} />}
+            {checkingOut
+              ? "Processing…"
+              : mode === "sales"
+                ? "Complete Sale"
+                : "Create Purchase Order"}
+          </button>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"

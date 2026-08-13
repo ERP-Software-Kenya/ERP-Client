@@ -1,15 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Printer } from "lucide-react";
 import { toast } from "sonner";
-import { useSearchParams } from "react-router-dom";
-import {
-  Customers,
-  Inventory,
-  Locations,
-  Products,
-  Suppliers,
-  ClerkUsers,
-} from "../../api";
+import { BillingSettings, Customers, CreditApprovals, ClerkUsers, Inventory, Locations, Products, Suppliers } from "../../api";
 import { get } from "../../lib/http";
 import { useAuth } from "../../context/AuthContext";
 import type {
@@ -38,11 +30,7 @@ import { ReceiptDocument } from "./ReceiptDocument";
 import { DebtorNoteDocument } from "./DebtorNoteDocument";
 import { StatementDocument } from "./StatementDocument";
 import { DeliveryNoteDocument } from "./DeliveryNoteDocument";
-import {
-  buildSaleDocHtml,
-  defaultPdfFileName,
-  type SaleDocKind,
-} from "./buildSaleDocHtml";
+import { downloadSaleDoc } from "./billReceipt";
 import { HeldSalesPanel } from "./HeldSalesPanel";
 import { productRate, type BillLine, type ExtraCharge, type Mode, type PrintDoc } from "./posHelpers";
 import {
@@ -57,30 +45,13 @@ import { ProductSearchPanel } from "./components/ProductSearchPanel";
 import { CartTable } from "./components/CartTable";
 import { CheckoutPanel } from "./components/CheckoutPanel";
 import { StepList } from "./components/StepList";
-import type { QuickCharge } from "./components/ProductSearchPanel";
+import type { QuickChargeTile } from "./components/ProductSearchPanel";
+import { discountedRate, effectiveDiscountPercent, effectiveSkipOverLimitApproval } from "./effectiveBilling";
 
 let lineIdSeq = 100;
 
 function printReceipt() {
   window.print();
-}
-
-async function downloadSalePdf(receipt: PosReceipt, kind: SaleDocKind) {
-  const api = window.electronAPI;
-  if (!api?.savePdf) {
-    toast.error("PDF download needs the desktop app");
-    return;
-  }
-  const res = await api.savePdf({
-    html: buildSaleDocHtml(receipt, kind),
-    defaultFileName: defaultPdfFileName(receipt, kind),
-  });
-  if (res.canceled) return;
-  if (!res.success) {
-    toast.error(res.error || "Could not save PDF");
-    return;
-  }
-  toast.success("PDF saved");
 }
 
 function BillSuccessModal({
@@ -150,7 +121,7 @@ function BillSuccessModal({
                 className="text-lg font-semibold tracking-tight text-foreground"
               >
                 {pendingCreditApproval
-                  ? "Sent for approval"
+                  ? `Waiting for approval — ${receipt.ref}`
                   : receipt.mode === "sales"
                     ? "Sale complete"
                     : "Purchase order created"}
@@ -161,7 +132,7 @@ function BillSuccessModal({
               <div className="mt-2">
                 {pendingCreditApproval ? (
                   <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                    Held as draft — awaiting manager
+                    Waiting for approval — {receipt.ref}
                   </span>
                 ) : receipt.synced && !failed ? (
                   <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
@@ -252,7 +223,7 @@ function BillSuccessModal({
               {receipt.mode === "sales" && (
                 <button
                   type="button"
-                  onClick={() => void downloadSalePdf(receipt, printDoc)}
+                  onClick={() => void downloadSaleDoc(receipt, printDoc)}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
                 >
                   PDF
@@ -277,15 +248,10 @@ function BillSuccessModal({
   );
 }
 
-export default function POSTerminal() {
-  const [searchParams] = useSearchParams();
-  const [mode, setMode] = useState<Mode>(
-    searchParams.get("mode") === "purchase" ? "purchase" : "sales",
-  );
+export default function POSTerminal({ mode }: { mode: Mode }) {
   const [locationId, setLocationId] = useState("");
   const [lines, setLines] = useState<BillLine[]>([]);
   const [searchVal, setSearchVal] = useState("");
-  const [qty, setQty] = useState(1);
   const [payMethod, setPayMethod] = useState<PosPayMethod>("cash");
   const [paymentReference, setPaymentReference] = useState("");
   const [cashTendered, setCashTendered] = useState("");
@@ -294,9 +260,6 @@ export default function POSTerminal() {
   const [supplierId, setSupplierId] = useState("");
   const [supplierRef, setSupplierRef] = useState("");
   const [extraCharges, setExtraCharges] = useState<ExtraCharge[]>([]);
-  const [overrideLine, setOverrideLine] = useState<number | null>(null);
-  const [overridePrice, setOverridePrice] = useState("");
-  const [overrideTax, setOverrideTax] = useState("");
   const [success, setSuccess] = useState<{
     receipt: PosReceipt;
     steps: CheckoutStep[];
@@ -318,6 +281,14 @@ export default function POSTerminal() {
   const [showHeldSales, setShowHeldSales] = useState(false);
   /** Bill id being edited via Resume — checkout completes THIS bill instead of creating a new one. */
   const [activeDraftBillId, setActiveDraftBillId] = useState<string | null>(null);
+  const [dismissedRejectionIds, setDismissedRejectionIds] = useState<string[]>(() => {
+    try {
+      const raw = sessionStorage.getItem("pos-dismissed-credit-rejections");
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [showDelivery, setShowDelivery] = useState(false);
   const [delivery, setDelivery] = useState<DeliveryInfo>({});
   const searchRef = useRef<HTMLInputElement>(null);
@@ -355,16 +326,31 @@ export default function POSTerminal() {
       !customerId
         ? debouncedCustomerInfo.trim()
         : undefined,
+    hasCreditLimit: saleType === "credit" ? true : undefined,
     enabled:
       mode === "sales" &&
       debouncedCustomerInfo.trim().length >= 2 &&
       !customerId,
   });
   const { data: selectedCustomer } = Customers.useGet(
-    mode === "sales" && (saleType === "credit" || saleType === "black") && customerId
-      ? customerId
-      : undefined,
+    mode === "sales" && customerId ? customerId : undefined,
   );
+  const { data: myRejected = [] } = CreditApprovals.useMyRejected(mode === "sales");
+  const { data: typeRules = [] } = BillingSettings.useCustomerTypeRules();
+  const { data: orgQuickCharges = [] } = BillingSettings.useQuickCharges({ enabled: true });
+
+  const rejectedNotices = useMemo(
+    () => myRejected.filter((r) => !dismissedRejectionIds.includes(r.id)),
+    [myRejected, dismissedRejectionIds],
+  );
+
+  const dismissRejection = (id: string) => {
+    setDismissedRejectionIds((prev) => {
+      const next = prev.includes(id) ? prev : [...prev, id];
+      sessionStorage.setItem("pos-dismissed-credit-rejections", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const { data: facilitatorSearch } = ClerkUsers.useSearch({
     page: 1,
@@ -423,7 +409,7 @@ export default function POSTerminal() {
   }, [productSearch, searchVal]);
 
   const addProduct = (p: Product) => {
-    let addQty = qty;
+    let addQty = 1;
 
     if (mode === "sales") {
       const stock = getProductStock(p.id);
@@ -451,6 +437,11 @@ export default function POSTerminal() {
       }
     }
 
+    const listRate = productRate(p, mode);
+    const rate =
+      mode === "sales"
+        ? discountedRate(listRate, effectiveDiscountPercent(selectedCustomer, customerType, typeRules))
+        : listRate;
     const sku = formatEntityLabel({ sku: p.sku, id: p.id });
     const existing = lines.find((l) => l.productId === p.id);
     if (existing) {
@@ -468,15 +459,14 @@ export default function POSTerminal() {
           sku,
           name: p.name || "Unnamed product",
           qty: addQty,
-          rate: productRate(p, mode),
+          rate,
           taxPct: 0,
           unitLabel: p.unit || "pcs",
-          officialRate: productRate(p, mode),
+          officialRate: listRate,
         },
       ]);
     }
     setSearchVal("");
-    setQty(1);
     searchRef.current?.focus();
   };
 
@@ -510,35 +500,11 @@ export default function POSTerminal() {
     );
   };
 
-  const handleBlackRateChange = (lineId: number, rate: number) => {
+  const handleRateChange = (lineId: number, rate: number) => {
     setLines((ls) => ls.map((l) => (l.id === lineId ? { ...l, rate } : l)));
   };
 
-  const handleStartOverride = (line: BillLine) => {
-    setOverrideLine(line.id);
-    setOverridePrice(String(line.rate));
-    setOverrideTax(String(line.taxPct));
-  };
-
-  const applyOverride = (id: number) => {
-    setLines((ls) =>
-      ls.map((l) => {
-        if (l.id !== id) return l;
-        const parsedRate = parseFloat(overridePrice);
-        const rate =
-          overridePrice !== "" && !isNaN(parsedRate) ? parsedRate : l.rate;
-        const parsedTax = parseFloat(overrideTax);
-        const taxPct =
-          overrideTax !== "" && !isNaN(parsedTax) ? parsedTax : l.taxPct;
-        return { ...l, rate, taxPct };
-      }),
-    );
-    setOverrideLine(null);
-    setOverridePrice("");
-    setOverrideTax("");
-  };
-
-  const addQuickCharge = (c: QuickCharge) => {
+  const addQuickCharge = (c: QuickChargeTile) => {
     setExtraCharges((ec) => [
       ...ec,
       { id: Date.now(), label: c.label, amount: c.amount },
@@ -559,7 +525,8 @@ export default function POSTerminal() {
     saleType === "credit" &&
     !!customerId &&
     creditLimit > 0 &&
-    creditBalance + grandTotal > creditLimit;
+    creditBalance + grandTotal > creditLimit &&
+    !effectiveSkipOverLimitApproval(selectedCustomer, customerType, typeRules);
   const creditMissingCustomer = mode === "sales" && saleType === "credit" && !customerId;
   const creditMissingLimit =
     mode === "sales" &&
@@ -580,7 +547,6 @@ export default function POSTerminal() {
     setCustomerId("");
     setSupplierRef("");
     setSearchVal("");
-    setQty(1);
     setCashTendered("");
     setPaymentReference("");
     setCheckoutResult(null);
@@ -597,12 +563,6 @@ export default function POSTerminal() {
     setDelivery({});
     setPrintDoc("receipt");
     setActiveDraftBillId(null);
-  };
-
-  const handleModeChange = (m: Mode) => {
-    setMode(m);
-    voidBill();
-    setSupplierId("");
   };
 
   const closeSuccess = () => {
@@ -875,9 +835,44 @@ export default function POSTerminal() {
 
   return (
     <div className={`flex h-full min-h-0 flex-col overflow-hidden bg-muted ${modeShellCls}`}>
+      {mode === "sales" && rejectedNotices.length > 0 && (
+        <div className="pos-no-print flex-shrink-0 space-y-2 border-b border-amber-300/60 bg-amber-500/15 px-4 py-2">
+          {rejectedNotices.map((req) => {
+            const billNo = req.bill?.billNumber || req.billId.slice(0, 8);
+            return (
+              <div
+                key={req.id}
+                className="flex flex-wrap items-center justify-between gap-2 text-sm text-amber-950 dark:text-amber-100"
+              >
+                <p className="font-medium">
+                  Credit sale <span className="font-mono">{billNo}</span> was rejected.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded-lg bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800"
+                    onClick={() => {
+                      dismissRejection(req.id);
+                      void resumeSale(req.billId);
+                    }}
+                  >
+                    Resume
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border border-amber-700/40 px-3 py-1 text-xs font-semibold hover:bg-amber-500/20"
+                    onClick={() => dismissRejection(req.id)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <PosToolbar
         mode={mode}
-        onModeChange={handleModeChange}
         saleType={saleType}
         onSaleTypeChange={setSaleType}
         canCreateBlackSale={canCreateBlackSale}
@@ -906,10 +901,9 @@ export default function POSTerminal() {
           onEnter={handleAddBtn}
           suggestions={suggestions}
           onAddProduct={addProduct}
-          qty={qty}
-          onQtyChange={setQty}
           onAddBtn={handleAddBtn}
           onAddQuickCharge={addQuickCharge}
+          quickCharges={orgQuickCharges.map((c) => ({ label: c.label, amount: c.amount }))}
           supplierId={supplierId}
           onSupplierChange={setSupplierId}
           suppliers={suppliers}
@@ -925,17 +919,9 @@ export default function POSTerminal() {
           lines={lines}
           extraCharges={extraCharges}
           onQtyChange={handleLineQtyChange}
-          onBlackRateChange={handleBlackRateChange}
+          onRateChange={handleRateChange}
           onRemoveLine={removeLine}
           onRemoveCharge={removeCharge}
-          overrideLine={overrideLine}
-          overridePrice={overridePrice}
-          overrideTax={overrideTax}
-          onStartOverride={handleStartOverride}
-          onOverridePriceChange={setOverridePrice}
-          onOverrideTaxChange={setOverrideTax}
-          onApplyOverride={applyOverride}
-          onCancelOverride={() => setOverrideLine(null)}
           onVoidBill={voidBill}
           onHoldSale={() => void holdSale()}
           holding={holding}
@@ -985,6 +971,7 @@ export default function POSTerminal() {
           onCloseCreateCustomer={() => setShowCreateCustomer(false)}
           onCustomerCreated={handleCustomerCreated}
           selectedCustomer={selectedCustomer}
+          customerType={customerType}
           creditLimit={creditLimit}
           creditBalance={creditBalance}
           creditRemaining={creditRemaining}

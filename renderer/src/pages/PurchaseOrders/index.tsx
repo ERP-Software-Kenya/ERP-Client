@@ -159,7 +159,7 @@ export default function PurchaseOrdersPage() {
         }
         onRefetch={() => void refetch()}
         isAdmin={true}
-        onAdd={() => navigate("/pos?mode=purchase")}
+        onAdd={() => navigate("/pos/purchase")}
         addLabel="Draft Purchase Order"
         onView={(row) => navigate(`/purchase-orders/${row.id}`)}
         onDelete={(row) => setDeleteTarget(row)}

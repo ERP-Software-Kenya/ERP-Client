@@ -1,4 +1,4 @@
-import { ChevronDown, Package, ShoppingCart } from "lucide-react";
+import { ChevronDown, Package } from "lucide-react";
 import type { CustomerType, Location, PaymentTiming, SaleType } from "../../../types";
 import {
   DropdownMenu,
@@ -37,43 +37,6 @@ const PAYMENT_TIMING_OPTIONS: Array<{ value: PaymentTiming; label: string }> = [
   { value: "after_delivery", label: "After Delivery" },
   { value: "half", label: "Half" },
 ];
-
-function ModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: Mode;
-  onChange: (m: Mode) => void;
-}) {
-  return (
-    <div className="flex items-center bg-muted rounded-lg p-1 gap-1">
-      <button
-        type="button"
-        onClick={() => onChange("sales")}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
-          mode === "sales"
-            ? "bg-primary text-primary-foreground shadow-sm"
-            : "text-muted-foreground hover:text-foreground"
-        }`}
-      >
-        <ShoppingCart size={14} />
-        Sales
-      </button>
-      {/* <button
-        type="button"
-        onClick={() => onChange("purchase")}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
-          mode === "purchase"
-            ? "bg-orange-500 text-white shadow-sm"
-            : "text-muted-foreground hover:text-foreground"
-        }`}
-      >
-        <PackagePlus size={14} />
-        Purchase Receiving
-      </button> */}
-    </div>
-  );
-}
 
 function SaleTypeToggle({
   saleType,
@@ -155,7 +118,6 @@ function PaymentTimingRow({
 
 export interface PosToolbarProps {
   mode: Mode;
-  onModeChange: (m: Mode) => void;
   saleType: SaleType;
   onSaleTypeChange: (t: SaleType) => void;
   canCreateBlackSale: boolean;
@@ -175,7 +137,6 @@ export interface PosToolbarProps {
 
 export function PosToolbar({
   mode,
-  onModeChange,
   saleType,
   onSaleTypeChange,
   canCreateBlackSale,
@@ -196,11 +157,6 @@ export function PosToolbar({
     <div className="flex items-center gap-4 px-5 py-3 bg-card border-b border-border flex-shrink-0 flex-wrap">
       {/* Transaction context cluster */}
       <div className="flex items-center gap-3 flex-wrap">
-        <ModeToggle
-          mode={mode}
-          onChange={onModeChange}
-        />
-
         {mode === "sales" && (
           <SaleTypeToggle
             saleType={saleType}
