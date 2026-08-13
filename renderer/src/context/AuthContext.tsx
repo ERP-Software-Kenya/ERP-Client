@@ -22,18 +22,6 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://core-apis-m03n.onrender.com';
 
-const DEV_BYPASS = import.meta.env.DEV && import.meta.env.VITE_DEV_BYPASS_AUTH === 'true';
-const DEV_USER: MeResponse = {
-  id: 'dev-user',
-  clerkUserId: 'dev-user',
-  email: 'dev@local',
-  firstName: 'Dev',
-  lastName: 'User',
-  roles: ['admin'],
-  isOnboarded: true,
-  organization: { id: 'dev-org', name: 'Dev Org', slug: 'dev-org' },
-};
-
 type ClerkResources = Parameters<Parameters<typeof clerk.addListener>[0]>[0];
 
 configureApi(API_BASE, () => (clerk.session ? clerk.session.getToken() : Promise.resolve(null)));
@@ -76,10 +64,10 @@ async function loadMe(
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<MeResponse | null>(DEV_BYPASS ? DEV_USER : null);
-  const [loading, setLoading] = useState(!DEV_BYPASS);
+  const [user, setUser] = useState<MeResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [bootPhase, setBootPhase] = useState<AuthBootPhase | null>(DEV_BYPASS ? null : 'starting');
+  const [bootPhase, setBootPhase] = useState<AuthBootPhase | null>('starting');
   const refreshInFlight = useRef<Promise<void> | null>(null);
   /** Bumped on logout so in-flight /me results cannot update UI afterward. */
   const authEpoch = useRef(0);
@@ -90,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const lastSessionId = useRef<string | null>(null);
 
   const refresh = async () => {
-    if (DEV_BYPASS) return;
     if (signingOut.current) return;
     if (refreshInFlight.current) return refreshInFlight.current;
 
@@ -149,8 +136,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    if (DEV_BYPASS) return;
-
     // Start waking the API while Clerk loads / user types credentials.
     warmApi(API_BASE);
 
@@ -217,11 +202,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearCachedMe();
 
     try {
-      if (!DEV_BYPASS) {
-        // Clerk defaults to window.navigate("/") after sign-out (full page reload).
-        // Pass a callback so we keep SPA routing — Topbar navigates to /login.
-        await clerk.signOut(() => undefined);
-      }
+      // Clerk defaults to window.navigate("/") after sign-out (full page reload).
+      // Pass a callback so we keep SPA routing — Topbar navigates to /login.
+      await clerk.signOut(() => undefined);
     } finally {
       signingOut.current = false;
       setUser(null);
@@ -236,7 +219,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Listen for 401 events dispatched by http.ts and force-logout immediately.
   // 403 is a permission miss — stay signed in.
   useEffect(() => {
-    if (DEV_BYPASS) return;
     const handler = () => {
       if (!signingOut.current) void logoutRef.current?.();
     };

@@ -7,7 +7,10 @@ import { useAuth } from './context/AuthContext';
 import { PageAccessProvider } from './context/PageAccessContext';
 import PageAccessRoute from './components/PageAccessRoute';
 
-const Login = lazy(() => import('./pages/Login'));
+const SignIn = lazy(() => import('./pages/SignIn'));
+const SignUp = lazy(() => import('./pages/SignUp'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const VerifySecondFactor = lazy(() => import('./pages/VerifySecondFactor'));
 const SSOCallback = lazy(() => import('./pages/SSOCallback'));
 const SSOContinue = lazy(() => import('./pages/SSOContinue'));
 const CreateOrganization = lazy(() => import('./pages/CreateOrganization'));
@@ -82,7 +85,10 @@ function App() {
     <HashRouter>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/verify-second-factor" element={<VerifySecondFactor />} />
           <Route path="/sso-callback" element={<SSOCallback />} />
           <Route path="/sso-continue" element={<SSOContinue />} />
           <Route path="/onboarding/create-org" element={<SessionRoute><CreateOrganization /></SessionRoute>} />
