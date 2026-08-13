@@ -5,6 +5,7 @@ vi.mock('./clerk', () => ({
 }));
 
 import { resolveSignInStatus } from './auth-flow';
+import { clerk } from './clerk';
 
 function fakeSignIn(overrides: Record<string, unknown> = {}) {
   return {
@@ -24,6 +25,7 @@ describe('resolveSignInStatus', () => {
 
     await resolveSignInStatus(signIn, { navigate, refresh });
 
+    expect(clerk.setActive).toHaveBeenCalledWith({ session: 'sess_123' });
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith('/', { replace: true });
   });

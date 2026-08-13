@@ -30,14 +30,14 @@ export async function prepareEmailSecondFactor(signIn: SignInResource): Promise<
   await signIn.prepareSecondFactor({
     strategy: 'email_code',
     emailAddressId: emailFactor.emailAddressId,
-  } as any);
+  });
 }
 
 export async function verifySecondFactor(
   signIn: SignInResource,
   code: string,
-): Promise<{ status: string; createdSessionId: string | null }> {
-  return signIn.attemptSecondFactor({ strategy: 'email_code', code: code.trim() } as any) as any;
+): Promise<{ status: string | null; createdSessionId: string | null }> {
+  return signIn.attemptSecondFactor({ strategy: 'email_code', code: code.trim() } as any);
 }
 
 /**
@@ -76,8 +76,8 @@ export async function prepareEmailVerification(signUp: SignUpResource): Promise<
 export async function verifyEmailCode(
   signUp: SignUpResource,
   code: string,
-): Promise<{ status: string; createdSessionId: string | null }> {
-  return signUp.attemptEmailAddressVerification({ code: code.trim() }) as any;
+): Promise<{ status: string | null; createdSessionId: string | null }> {
+  return signUp.attemptEmailAddressVerification({ code: code.trim() });
 }
 
 export async function startGoogleOAuth(signIn: SignInResource): Promise<void> {
