@@ -1,11 +1,11 @@
 # Graph Report - ERP-Client  (2026-08-13)
 
 ## Corpus Check
-- 257 files · ~221,315 words
+- 256 files · ~220,116 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2642 nodes · 5200 edges · 159 communities (144 shown, 15 thin omitted)
+- 2633 nodes · 5180 edges · 162 communities (147 shown, 15 thin omitted)
 - Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 7 edges (avg confidence: 0.61)
 - Token cost: 0 input · 0 output
 
@@ -29,11 +29,11 @@
 - Trips/index.tsx
 - graphify query <question>
 - Content-Security-Policy meta tag
-- InventoryDetail/index.tsx
+- ViewDrawer.tsx
 - Context: Purchase Order Flow
 - 2b. Backend changes (`core-apis/src/application/modules/categories/`)
 - Administration User Management & Stock Transfer Redesign
-- useAuth
+- Login/index.tsx
 - User Management
 - Complete endpoint catalog
 - launch-electron.ts
@@ -44,17 +44,17 @@
 - publish-release.ts
 - Core API changes needed by ERP-Client
 - User Management — Frontend Implementation Guide
-- api.ts
-- Button
+- types.ts
+- usePagination
 - server.cjs
 - Senior Frontend
-- Users/index.tsx
-- File map
+- Button
+- http.ts
 - Senior Prompt Engineer
 - Sales v2 — Simple UI (POS + Documents + Approvals + Black Ledger)
 - File inventory (verified via `grep -rl "from '../api'"` across `renderer/src`)
-- button.tsx
-- PurchaseDashboard.tsx
+- input.tsx
+- SalesDashboard.tsx
 - App.tsx
 - ItemReturns/index.tsx
 - HIGH PRIORITY
@@ -66,7 +66,7 @@
 - Ledger
 - ProductOnboardingWizard.tsx
 - cn
-- UnpublishedStock/index.tsx
+- inventory/api/index.ts
 - AuthContext.tsx
 - Billing Module — Implementation Plan
 - purchasing/types/index.ts
@@ -83,7 +83,7 @@
 - auto-updater.ts
 - ErrorState.tsx
 - React Patterns
-- Inventory/index.tsx
+- button.tsx
 - CategoryDetailModal.tsx
 - Using Git Worktrees
 - formatEntityLabel
@@ -94,10 +94,10 @@
 - package.json
 - Visual Companion Guide
 - AuthBootScreen.tsx
-- pages/Expenses/index.tsx
+- api.ts
 - Topbar.tsx
 - spotlight-search.mjs
-- Login/index.tsx
+- ProductImage
 - nsis
 - global.d.ts
 - preload.ts
@@ -111,10 +111,10 @@
 - Prompt Engineering Patterns
 - Systematic Debugging
 - File map
-- CreditApprovals
+- useAuth
 - core/types/index.ts
 - Root Cause Tracing
-- FormDrawer.tsx
+- Maintenance/index.tsx
 - fleet/types/index.ts
 - BundleAnalyzer
 - ComponentGenerator
@@ -143,9 +143,11 @@
 - Condition-Based Waiting
 - Global Constraints
 - File map
+- resource.ts
 - Context: Full Session Record — 2026-08-12
 - File map
 - POS / Billing — design
+- InventoryDashboard.tsx
 - buildSaleDocHtml.ts
 - Part A — Roles & RBAC (core-apis)
 - Global Constraints
@@ -155,6 +157,7 @@
 - Part D — POS stock awareness (NEW today)
 - Frontend ↔ Backend parity (section-by-section)
 - Core-apis inventory endpoint audit
+- PurchaseDashboard.tsx
 - Part B — Roles & page access (ERP-Client)
 - Part C — POS UX refactor (prior design, implemented)
 - Part E — Credit approvals flow
@@ -174,7 +177,7 @@
 ## God Nodes (most connected - your core abstractions)
 1. `get()` - 74 edges
 2. `Button` - 56 edges
-3. `formatEntityLabel()` - 55 edges
+3. `formatEntityLabel()` - 54 edges
 4. `cn()` - 49 edges
 5. `Input` - 39 edges
 6. `usePagination()` - 36 edges
@@ -190,10 +193,10 @@
   renderer/src/components/CategoryDetailModal.tsx → renderer/src/types.ts
 - `CustomerFormDrawerProps` --references--> `Customer`  [EXTRACTED]
   renderer/src/components/CustomerFormDrawer.tsx → renderer/src/types.ts
-- `ExpensesPage()` --calls--> `loadErrorMessage()`  [EXTRACTED]
-  renderer/src/pages/Expenses/index.tsx → renderer/src/lib/api-error.ts
-- `Step4Panel()` --calls--> `cn()`  [EXTRACTED]
-  renderer/src/pages/Products/components/ProductOnboardingWizard.tsx → renderer/src/lib/utils.ts
+- `TriggerButton()` --calls--> `cn()`  [EXTRACTED]
+  renderer/src/components/FilterDropdown.tsx → renderer/src/lib/utils.ts
+- `SearchBox()` --calls--> `cn()`  [EXTRACTED]
+  renderer/src/components/FilterDropdown.tsx → renderer/src/lib/utils.ts
 
 ## Import Cycles
 - None detected.
@@ -202,11 +205,11 @@
 - **Graphify CLI command set (query/path/explain/update)** — claude_graphify_query_command, claude_graphify_path_command, claude_graphify_explain_command, claude_graphify_update_command [INFERRED 0.85]
 - **CSP-allowed external origins** — renderer_index_content_security_policy, renderer_index_core_apis_backend, renderer_index_warehouse_ops_desk, renderer_index_openstreetmap, renderer_index_unsplash, renderer_index_google_fonts [EXTRACTED 1.00]
 
-## Communities (159 total, 15 thin omitted)
+## Communities (162 total, 15 thin omitted)
 
 ### Community 0 - "PageAccessContext.tsx"
-Cohesion: 0.11
-Nodes (19): PageAccess, PageAccessGate(), PageAccessRoute(), PageAccessRouteProps, formatSpeed(), UpdateBanner(), UpdateState, ALL_ITEMS (+11 more)
+Cohesion: 0.15
+Nodes (16): PageAccess, PageAccessGate(), PageAccessRoute(), PageAccessRouteProps, ALL_ITEMS, ModuleGroup, ModuleItem, pageKeyForPath() (+8 more)
 
 ### Community 2 - "scripts"
 Cohesion: 0.15
@@ -230,11 +233,11 @@ Nodes (24): renderer, scripts/**/*.ts, src/main/**/*.ts, compilerOptions, declar
 
 ### Community 10 - "POSTerminal.tsx"
 Cohesion: 0.05
-Nodes (80): FormState, useAddUnpublishedStock(), useLinkProductSupplier(), usePublishUnpublishedStock(), useStockOperation(), parseCreditApprovalError(), post(), buildReceiptLines() (+72 more)
+Nodes (81): CUSTOMER_TYPE_OPTIONS, CustomerFormDrawer(), CustomerFormDrawerProps, emptyForm(), formFromCustomer(), FormState, useDebounce(), parseCreditApprovalError() (+73 more)
 
 ### Community 11 - "Trips/index.tsx"
 Cohesion: 0.06
-Nodes (39): FleetDrivers, FleetExpensesApi, FleetTrips, FleetVehicles, FuelTypes, VehicleBrands, FleetDrivers, FleetTrips (+31 more)
+Nodes (44): FleetDrivers, FleetExpensesApi, FleetTrips, FleetVehicles, VehicleTypes, FleetDrivers, FleetTrips, FleetVehicles (+36 more)
 
 ### Community 12 - "graphify query <question>"
 Cohesion: 0.67
@@ -244,9 +247,9 @@ Nodes (3): graphify-out/graph.json, graphify-out/GRAPH_REPORT.md, graphify query
 Cohesion: 0.25
 Nodes (8): Content-Security-Policy meta tag, core-apis-m03n.onrender.com (backend API), Google Fonts service, Inter font family, JetBrains Mono font family, OpenStreetMap embed (frame-src), Unsplash images (img-src), warehouse-ops-desk.preview.emergentagent.com
 
-### Community 14 - "InventoryDetail/index.tsx"
-Cohesion: 0.17
-Nodes (13): Products, useProductLogsByInventory(), useStockMovementsByInventory(), useStockOperation(), SimpleTable(), SimpleTableProps, EMPTY_META, EMPTY_OP (+5 more)
+### Community 14 - "ViewDrawer.tsx"
+Cohesion: 0.33
+Nodes (7): ImageLightbox(), ImageLightboxProps, FieldValue(), formatScalar(), isImageUrl(), NestedObject(), Props
 
 ### Community 15 - "Context: Purchase Order Flow"
 Cohesion: 0.04
@@ -260,9 +263,9 @@ Nodes (43): 1. Products Module, 1a. What was requested, 1b. Backend changes (`co
 Cohesion: 0.12
 Nodes (15): Administration User Management & Stock Transfer Redesign, Backend changes, Backend changes (`core-apis`), Context, Error handling, Error handling, Feature 1: User Management, Feature 2: Stock Transfer Redesign (+7 more)
 
-### Community 18 - "useAuth"
-Cohesion: 0.21
-Nodes (11): SessionRoute(), ProtectedRoute(), Label, labelVariants, useAuth(), clerk, SSOCallback(), clerkErrorMessage() (+3 more)
+### Community 18 - "Login/index.tsx"
+Cohesion: 0.19
+Nodes (11): LoginVisualPanel(), Label, labelVariants, clerkErrorMessage(), Login(), Mode, SecondFactorStrategy, clerkErrorMessage() (+3 more)
 
 ### Community 19 - "User Management"
 Cohesion: 0.15
@@ -300,13 +303,13 @@ Nodes (29): #0 — Purchase Orders create/update incomplete, #0b — Purchase Or
 Cohesion: 0.07
 Nodes (27): 1. Architecture Overview, 2. New TypeScript Types, 3. API Hooks — `api.ts` additions, 4. Reusable Sub-components, 4a. `UserStatusBadge.tsx`, 4b. `UserRolePills.tsx`, 4c. `InviteUserDrawer.tsx`, 4d. `UpdateRolesDrawer.tsx` (+19 more)
 
-### Community 30 - "api.ts"
-Cohesion: 0.05
-Nodes (157): billsBase, customersBase, ExpensesApi, notificationsBase, Orders, PRODUCT_IMAGE_MIME_TYPES, ProductSupplierLinkBody, purchaseOrdersBase (+149 more)
+### Community 30 - "types.ts"
+Cohesion: 0.09
+Nodes (85): Roles, UserRoles, ActivityLogs, notificationsBase, ProductSupplierLinkBody, ReportGenerationLogs, FuelTypes, VehicleBrands (+77 more)
 
-### Community 31 - "Button"
-Cohesion: 0.08
-Nodes (51): Organizations, ReportGenerationLogs, Suppliers, useCompleteStockTransfer(), useListActivityLogs(), useListCountries(), ConfirmDialog(), ConfirmDialogProps (+43 more)
+### Community 31 - "usePagination"
+Cohesion: 0.09
+Nodes (41): Categories, Suppliers, useListActivityLogs(), ConfirmDialog(), ConfirmDialogProps, Column, DataTable(), DataTableProps (+33 more)
 
 ### Community 32 - "server.cjs"
 Cohesion: 0.11
@@ -316,13 +319,13 @@ Nodes (26): broadcast(), clients, computeAcceptKey(), CONTENT_DIR, crypto, debou
 Cohesion: 0.07
 Nodes (26): 1. Component Generator, 1. Setup and Configuration, 2. Bundle Analyzer, 2. Run Quality Checks, 3. Frontend Scaffolder, 3. Implement Best Practices, Best Practices Summary, Code Quality (+18 more)
 
-### Community 34 - "Users/index.tsx"
-Cohesion: 0.15
-Nodes (10): Props, UserStatusBadge(), AssignOrgDrawer(), InviteUserDrawer(), UpdateRolesDrawer(), buildColumns(), INVITATION_STATUS_BADGE, INVITATION_STATUS_OPTIONS (+2 more)
+### Community 34 - "Button"
+Cohesion: 0.14
+Nodes (17): ClerkUsers, Button, ClerkUsers, AssignOrgDrawer(), Props, EMPTY, InviteUserDrawer(), Props (+9 more)
 
-### Community 35 - "File map"
-Cohesion: 0.22
-Nodes (8): File map, Global Constraints, POS Phase 2 — Credit cashier flow Implementation Plan, Spec coverage, Task 1: Backend creditor search, Task 2: Backend `GET /credit-approvals/mine`, Task 3: Frontend credit search + Send for Approval + type label, Task 4: Approve → print; Reject → POS banner
+### Community 35 - "http.ts"
+Cohesion: 0.14
+Nodes (23): useCancelStockTransfer(), useCompleteStockTransfer(), useUploadProductImage(), useCancelStockTransfer(), useCompleteStockTransfer(), useRemoveLocationImage(), useUnlinkProductSupplier(), useUpdateProductSupplier() (+15 more)
 
 ### Community 36 - "Senior Prompt Engineer"
 Cohesion: 0.09
@@ -336,21 +339,21 @@ Nodes (22): Approach, Black behavior, Black Ledger page, Credit behavior, Design
 Cohesion: 0.09
 Nodes (21): File inventory (verified via `grep -rl "from '../api'"` across `renderer/src`), Global Constraints, Program context, Self-review notes, Shared Frontend Layer Rewrite Implementation Plan, Task 10: Migrate core CRUD list pages (ERPDataTable + useResourceMutations pattern), Task 11: Migrate create-only form pages (no table, just `useMutation` + optional `ResourceSelect`), Task 12: Migrate `Users.tsx` (+13 more)
 
-### Community 39 - "button.tsx"
-Cohesion: 0.16
-Nodes (14): Props, SingleImageUploader(), ButtonProps, buttonVariants, FieldValue(), formatScalar(), isImageUrl(), NestedObject() (+6 more)
+### Community 39 - "input.tsx"
+Cohesion: 0.13
+Nodes (16): Expenses, Locations, Props, SingleImageUploader(), Input, InputProps, EMPTY, ExpensesPage() (+8 more)
 
-### Community 40 - "PurchaseDashboard.tsx"
-Cohesion: 0.18
-Nodes (8): Analytics, Analytics, COLORS, fmt(), PurchaseDashboard(), COLORS, fmt(), SalesDashboard()
+### Community 40 - "SalesDashboard.tsx"
+Cohesion: 0.33
+Nodes (4): Analytics, COLORS, fmt(), SalesDashboard()
 
 ### Community 41 - "App.tsx"
 Cohesion: 0.04
 Nodes (53): ActivityLogs, AppUpdates, AuditLog, BillDetail, Bills, BlackLedger, Categories, CreateOrganization (+45 more)
 
 ### Community 42 - "ItemReturns/index.tsx"
-Cohesion: 0.11
-Nodes (25): ActivityLogs, ItemReturns, ListResource, ResourceSelect(), ResourceSelectProps, SelectContent, SelectItem, SelectTrigger (+17 more)
+Cohesion: 0.09
+Nodes (38): Organizations, useListCountries(), useListRoles(), useListUserDirectory(), useListUserRoles(), Field(), FormDrawer(), FormDrawerProps (+30 more)
 
 ### Community 43 - "HIGH PRIORITY"
 Cohesion: 0.06
@@ -366,7 +369,7 @@ Nodes (9): Global Constraints, Self-Review Notes, Task 1: `org_member` schema mi
 
 ### Community 46 - "Orders/index.tsx"
 Cohesion: 0.07
-Nodes (50): Invoices, PlatformConfigurations, PurchaseItems, AdvancedIdLookup(), AdvancedIdLookupProps, FormSection(), RecentIdPicker(), RecentIdPickerProps (+42 more)
+Nodes (51): Invoices, Orders, PlatformConfigurations, PurchaseItems, AdvancedIdLookup(), AdvancedIdLookupProps, FormSection(), RecentIdPicker() (+43 more)
 
 ### Community 47 - "Starting Point — read this before touching any file"
 Cohesion: 0.25
@@ -381,19 +384,19 @@ Cohesion: 0.13
 Nodes (13): 2026-07-24 — Docs claimed source-level verification and completed work that don't exist in the repo, 2026-07-30 — Packaged Electron stuck on blank screen (BrowserRouter + empty resources), 2026-08-03 — Shipped frontend SKU auto-gen UI ahead of the backend that was supposed to power it, 2026-08-13 — Claimed OAuth 2FA/device-trust session-resume fix that isn't in the repo, Entry format, Ledger, Lessons Learned, When to add an entry (+5 more)
 
 ### Community 50 - "ProductOnboardingWizard.tsx"
-Cohesion: 0.09
-Nodes (20): useCategoryParents(), useLinkProductSupplier(), useNextSku(), useUnlinkProductSupplier(), useUpdateProductSupplier(), Textarea, TextareaProps, PendingImg (+12 more)
+Cohesion: 0.11
+Nodes (18): useCategoryParents(), useLinkProductSupplier(), useNextSku(), useProductSuppliers(), useUnlinkProductSupplier(), useUpdateProductSupplier(), Textarea, TextareaProps (+10 more)
 
 ### Community 51 - "cn"
 Cohesion: 0.14
-Nodes (18): OptionContent(), SearchBox(), TriggerButton(), Sidebar(), Tooltip(), Props, ROLE_COLORS, roleColor() (+10 more)
+Nodes (18): Sidebar(), Tooltip(), Props, ROLE_COLORS, roleColor(), UserRolePills(), Props, UserStatusBadge() (+10 more)
 
-### Community 52 - "UnpublishedStock/index.tsx"
-Cohesion: 0.18
-Nodes (13): useAddUnpublishedStock(), usePublishUnpublishedStock(), useUnpublishedStock(), useUnpublishedStockList(), useUnpublishedStockMovements(), AddForm, EMPTY_ADD, EMPTY_PUBLISH (+5 more)
+### Community 52 - "inventory/api/index.ts"
+Cohesion: 0.06
+Nodes (42): useAddUnpublishedStock(), useProductLog(), usePublishUnpublishedStock(), useStockMovement(), useUnpublishedStock(), useUnpublishedStockList(), useUnpublishedStockMovements(), useListRoles() (+34 more)
 
 ### Community 53 - "AuthContext.tsx"
-Cohesion: 0.20
+Cohesion: 0.19
 Nodes (16): AuthContext, AuthContextType, AuthProvider(), ClerkResources, clerkUserIdFromSession(), DEV_USER, hydrateFromCache(), loadMe() (+8 more)
 
 ### Community 54 - "Billing Module — Implementation Plan"
@@ -406,7 +409,7 @@ Nodes (21): Bill, BillItem, BillStatus, CreateBillInput, CreateBillItemInput, Cr
 
 ### Community 56 - "FilterDropdown.tsx"
 Cohesion: 0.15
-Nodes (18): BaseProps, FilterDropdown(), FilterDropdownProps, FilterOption, groupOptions(), MultiProps, SingleProps, FormSelect() (+10 more)
+Nodes (17): BaseProps, FilterDropdownProps, FilterOption, groupOptions(), MultiProps, OptionContent(), SearchBox(), SingleProps (+9 more)
 
 ### Community 57 - "File map"
 Cohesion: 0.12
@@ -437,8 +440,8 @@ Cohesion: 0.10
 Nodes (20): Anti-Pattern 1, Anti-Pattern 2, Anti-Patterns to Avoid, Code Organization, Common Patterns, Conclusion, Further Reading, Guidelines (+12 more)
 
 ### Community 65 - "SessionContext.tsx"
-Cohesion: 0.24
-Nodes (8): deriveOrg(), deriveUser(), SessionContext, SessionOrg, SessionProvider(), SessionUser, HttpError, queryClient
+Cohesion: 0.13
+Nodes (16): deriveOrg(), deriveUser(), SessionContext, SessionContextValue, SessionOrg, SessionProvider(), SessionUser, initialState (+8 more)
 
 ### Community 66 - "auto-updater.ts"
 Cohesion: 0.26
@@ -452,9 +455,9 @@ Nodes (5): ERROR_COPY, ErrorStateType, ErrorIllustration(), ErrorState(), ErrorS
 Cohesion: 0.10
 Nodes (20): Anti-Pattern 1, Anti-Pattern 2, Anti-Patterns to Avoid, Code Organization, Common Patterns, Conclusion, Further Reading, Guidelines (+12 more)
 
-### Community 69 - "Inventory/index.tsx"
-Cohesion: 0.10
-Nodes (17): GuideModal(), GuideModalProps, GuideStep, useAutoSelectFirst(), CreateForm, GUIDE_STEPS, OpDef, OpForm (+9 more)
+### Community 69 - "button.tsx"
+Cohesion: 0.09
+Nodes (19): GuideModal(), GuideModalProps, GuideStep, ButtonProps, buttonVariants, CreateForm, GUIDE_STEPS, OpDef (+11 more)
 
 ### Community 70 - "CategoryDetailModal.tsx"
 Cohesion: 0.24
@@ -465,16 +468,16 @@ Cohesion: 0.10
 Nodes (20): 1a. Native Worktree Tools (preferred), 1b. Git Worktree Fallback, Assuming directory location, Common Mistakes, Create the Worktree, Directory Selection, Fighting the harness, Overview (+12 more)
 
 ### Community 72 - "formatEntityLabel"
-Cohesion: 0.19
-Nodes (24): Bills, Customers, Bills, Customers, formatEntityLabel(), truncateId(), BillDetail(), money() (+16 more)
+Cohesion: 0.09
+Nodes (44): Bills, Customers, Products, useProductLogsByInventory(), useStockMovementsByInventory(), useStockOperation(), Inventory, Products (+36 more)
 
 ### Community 73 - "inventory/types/index.ts"
 Cohesion: 0.10
 Nodes (20): Category, ItemReturn, Location, LocationType, Product, ProductImage, ProductImageUploadUrl, ProductLog (+12 more)
 
 ### Community 74 - "PurchaseOrderDetail/index.tsx"
-Cohesion: 0.13
-Nodes (19): Locations, PurchaseOrders, Locations, Products, PurchaseOrders, getErrorMessage(), COLORS, fmt() (+11 more)
+Cohesion: 0.18
+Nodes (13): PurchaseOrders, PurchaseOrders, getErrorMessage(), canMarkOrdered(), canVerify(), fmt(), fmtDate(), PurchaseOrderDetail() (+5 more)
 
 ### Community 75 - "index.ts"
 Cohesion: 0.33
@@ -496,21 +499,21 @@ Nodes (19): Browser Events Format, Cards (visual designs), Cleaning Up, CSS Clas
 Cohesion: 0.33
 Nodes (6): AuthBootPhase, AuthBootScreen(), ORDER, Props, STEPS, stepState()
 
-### Community 80 - "pages/Expenses/index.tsx"
+### Community 80 - "api.ts"
 Cohesion: 0.08
-Nodes (27): Expenses, Roles, useListRoles(), useListUserDirectory(), useListUserRoles(), UserRoles, Roles, Expenses (+19 more)
+Nodes (26): ActivityLogs, billsBase, customersBase, ExpensesApi, FuelTypes, ItemReturns, notificationsBase, PRODUCT_IMAGE_MIME_TYPES (+18 more)
 
 ### Community 81 - "Topbar.tsx"
-Cohesion: 0.18
-Nodes (10): Notifications, Topbar(), initialState, Theme, ThemeContext, ThemeProvider(), ThemeProviderProps, ThemeProviderState (+2 more)
+Cohesion: 0.21
+Nodes (7): Notifications, Topbar(), formatSpeed(), UpdateBanner(), UpdateState, useTheme(), Notifications
 
 ### Community 82 - "spotlight-search.mjs"
 Cohesion: 0.21
 Nodes (19): dedupeHits(), detectIntent(), filterNoise(), gatherStoryFiles(), main(), parseArgs(), parseAstIndexSearch(), parseAstIndexSymbol() (+11 more)
 
-### Community 83 - "Login/index.tsx"
-Cohesion: 0.38
-Nodes (5): LoginVisualPanel(), clerkErrorMessage(), Login(), Mode, SecondFactorStrategy
+### Community 83 - "ProductImage"
+Cohesion: 0.50
+Nodes (3): PendingImage, ProductImageUploaderProps, ProductImage
 
 ### Community 84 - "nsis"
 Cohesion: 0.50
@@ -521,8 +524,8 @@ Cohesion: 0.10
 Nodes (19): 3 Tabs, Animation System, Architecture, Backend endpoints needed for full real data, Card entry (`useFadeIn` hook + `AnimFade` wrapper), Chart animations (Recharts built-in), Chart Inventory, Component Map (Dashboard/index.tsx) (+11 more)
 
 ### Community 88 - "Dashboard/index.tsx"
-Cohesion: 0.11
-Nodes (26): PaymentTransactions, StockTransfers, useInventoryLowStock(), useInventoryValuation(), useSession(), PaymentTransactions, Inventory, StockTransfers (+18 more)
+Cohesion: 0.10
+Nodes (24): PaymentTransactions, StockTransfers, useInventoryValuation(), useSession(), PaymentTransactions, StockTransfers, AnimFade(), C (+16 more)
 
 ### Community 89 - "Global Constraints"
 Cohesion: 0.11
@@ -556,9 +559,9 @@ Nodes (15): Common Rationalizations, Overview, Phase 1: Root Cause Investigation
 Cohesion: 0.12
 Nodes (15): File map, Global Constraints, Plan self-review, Spec coverage checklist, Task 10: End-to-end verification, Task 1: Store entity — type + imageKey, Task 2: Migration — store columns + inventory FK cutover, Task 3: Stores application layer — real create/update + type (+7 more)
 
-### Community 97 - "CreditApprovals"
-Cohesion: 0.31
-Nodes (8): CreditApprovals, BlackLedgerPage(), fmt(), BlackLedger(), amountOf(), customerLabel(), fmt(), PendingApprovalsPage()
+### Community 97 - "useAuth"
+Cohesion: 0.22
+Nodes (12): CreditApprovals, SessionRoute(), ProtectedRoute(), useAuth(), BlackLedgerPage(), fmt(), BlackLedger(), PendingApprovals() (+4 more)
 
 ### Community 98 - "core/types/index.ts"
 Cohesion: 0.12
@@ -568,9 +571,9 @@ Nodes (15): ACTIVITY_LOG_ACTIONS, ActivityLog, City, Country, InventoryItem, Inv
 Cohesion: 0.13
 Nodes (14): 1. Observe the Symptom, 2. Find Immediate Cause, 3. Ask: What Called This?, 4. Keep Tracing Up, 5. Find Original Trigger, Adding Stack Traces, Finding Which Test Causes Pollution, Key Principle (+6 more)
 
-### Community 100 - "FormDrawer.tsx"
-Cohesion: 0.11
-Nodes (23): ClerkUsers, FleetMaintenanceApi, MaintenanceTypes, CUSTOMER_TYPE_OPTIONS, CustomerFormDrawer(), CustomerFormDrawerProps, emptyForm(), formFromCustomer() (+15 more)
+### Community 100 - "Maintenance/index.tsx"
+Cohesion: 0.15
+Nodes (11): FleetMaintenanceApi, MaintenanceTypes, FormSelect(), FormSelectProps, SelectOption, FleetMaintenanceApi, MaintenanceTypes, EMPTY (+3 more)
 
 ### Community 101 - "fleet/types/index.ts"
 Cohesion: 0.14
@@ -621,8 +624,8 @@ Cohesion: 0.17
 Nodes (11): Architecture, Components / files, Constraints (verified), Data flow — category parents, Data flow — product images, ERP-Client ↔ Core API alignment (client-only), Error handling, Goal (+3 more)
 
 ### Community 113 - "ProductDetailView.tsx"
-Cohesion: 0.17
-Nodes (16): Categories, useProductImages(), useProductLogsByProduct(), useProductSuppliers(), ImageLightbox(), ImageLightboxProps, Categories, actionBadgeClass() (+8 more)
+Cohesion: 0.29
+Nodes (10): useProductImages(), useProductLogsByProduct(), actionBadgeClass(), actionDotClass(), fmtCurrency(), fmtDate(), fmtTimeAgo(), formatAction() (+2 more)
 
 ### Community 114 - "Subagent-Driven Development"
 Cohesion: 0.18
@@ -684,6 +687,10 @@ Nodes (8): FE-only full parity pass (sales → purchase → warehouse → remain
 Cohesion: 0.22
 Nodes (8): File map, Global Constraints, POS Phase 1 — Qty, inline rate, View Bill Implementation Plan, Spec coverage (Phase 1 only), Task 1: One qty control, Task 2: Inline Rate, remove pencil, Task 3: Bill → receipt helper + print/download, Task 4: Receipt-style View Bill + BillDetail print/download
 
+### Community 129 - "resource.ts"
+Cohesion: 0.22
+Nodes (6): QueryParams, createCreateOnlyResource(), createResource(), SearchParams, SearchResult, PaginatedResponse
+
 ### Community 130 - "Context: Full Session Record — 2026-08-12"
 Cohesion: 0.25
 Nodes (7): Context: Full Session Record — 2026-08-12, Executive summary, Part F — Dashboard live data, Part G — API module cleanup, Part J — Risks & follow-ups, Part K — Related docs, Part L — Line counts (POS module)
@@ -695,6 +702,10 @@ Nodes (7): File map, Global Constraints, Login Split Layout Implementation Plan,
 ### Community 132 - "POS / Billing — design"
 Cohesion: 0.25
 Nodes (7): Architecture, Decisions (locked), Frontend, Goal, Non-goals, POS / Billing — design, Verification
+
+### Community 133 - "InventoryDashboard.tsx"
+Cohesion: 0.32
+Nodes (6): useInventoryLowStock(), Analytics, AnalyticsTab(), COLORS, fmt(), InventoryDashboard()
 
 ### Community 134 - "buildSaleDocHtml.ts"
 Cohesion: 0.50
@@ -732,6 +743,10 @@ Nodes (5): Cross-cutting FE issues (extra, not asked), Frontend ↔ Backend pari
 Cohesion: 0.33
 Nodes (5): Confirmed missing (Section 7 of frontend inventory API guide), Core-apis inventory endpoint audit, Frontend stance for sub-project 3, Present and usable, Proposed backend fixes (awaiting approval — not implemented)
 
+### Community 143 - "PurchaseDashboard.tsx"
+Cohesion: 0.40
+Nodes (3): COLORS, fmt(), PurchaseDashboard()
+
 ### Community 144 - "Part B — Roles & page access (ERP-Client)"
 Cohesion: 0.40
 Nodes (5): B.1 Frontend role gates, B.2 PageAccessGate — route-level enforcement (NEW), B.3 Auth behavior change — 401 vs 403, B.4 Error message utilities (NEW — `lib/api-error.ts`), Part B — Roles & page access (ERP-Client)
@@ -765,23 +780,23 @@ Cohesion: 0.67
 Nodes (3): ERP-Client, Part I — Verification checklist, RBAC (core-apis)
 
 ## Knowledge Gaps
-- **1377 isolated node(s):** `crypto`, `http`, `fs`, `path`, `OPCODES` (+1372 more)
+- **1371 isolated node(s):** `crypto`, `http`, `fs`, `path`, `OPCODES` (+1366 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **15 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `get()` connect `api.ts` to `Inventory/index.tsx`, `formatEntityLabel`, `ItemReturns/index.tsx`, `POSTerminal.tsx`, `InventoryDetail/index.tsx`, `Orders/index.tsx`, `pages/Expenses/index.tsx`, `ProductDetailView.tsx`, `ProductOnboardingWizard.tsx`, `UnpublishedStock/index.tsx`, `AuthContext.tsx`, `Dashboard/index.tsx`, `Button`?**
+- **Why does `get()` connect `inventory/api/index.ts` to `resource.ts`, `useAuth`, `http.ts`, `InventoryDashboard.tsx`, `button.tsx`, `formatEntityLabel`, `ItemReturns/index.tsx`, `POSTerminal.tsx`, `Orders/index.tsx`, `api.ts`, `ProductDetailView.tsx`, `ProductOnboardingWizard.tsx`, `AuthContext.tsx`, `Dashboard/index.tsx`, `types.ts`, `usePagination`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
-- **Why does `cn()` connect `cn` to `Users/index.tsx`, `ErrorState.tsx`, `FormDrawer.tsx`, `CategoryDetailModal.tsx`, `button.tsx`, `ItemReturns/index.tsx`, `Orders/index.tsx`, `ProductDetailView.tsx`, `useAuth`, `ProductOnboardingWizard.tsx`, `FilterDropdown.tsx`, `Dashboard/index.tsx`?**
+- **Why does `cn()` connect `cn` to `ErrorState.tsx`, `Maintenance/index.tsx`, `button.tsx`, `CategoryDetailModal.tsx`, `input.tsx`, `ItemReturns/index.tsx`, `Orders/index.tsx`, `ProductDetailView.tsx`, `Login/index.tsx`, `ProductOnboardingWizard.tsx`, `FilterDropdown.tsx`, `Dashboard/index.tsx`, `usePagination`?**
   _High betweenness centrality (0.009) - this node is a cross-community bridge._
-- **Why does `Button` connect `Button` to `PageAccessContext.tsx`, `Trips/index.tsx`, `InventoryDetail/index.tsx`, `useAuth`, `Users/index.tsx`, `button.tsx`, `ItemReturns/index.tsx`, `Orders/index.tsx`, `ProductOnboardingWizard.tsx`, `UnpublishedStock/index.tsx`, `FilterDropdown.tsx`, `ErrorState.tsx`, `Inventory/index.tsx`, `CategoryDetailModal.tsx`, `formatEntityLabel`, `PurchaseOrderDetail/index.tsx`, `pages/Expenses/index.tsx`, `Login/index.tsx`, `FormDrawer.tsx`, `ProductDetailView.tsx`?**
+- **Why does `Button` connect `Button` to `PageAccessContext.tsx`, `POSTerminal.tsx`, `Trips/index.tsx`, `ViewDrawer.tsx`, `Login/index.tsx`, `usePagination`, `input.tsx`, `ItemReturns/index.tsx`, `Orders/index.tsx`, `ProductOnboardingWizard.tsx`, `AuthContext.tsx`, `FilterDropdown.tsx`, `ErrorState.tsx`, `button.tsx`, `CategoryDetailModal.tsx`, `formatEntityLabel`, `PurchaseOrderDetail/index.tsx`, `Maintenance/index.tsx`, `ProductDetailView.tsx`?**
   _High betweenness centrality (0.006) - this node is a cross-community bridge._
 - **What connects `crypto`, `http`, `fs` to the rest of the system?**
-  _1377 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1371 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `PageAccessContext.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.11384615384615385 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.14736842105263157 - nodes in this community are weakly interconnected._
 - **Should `dependencies` be split into smaller, more focused modules?**
   _Cohesion score 0.06060606060606061 - nodes in this community are weakly interconnected._
 - **Should `devDependencies` be split into smaller, more focused modules?**

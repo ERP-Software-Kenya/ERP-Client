@@ -15,8 +15,8 @@
     "semantic_hash": ""
   },
   "renderer/src/api.ts": {
-    "mtime": 1786615577.5866075,
-    "ast_hash": "574ae2f5903b69378705796da09a886a",
+    "mtime": 1786599723.6442137,
+    "ast_hash": "84881897c495383a0ea22be405f3e439",
     "semantic_hash": ""
   },
   "renderer/src/components/ProtectedRoute.tsx": {
@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "renderer/src/types.ts": {
-    "mtime": 1786615569.8285906,
-    "ast_hash": "eebeb8aa609711a1d0dacadf43edb77b",
+    "mtime": 1786599723.6442137,
+    "ast_hash": "aca1bedcf33247cf067edbb4a9038b05",
     "semantic_hash": ""
   },
   "renderer/src/vite-env.d.ts": {
@@ -230,8 +230,8 @@
     "semantic_hash": ""
   },
   "renderer/src/pages/pos/POSTerminal.tsx": {
-    "mtime": 1786615710.396894,
-    "ast_hash": "1af16d6ac64e570095e13e49963abed4",
+    "mtime": 1786614935.8302212,
+    "ast_hash": "881792d2c83e228d7cef55f2917e79d9",
     "semantic_hash": ""
   },
   "renderer/src/pages/pos/ReceiptDocument.tsx": {
@@ -995,8 +995,8 @@
     "semantic_hash": ""
   },
   "renderer/src/pages/credit-approvals/PendingApprovals.tsx": {
-    "mtime": 1786615780.360045,
-    "ast_hash": "caac74a8665c56bde3e9492171441315",
+    "mtime": 1786599723.9162145,
+    "ast_hash": "a043e6ee5488ec4603c395474885fc95",
     "semantic_hash": ""
   },
   "renderer/src/pages/pos/DebtorNoteDocument.tsx": {
@@ -1035,8 +1035,8 @@
     "semantic_hash": ""
   },
   "renderer/src/pages/pos/components/CheckoutPanel.tsx": {
-    "mtime": 1786615648.6780686,
-    "ast_hash": "6fc318a982e2d14a6e9ce80779edc471",
+    "mtime": 1786599723.6442137,
+    "ast_hash": "ad20be4666b050177b5001ea19aeeb40",
     "semantic_hash": ""
   },
   "renderer/src/pages/pos/components/PosToolbar.tsx": {
@@ -1292,11 +1292,6 @@
   "docs/user-management-implementation-guide.md": {
     "mtime": 1786517646.9572678,
     "ast_hash": "1466fbbe2ed4f9a54db253308a637a3a",
-    "semantic_hash": ""
-  },
-  "docs/superpowers/plans/2026-08-13-pos-phase-2-credit-cashier-flow.md": {
-    "mtime": 1786615411.6642494,
-    "ast_hash": "629500df8a99f202d0a8321bd2304950",
     "semantic_hash": ""
   }
 }
