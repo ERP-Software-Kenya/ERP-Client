@@ -19,7 +19,7 @@ export default function VerifySecondFactor() {
     (async () => {
       if (!clerk.loaded) await clerk.load();
       const signIn = clerk.client?.signIn;
-      if (!signIn || signIn.status !== 'needs_second_factor') {
+      if (!signIn || (signIn.status !== 'needs_second_factor' && signIn.status !== 'needs_client_trust')) {
         toast.error('Verification session expired — sign in again');
         navigate('/login', { replace: true });
         return;

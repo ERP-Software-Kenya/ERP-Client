@@ -37,7 +37,7 @@ export async function verifySecondFactor(
   signIn: SignInResource,
   code: string,
 ): Promise<{ status: string | null; createdSessionId: string | null }> {
-  return signIn.attemptSecondFactor({ strategy: 'email_code', code: code.trim() } as any);
+  return signIn.attemptSecondFactor({ strategy: 'email_code', code: code.trim() });
 }
 
 /**
@@ -53,7 +53,7 @@ export async function resolveSignInStatus(
     navigate('/', { replace: true });
     return;
   }
-  if (signIn.status === 'needs_second_factor') {
+  if (signIn.status === 'needs_second_factor' || signIn.status === 'needs_client_trust') {
     await prepareEmailSecondFactor(signIn);
     navigate('/verify-second-factor', { replace: true });
     return;

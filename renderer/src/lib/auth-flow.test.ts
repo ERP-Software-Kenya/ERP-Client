@@ -47,6 +47,23 @@ describe('resolveSignInStatus', () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  it('prepares the email second factor and navigates to /verify-second-factor on needs_client_trust', async () => {
+    const navigate = vi.fn();
+    const refresh = vi.fn();
+    const prepareSecondFactor = vi.fn().mockResolvedValue(undefined);
+    const signIn = fakeSignIn({
+      status: 'needs_client_trust',
+      supportedSecondFactors: [{ strategy: 'email_code', emailAddressId: 'idn_1' }],
+      prepareSecondFactor,
+    });
+
+    await resolveSignInStatus(signIn, { navigate, refresh });
+
+    expect(prepareSecondFactor).toHaveBeenCalledWith({ strategy: 'email_code', emailAddressId: 'idn_1' });
+    expect(navigate).toHaveBeenCalledWith('/verify-second-factor', { replace: true });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it('throws for an unhandled status so the caller can show a toast', async () => {
     const navigate = vi.fn();
     const refresh = vi.fn();

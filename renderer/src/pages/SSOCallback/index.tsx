@@ -22,18 +22,22 @@ export default function SSOCallback() {
 
         await clerk.handleRedirectCallback({
           signInUrl: '/#/login',
-          signUpUrl: '/#/login',
+          signUpUrl: '/#/signup',
           signInForceRedirectUrl: '/#/',
           signUpForceRedirectUrl: '/#/',
           // First-time Google users often lack username (required by this Clerk instance)
           continueSignUpUrl: '/#/sso-continue',
+          // Without this, Clerk falls back to its hosted Account Portal for
+          // needs_second_factor / needs_client_trust and hard-navigates away
+          // from this app before resolveSignInStatus below can run.
+          secondFactorUrl: '/#/verify-second-factor',
         });
 
         // The fix: route through the same status resolver the password path uses,
         // so an existing user with 2FA enabled reaches /verify-second-factor instead
         // of falling through to the "no session" error below.
         const signIn = clerk.client?.signIn;
-        if (signIn && (signIn.status === 'complete' || signIn.status === 'needs_second_factor')) {
+        if (signIn && (signIn.status === 'complete' || signIn.status === 'needs_second_factor' || signIn.status === 'needs_client_trust')) {
           await resolveSignInStatus(signIn, { navigate, refresh });
           return;
         }
