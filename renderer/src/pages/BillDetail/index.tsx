@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Download, Printer } from 'lucide-react';
 import { ErrorState } from '../../components/errors/ErrorState';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Bills, Customers, Locations, Products } from '../../api';
 import { formatEntityLabel, truncateId } from '../../lib/entityLabel';
+import { billToPosReceipt, downloadSaleDoc, printSaleDoc } from '../pos/billReceipt';
 import type { BillStatus, PaymentMethod } from '../../types';
 
 function money(n: number | undefined | null): string {
@@ -147,6 +148,36 @@ export default function BillDetail() {
           <p className="text-muted-foreground text-xs mt-1">ID: {bill.id}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const receipt = billToPosReceipt(bill, {
+                locationName,
+                partyLabel: party,
+                productLabel: (productId) => productName.get(productId) ?? productId,
+              });
+              printSaleDoc(receipt);
+            }}
+          >
+            <Printer size={14} className="mr-1" /> Print
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              const receipt = billToPosReceipt(bill, {
+                locationName,
+                partyLabel: party,
+                productLabel: (productId) => productName.get(productId) ?? productId,
+              });
+              void downloadSaleDoc(receipt);
+            }}
+          >
+            <Download size={14} className="mr-1" /> Download
+          </Button>
           {isInitiated && (
             <>
               <Button

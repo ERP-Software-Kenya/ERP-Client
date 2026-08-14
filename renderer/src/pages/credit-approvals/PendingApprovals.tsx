@@ -1,10 +1,12 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQueries } from "@tanstack/react-query";
-import { CreditApprovals, Customers } from "../../api";
+import { CreditApprovals, Customers, Locations, Products } from "../../api";
 import { get } from "../../lib/http";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { formatEntityLabel, truncateId } from "../../lib/entityLabel";
 import { fmt } from "../pos/posHelpers";
+import { billToPosReceipt, printSaleDoc } from "../pos/billReceipt";
 import type { Bill, CreditApprovalRequest, Customer } from "../../types";
 
 function ApprovalCard({
@@ -92,10 +94,13 @@ function ApprovalCard({
 }
 
 export default function PendingApprovals() {
+  const navigate = useNavigate();
   const { data: approvals = [], isLoading } = CreditApprovals.useListPending();
   const approve = CreditApprovals.useApprove();
   const reject = CreditApprovals.useReject();
   const { data: customersPage } = Customers.useSearch({});
+  const { data: locations = [] } = Locations.useList();
+  const { data: products = [] } = Products.useList();
 
   const customerMap = useMemo(() => {
     const m = new Map<string, Customer>();
@@ -123,6 +128,34 @@ export default function PendingApprovals() {
   }, [approvals, billQueries]);
 
   const busy = approve.isPending || reject.isPending;
+
+  const handleApprove = (req: CreditApprovalRequest) => {
+    approve.mutate(req.id, {
+      onSuccess: async () => {
+        try {
+          const bill = await get<Bill>(`/api/v1/bills/${req.billId}`);
+          const loc = locations.find((l) => l.id === bill.locationId);
+          const customer = customerMap.get(req.customerId);
+          const receipt = billToPosReceipt(bill, {
+            locationName: loc
+              ? formatEntityLabel({ name: loc.name, id: loc.id })
+              : bill.locationId,
+            partyLabel: customer
+              ? formatEntityLabel({ name: customer.name, phone: customer.phone, id: customer.id })
+              : bill.walkInName || undefined,
+            productLabel: (productId) => {
+              const p = products.find((x) => x.id === productId);
+              return formatEntityLabel({ name: p?.name, sku: p?.sku, id: productId });
+            },
+          });
+          navigate(`/bills/${req.billId}`);
+          requestAnimationFrame(() => printSaleDoc(receipt));
+        } catch {
+          navigate(`/bills/${req.billId}`);
+        }
+      },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -155,7 +188,7 @@ export default function PendingApprovals() {
               req={req}
               customer={customerMap.get(req.customerId)}
               bill={billMap.get(req.billId)}
-              onApprove={() => approve.mutate(req.id)}
+              onApprove={() => handleApprove(req)}
               onReject={() => reject.mutate(req.id)}
               busy={busy}
             />

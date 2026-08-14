@@ -13,6 +13,7 @@ import type {
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
   SaleType, CustomerType, PaymentTiming,
   CreditApprovalRequest, CommissionPayable,
+  QuickCharge, CustomerTypeRule,
   Country, State, City,
   CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
   ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
@@ -213,9 +214,17 @@ export const Customers = {
     limit?: number;
     search?: string;
     filters?: Record<string, string>;
+    hasCreditLimit?: boolean;
     enabled?: boolean;
   }) {
-    return customersBase.useSearch({ ...params, omitPagination: true });
+    return customersBase.useSearch({
+      ...params,
+      omitPagination: true,
+      filters: {
+        ...(params?.filters ?? {}),
+        ...(params?.hasCreditLimit ? { hasCreditLimit: 'true' } : {}),
+      },
+    });
   },
   useUpdate() {
     const queryClient = useQueryClient();
@@ -236,6 +245,15 @@ export const CreditApprovals = {
     return useQuery({
       queryKey: ['credit-approvals', 'pending'],
       queryFn: () => get<CreditApprovalRequest[]>('/api/v1/credit-approvals'),
+    });
+  },
+  useMyRejected(enabled = true) {
+    return useQuery({
+      queryKey: ['credit-approvals', 'mine', 'rejected'],
+      queryFn: () =>
+        get<CreditApprovalRequest[]>('/api/v1/credit-approvals/mine', { status: 'rejected' }),
+      enabled,
+      refetchInterval: 15_000,
     });
   },
   useApprove() {
@@ -277,6 +295,71 @@ export const CreditApprovals = {
         queryClient.invalidateQueries({ queryKey: ['credit-approvals', 'black-ledger'] });
       },
       onError: (error: Error) => toast.error(error.message || 'Failed to mark paid'),
+    });
+  },
+};
+
+export const BillingSettings = {
+  useQuickCharges(opts?: { enabled?: boolean }) {
+    return useQuery({
+      queryKey: ['billing-settings', 'quick-charges', opts?.enabled ?? 'all'],
+      queryFn: () =>
+        get<QuickCharge[]>('/api/v1/billing-settings/quick-charges', {
+          enabled: opts?.enabled,
+        }),
+    });
+  },
+  useCreateQuickCharge() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: Pick<QuickCharge, 'label' | 'amount'> & Partial<Pick<QuickCharge, 'enabled' | 'sortOrder'>>) =>
+        post<QuickCharge>('/api/v1/billing-settings/quick-charges', body),
+      onSuccess: () => {
+        toast.success('Quick charge added');
+        queryClient.invalidateQueries({ queryKey: ['billing-settings', 'quick-charges'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to add charge'),
+    });
+  },
+  useUpdateQuickCharge() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: Partial<QuickCharge> }) =>
+        patch<QuickCharge>(`/api/v1/billing-settings/quick-charges/${id}`, body),
+      onSuccess: () => {
+        toast.success('Quick charge updated');
+        queryClient.invalidateQueries({ queryKey: ['billing-settings', 'quick-charges'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to update charge'),
+    });
+  },
+  useDeleteQuickCharge() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => del(`/api/v1/billing-settings/quick-charges/${id}`),
+      onSuccess: () => {
+        toast.success('Quick charge removed');
+        queryClient.invalidateQueries({ queryKey: ['billing-settings', 'quick-charges'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to remove charge'),
+    });
+  },
+  useCustomerTypeRules() {
+    return useQuery({
+      queryKey: ['billing-settings', 'customer-type-rules'],
+      queryFn: () => get<CustomerTypeRule[]>('/api/v1/billing-settings/customer-type-rules'),
+    });
+  },
+  useUpdateCustomerTypeRule() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: Partial<CustomerTypeRule> }) =>
+        patch<CustomerTypeRule>(`/api/v1/billing-settings/customer-type-rules/${id}`, body),
+      onSuccess: () => {
+        toast.success('Customer type rule saved');
+        queryClient.invalidateQueries({ queryKey: ['billing-settings', 'customer-type-rules'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to save type rule'),
     });
   },
 };

@@ -95,7 +95,7 @@ export const MODULES: ModuleGroup[] = [
     label: 'Sales',
     icon: ShoppingBag,
     items: [
-      { key: 'pos', title: 'POS / Billing', path: '/pos', icon: ScanLine },
+      { key: 'pos-sales', title: 'Sales Billing', path: '/pos/sales', icon: ScanLine },
       { key: 'pending-approvals', title: 'Pending Approvals', path: '/pending-approvals', icon: CheckSquare },
       { key: 'black-ledger', title: 'Black Ledger', path: '/black-ledger', icon: Wallet },
       { key: 'customers', title: 'Customers', path: '/customers', icon: Users2 },
@@ -111,6 +111,7 @@ export const MODULES: ModuleGroup[] = [
     label: 'Purchase',
     icon: ShoppingCart,
     items: [
+      { key: 'purchase-billing', title: 'Purchase Billing', path: '/pos/purchase', icon: PackagePlus },
       { key: 'suppliers', title: 'Suppliers', path: '/suppliers', icon: Building2 },
       // { key: 'rfq', title: 'RFQ / Enquiry', path: '/purchase/rfq', icon: Search, disabled: true },
       { key: 'purchase-orders', title: 'Purchase Orders', path: '/purchase-orders', icon: ClipboardList },
@@ -213,6 +214,7 @@ export const MODULES: ModuleGroup[] = [
     items: [
       //     { key: 'settings-general', title: 'General', path: '/platform-configurations', icon: Settings },
       { key: 'settings-app-updates', title: 'App updates', path: '/settings/app', icon: ArrowUpCircle },
+      { key: 'settings-billing', title: 'Billing', path: '/settings/billing', icon: Percent, adminOnly: true },
       //     { key: 'settings-tax', title: 'Tax', path: '/settings/tax', icon: Percent, disabled: true },
       //     { key: 'settings-uom', title: 'Unit of Measure', path: '/settings/uom', icon: Ruler, disabled: true },
       //     { key: 'settings-pricelists', title: 'Price Lists', path: '/settings/pricelists', icon: Tags, disabled: true },

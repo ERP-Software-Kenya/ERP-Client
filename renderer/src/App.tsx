@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
@@ -43,6 +43,7 @@ const AuditLog = lazy(() => import('./pages/AuditLog'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const PlatformConfigurations = lazy(() => import('./pages/PlatformConfigurations'));
 const AppUpdates = lazy(() => import('./pages/AppUpdates'));
+const BillingSettings = lazy(() => import('./pages/BillingSettings'));
 const PurchaseItems = lazy(() => import('./pages/PurchaseItems'));
 const Roles = lazy(() => import('./pages/Roles'));
 const UserRoles = lazy(() => import('./pages/UserRoles'));
@@ -59,7 +60,8 @@ const FleetDriversPage = lazy(() => import('./pages/Fleet/Drivers'));
 const FleetTripsPage = lazy(() => import('./pages/Fleet/Trips'));
 const FleetMaintenancePage = lazy(() => import('./pages/Fleet/Maintenance'));
 const FleetExpensesPage = lazy(() => import('./pages/Fleet/Expenses'));
-const POSTerminal = lazy(() => import('./pages/pos/POSTerminal'));
+const SalesBilling = lazy(() => import('./pages/pos/SalesBilling'));
+const PurchaseBilling = lazy(() => import('./pages/pos/PurchaseBilling'));
 
 function RouteFallback() {
   return (
@@ -75,6 +77,12 @@ function SessionRoute({ children }: { children: React.ReactNode }) {
   if (syncing && !user) return <RouteFallback />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
+}
+
+function PosRedirect() {
+  const [searchParams] = useSearchParams();
+  if (searchParams.get('mode') === 'purchase') return <Navigate to="/pos/purchase" replace />;
+  return <Navigate to="/pos/sales" replace />;
 }
 
 function App() {
@@ -104,7 +112,9 @@ function App() {
             <Route path="dashboard/purchase" element={<PurchaseDashboard />} />
             <Route path="dashboard/inventory" element={<InventoryDashboard />} />
             <Route path="dashboard/sales" element={<SalesDashboard />} />
-            <Route path="pos" element={<POSTerminal />} />
+            <Route path="pos" element={<PosRedirect />} />
+            <Route path="pos/sales" element={<SalesBilling />} />
+            <Route path="pos/purchase" element={<PurchaseBilling />} />
             <Route path="bills" element={<Bills />} />
             <Route path="bills/:id" element={<BillDetail />} />
             <Route path="payment-transactions" element={<PaymentTransactions />} />
@@ -135,6 +145,7 @@ function App() {
             <Route path="expenses" element={<Expenses />} />
             <Route path="platform-configurations" element={<PlatformConfigurations />} />
             <Route path="settings/app" element={<AppUpdates />} />
+            <Route path="settings/billing" element={<BillingSettings />} />
             <Route path="purchase-items" element={<PurchaseItems />} />
             <Route path="roles" element={<Roles />} />
             <Route path="user-roles" element={<UserRoles />} />

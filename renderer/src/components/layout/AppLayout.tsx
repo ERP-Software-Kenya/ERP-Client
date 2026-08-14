@@ -8,7 +8,7 @@ import { PageAccessGate } from '../PageAccessRoute';
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const isPos = /\/pos\/?$/.test(location.pathname);
+  const isPos = /^\/pos(\/.*)?$/.test(location.pathname);
 
   return (
     <div className="h-screen w-full flex overflow-hidden bg-background text-foreground">
