@@ -163,6 +163,8 @@ export interface InventoryItem {
   productId: string;
   quantityOnHand: number;
   quantityReserved: number;
+  /** Black / unpublished pool — used for black sales stock checks */
+  quantityUnpublished?: number;
   reorderLevel: number;
   maxStock?: number;
   averageCost?: number;
@@ -174,15 +176,14 @@ export interface InventoryItem {
 export interface Supplier {
   id: string;
   name: string;
-  code?: string;
   email?: string;
   phone?: string;
   address?: string;
   contactPerson?: string;
   taxId?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type PurchaseOrderStatus = 'draft' | 'ordered' | 'partially_received' | 'received' | 'cancelled';
@@ -234,8 +235,13 @@ export type BillStatus = 'INITIATED' | 'DRAFT' | 'COMPLETED' | 'CANCELLED';
 /** Matches core-apis EPaymentMethod. */
 export type PaymentMethod = 'CASH' | 'CARD' | 'UPI' | 'NET_BANKING' | 'CHEQUE' | 'CREDIT';
 
+/** Matches core-apis ESaleType. */
 export type SaleType = 'normal' | 'credit' | 'black';
+
+/** Matches core-apis ECustomerType. */
 export type CustomerType = 'regular' | 'new' | 'shop' | 'big_customer';
+
+/** Matches core-apis EPaymentTiming. */
 export type PaymentTiming = 'before_delivery' | 'after_delivery' | 'half' | 'cod';
 
 export interface BillItem {
@@ -263,14 +269,14 @@ export interface Bill {
   walkInGstin?: string | null;
   status: BillStatus | string;
   paymentMethod?: PaymentMethod | string | null;
-  saleType: SaleType | string;
+  saleType?: SaleType | string;
   customerType?: CustomerType | string | null;
   paymentTiming?: PaymentTiming | string | null;
   partialAmount?: number | null;
-  blackAmount: number;
+  blackAmount?: number;
   facilitatorUserId?: string | null;
   facilitatorName?: string | null;
-  commissionAmount: number;
+  commissionAmount?: number;
   subtotal: number;
   taxAmount: number;
   discountAmount: number;
@@ -299,6 +305,14 @@ export interface CreateBillInput {
   walkInGstin?: string;
   notes?: string;
   items: CreateBillItemInput[];
+  // ── Sales v2 fields ──
+  saleType?: SaleType | string;
+  customerType?: CustomerType | string;
+  paymentTiming?: PaymentTiming | string;
+  partialAmount?: number;
+  facilitatorUserId?: string;
+  facilitatorName?: string;
+  commissionPct?: number;
 }
 
 export interface UpdateBillInput {
@@ -308,6 +322,13 @@ export interface UpdateBillInput {
   walkInPhone?: string | null;
   walkInGstin?: string | null;
   notes?: string | null;
+  saleType?: SaleType | string;
+  customerType?: CustomerType | string;
+  paymentTiming?: PaymentTiming | string;
+  partialAmount?: number;
+  facilitatorUserId?: string;
+  facilitatorName?: string;
+  commissionPct?: number;
 }
 
 // Verified 2026-07-31: CreatePaymentTransactionRequest has no @AutoMap; domain
@@ -493,8 +514,31 @@ export interface Customer {
   gstin?: string;
   creditLimit?: number | null;
   creditBalance?: number;
+  customerType?: CustomerType | string | null;
+  discountPercent?: number | null;
+  skipOverLimitApproval?: boolean | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface QuickCharge {
+  id: string;
+  organizationId: string;
+  label: string;
+  amount: number;
+  enabled: boolean;
+  sortOrder: number;
+  createdAt?: string;
+}
+
+export interface CustomerTypeRule {
+  id: string;
+  organizationId: string;
+  customerType: CustomerType | string;
+  discountPercent: number;
+  defaultCreditLimit?: number | null;
+  skipOverLimitApproval: boolean;
+  createdAt?: string;
 }
 
 export type CreditApprovalStatus = 'pending' | 'approved' | 'rejected';
@@ -505,19 +549,14 @@ export interface CreditApprovalRequest {
   customerId: string;
   billId: string;
   requestedAmount: number;
-  /** Alias some responses may use instead of requestedAmount */
-  amount?: number;
   requestedById: string;
   status: CreditApprovalStatus | string;
   decidedById?: string | null;
   decidedAt?: string | null;
   createdAt: string;
-  bill?: {
-    billNumber?: string;
-    walkInName?: string | null;
-    customerId?: string | null;
-    customer?: { name?: string | null } | null;
-  } | null;
+  bill?: Bill | null;
+  /** Legacy alias used by older Pending Approvals UI. */
+  amount?: number;
 }
 
 export type CommissionStatus = 'owed' | 'paid';
@@ -533,6 +572,8 @@ export interface CommissionPayable {
   paidAt?: string | null;
   createdAt: string;
 }
+
+
 export type EExpenseStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Expense {
@@ -889,3 +930,10 @@ export interface StockByLocationPoint {
   productCount: number;
   valuation: number;
 }
+
+export * from './features/auth/types';
+export * from './features/inventory/types';
+export * from './features/purchasing/types';
+export * from './features/sales/types';
+export * from './features/fleet/types';
+export * from './features/core/types';

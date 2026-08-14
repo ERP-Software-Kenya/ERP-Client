@@ -9,6 +9,7 @@ import { FormSelect } from '../../../components/FormSelect';
 import { FleetVehicles, VehicleTypes, VehicleBrands, FuelTypes } from '../../../api';
 import { usePagination } from '../../../hooks/usePagination';
 import { VehicleStatusBadge } from '../index';
+import { loadErrorMessage } from '../../../lib/api-error';
 import type { FleetVehicle, FleetVehicleStatus } from '../../../types';
 
 const VEHICLE_STATUSES: FleetVehicleStatus[] = ['available', 'in_transit', 'maintenance', 'idle', 'out_of_service'];
@@ -115,7 +116,7 @@ export default function FleetVehiclesPage(): React.JSX.Element {
         total={total}
         page={page}
         loading={isLoading}
-        error={isError ? `Failed to load vehicles: ${error instanceof Error ? error.message : 'Unknown error'}` : null}
+        error={isError ? loadErrorMessage(error, 'vehicles') : null}
         onPageChange={setPage}
         onSearchChange={setSearch}
         onRefetch={() => void refetch()}

@@ -15,15 +15,15 @@ import type { PurchaseItem } from "../../types";
 interface FormState {
   purchaseOrderId: string;
   productId: string;
-  quantity: string;
-  unitPrice: string;
+  quantityOrdered: string;
+  unitCost: string;
 }
 
 const EMPTY_FORM: FormState = {
   purchaseOrderId: "",
   productId: "",
-  quantity: "",
-  unitPrice: "",
+  quantityOrdered: "",
+  unitCost: "",
 };
 
 function copyId(id: string) {
@@ -41,7 +41,7 @@ function purchaseItemLabel(
     ? (productName.get(item.productId) ??
       formatEntityLabel({ id: item.productId }))
     : undefined;
-  const qty = item.quantity != null ? String(item.quantity) : undefined;
+  const qty = item.quantityOrdered != null ? String(item.quantityOrdered) : undefined;
   if (prod && qty) return `${prod} × ${qty}`;
   if (prod) return prod;
   if (qty) return `Qty ${qty}`;
@@ -51,7 +51,7 @@ function purchaseItemLabel(
 export default function PurchaseItemsPage() {
   const recent = useRecentIds(RECENT_NS.purchaseItems);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [form] = useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [lookupId, setLookupId] = useState("");
   const [activeId, setActiveId] = useState<string | undefined>();
 
@@ -62,6 +62,7 @@ export default function PurchaseItemsPage() {
     error: lookupError,
   } = PurchaseItems.useGet(activeId);
   const { data: products } = Products.useList();
+  const createMutation = PurchaseItems.useCreate();
 
   const productName = useMemo(() => {
     const m = new Map<string, string>();
@@ -90,7 +91,7 @@ export default function PurchaseItemsPage() {
           label: e.label,
           savedAt: e.savedAt,
           productId: data?.productId,
-          quantity: data?.quantity,
+          quantity: data?.quantityOrdered,
           purchaseOrderId: data?.purchaseOrderId,
           loading: q?.isLoading ?? false,
           failed: !!q?.isError,
@@ -120,6 +121,15 @@ export default function PurchaseItemsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    createMutation.mutate(
+      {
+        purchaseOrderId: form.purchaseOrderId,
+        productId: form.productId,
+        quantityOrdered: Number(form.quantityOrdered),
+        unitCost: Number(form.unitCost),
+      },
+      { onSuccess: () => { setForm(EMPTY_FORM); closeDrawer(); } },
+    );
   };
 
   const productLabelFor = (productId: string | undefined) => {
@@ -139,20 +149,13 @@ export default function PurchaseItemsPage() {
           <h1 className="text-2xl font-semibold">Purchase Items</h1>
           <p className="text-muted-foreground text-sm mt-1">
             Look up purchase items by ID and reopen recent items saved in this
-            browser. Create blocked by Core API column mismatch (#0b).
+            browser.
           </p>
         </div>
-        <Button onClick={() => setDrawerOpen(true)} variant="outline" disabled>
-          New Purchase Item (blocked)
+        <Button onClick={() => setDrawerOpen(true)} variant="outline">
+          New Purchase Item
         </Button>
       </div>
-
-      {/* <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-500">
-        Verified: request/command use <code className="text-xs">quantity</code> /{' '}
-        <code className="text-xs">unitPrice</code>; entity requires{' '}
-        <code className="text-xs">quantityOrdered</code> / <code className="text-xs">unitCost</code>. Client
-        cannot rename through the wire.
-      </div> */}
 
       <RecentRecords
         title="Recent purchase items"
@@ -265,12 +268,20 @@ export default function PurchaseItemsPage() {
                 {productLabelFor(lookedUp.productId)}
               </p>
               <p>
-                <span className="text-muted-foreground">Quantity:</span>{" "}
-                {lookedUp.quantity != null ? lookedUp.quantity : "—"}
+                <span className="text-muted-foreground">Quantity ordered:</span>{" "}
+                {lookedUp.quantityOrdered != null ? lookedUp.quantityOrdered : "—"}
               </p>
               <p>
-                <span className="text-muted-foreground">Unit price:</span>{" "}
-                {lookedUp.unitPrice != null ? lookedUp.unitPrice : "—"}
+                <span className="text-muted-foreground">Quantity received:</span>{" "}
+                {lookedUp.quantityReceived != null ? lookedUp.quantityReceived : "—"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Unit cost:</span>{" "}
+                {lookedUp.unitCost != null ? lookedUp.unitCost : "—"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">Total cost:</span>{" "}
+                {lookedUp.totalCost != null ? lookedUp.totalCost : "—"}
               </p>
             </div>
           )}
@@ -283,8 +294,8 @@ export default function PurchaseItemsPage() {
         title="New Purchase Item"
         footer={
           <>
-            <Button type="submit" form="purchase-item-form" disabled>
-              Create (blocked — Core API #0b)
+            <Button type="submit" form="purchase-item-form" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Creating…" : "Create"}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>
               Cancel
@@ -300,8 +311,8 @@ export default function PurchaseItemsPage() {
           <Field label="Purchase Order ID">
             <Input
               value={form.purchaseOrderId}
-              disabled
-              onChange={() => undefined}
+              onChange={(e) => setForm({ ...form, purchaseOrderId: e.target.value })}
+              required
             />
           </Field>
           <Field label="Product">
@@ -309,24 +320,24 @@ export default function PurchaseItemsPage() {
               resource={Products}
               getLabel={(p) => p.name || p.sku || p.id}
               value={form.productId}
-              onValueChange={() => undefined}
+              onValueChange={(v) => setForm({ ...form, productId: v })}
               placeholder="Select product…"
             />
           </Field>
-          <Field label="Quantity">
+          <Field label="Quantity Ordered">
             <Input
               type="number"
-              value={form.quantity}
-              disabled
-              onChange={() => undefined}
+              value={form.quantityOrdered}
+              onChange={(e) => setForm({ ...form, quantityOrdered: e.target.value })}
+              required
             />
           </Field>
-          <Field label="Unit Price">
+          <Field label="Unit Cost">
             <Input
               type="number"
-              value={form.unitPrice}
-              disabled
-              onChange={() => undefined}
+              value={form.unitCost}
+              onChange={(e) => setForm({ ...form, unitCost: e.target.value })}
+              required
             />
           </Field>
         </form>

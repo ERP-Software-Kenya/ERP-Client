@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
@@ -7,7 +7,10 @@ import { useAuth } from './context/AuthContext';
 import { PageAccessProvider } from './context/PageAccessContext';
 import PageAccessRoute from './components/PageAccessRoute';
 
-const Login = lazy(() => import('./pages/Login'));
+const SignIn = lazy(() => import('./pages/SignIn'));
+const SignUp = lazy(() => import('./pages/SignUp'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const VerifySecondFactor = lazy(() => import('./pages/VerifySecondFactor'));
 const SSOCallback = lazy(() => import('./pages/SSOCallback'));
 const SSOContinue = lazy(() => import('./pages/SSOContinue'));
 const CreateOrganization = lazy(() => import('./pages/CreateOrganization'));
@@ -43,12 +46,15 @@ const AuditLog = lazy(() => import('./pages/AuditLog'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const PlatformConfigurations = lazy(() => import('./pages/PlatformConfigurations'));
 const AppUpdates = lazy(() => import('./pages/AppUpdates'));
+const BillingSettings = lazy(() => import('./pages/BillingSettings'));
 const PurchaseItems = lazy(() => import('./pages/PurchaseItems'));
 const Roles = lazy(() => import('./pages/Roles'));
 const UserRoles = lazy(() => import('./pages/UserRoles'));
 const Users = lazy(() => import('./pages/Users'));
 const UserDetail = lazy(() => import('./pages/UserDetail'));
 const PageAccessPage = lazy(() => import('./pages/PageAccess'));
+const PendingApprovals = lazy(() => import('./pages/credit-approvals/PendingApprovals'));
+const BlackLedger = lazy(() => import('./pages/credit-approvals/BlackLedger'));
 const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
 const VehicleDetailPage = lazy(() => import('./pages/VehicleDetailPage'));
 const FleetDashboard = lazy(() => import('./pages/Fleet'));
@@ -57,9 +63,8 @@ const FleetDriversPage = lazy(() => import('./pages/Fleet/Drivers'));
 const FleetTripsPage = lazy(() => import('./pages/Fleet/Trips'));
 const FleetMaintenancePage = lazy(() => import('./pages/Fleet/Maintenance'));
 const FleetExpensesPage = lazy(() => import('./pages/Fleet/Expenses'));
-const POSTerminal = lazy(() => import('./pages/pos/POSTerminal'));
-const PendingApprovals = lazy(() => import('./pages/PendingApprovals'));
-const BlackLedger = lazy(() => import('./pages/BlackLedger'));
+const SalesBilling = lazy(() => import('./pages/pos/SalesBilling'));
+const PurchaseBilling = lazy(() => import('./pages/pos/PurchaseBilling'));
 
 function RouteFallback() {
   return (
@@ -77,12 +82,21 @@ function SessionRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PosRedirect() {
+  const [searchParams] = useSearchParams();
+  if (searchParams.get('mode') === 'purchase') return <Navigate to="/pos/purchase" replace />;
+  return <Navigate to="/pos/sales" replace />;
+}
+
 function App() {
   return (
     <HashRouter>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/verify-second-factor" element={<VerifySecondFactor />} />
           <Route path="/sso-callback" element={<SSOCallback />} />
           <Route path="/sso-continue" element={<SSOContinue />} />
           <Route path="/onboarding/create-org" element={<SessionRoute><CreateOrganization /></SessionRoute>} />
@@ -104,7 +118,9 @@ function App() {
             <Route path="dashboard/purchase" element={<PurchaseDashboard />} />
             <Route path="dashboard/inventory" element={<InventoryDashboard />} />
             <Route path="dashboard/sales" element={<SalesDashboard />} />
-            <Route path="pos" element={<POSTerminal />} />
+            <Route path="pos" element={<PosRedirect />} />
+            <Route path="pos/sales" element={<SalesBilling />} />
+            <Route path="pos/purchase" element={<PurchaseBilling />} />
             <Route path="bills" element={<Bills />} />
             <Route path="bills/:id" element={<BillDetail />} />
             <Route path="payment-transactions" element={<PaymentTransactions />} />
@@ -120,6 +136,8 @@ function App() {
             <Route path="black-ledger" element={<BlackLedger />} />
             <Route path="orders" element={<Orders />} />
             <Route path="invoices" element={<Invoices />} />
+            <Route path="approvals/pending" element={<PendingApprovals />} />
+            <Route path="approvals/black-ledger" element={<BlackLedger />} />
             <Route path="vehicles" element={<VehiclesPage />} />
             <Route path="vehicles/:id" element={<VehicleDetailPage />} />
             <Route path="fleet" element={<FleetDashboard />} />
@@ -133,6 +151,7 @@ function App() {
             <Route path="expenses" element={<Expenses />} />
             <Route path="platform-configurations" element={<PlatformConfigurations />} />
             <Route path="settings/app" element={<AppUpdates />} />
+            <Route path="settings/billing" element={<BillingSettings />} />
             <Route path="purchase-items" element={<PurchaseItems />} />
             <Route path="roles" element={<Roles />} />
             <Route path="user-roles" element={<UserRoles />} />

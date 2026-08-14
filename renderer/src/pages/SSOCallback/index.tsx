@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { clerk } from '../../lib/clerk';
 import { useAuth } from '../../context/AuthContext';
+import { clerkErrorMessage, resolveSignInStatus } from '../../lib/auth-flow';
 import { toast } from 'sonner';
 
 export default function SSOCallback() {
@@ -21,14 +22,27 @@ export default function SSOCallback() {
 
         await clerk.handleRedirectCallback({
           signInUrl: '/#/login',
-          signUpUrl: '/#/login',
+          signUpUrl: '/#/signup',
           signInForceRedirectUrl: '/#/',
           signUpForceRedirectUrl: '/#/',
           // First-time Google users often lack username (required by this Clerk instance)
           continueSignUpUrl: '/#/sso-continue',
+          // Without this, Clerk falls back to its hosted Account Portal for
+          // needs_second_factor / needs_client_trust and hard-navigates away
+          // from this app before resolveSignInStatus below can run.
+          secondFactorUrl: '/#/verify-second-factor',
         });
 
-        // If Clerk didn't navigate (e.g. incomplete state left in place), finish locally.
+        // The fix: route through the same status resolver the password path uses,
+        // so an existing user with 2FA enabled reaches /verify-second-factor instead
+        // of falling through to the "no session" error below.
+        const signIn = clerk.client?.signIn;
+        if (signIn && (signIn.status === 'complete' || signIn.status === 'needs_second_factor' || signIn.status === 'needs_client_trust')) {
+          await resolveSignInStatus(signIn, { navigate, refresh });
+          return;
+        }
+
+        // New-user case: Clerk requires more profile fields (existing behavior, unchanged).
         const signUp = clerk.client?.signUp;
         if (signUp?.status === 'missing_requirements') {
           navigate('/sso-continue', { replace: true });
@@ -49,7 +63,7 @@ export default function SSOCallback() {
           navigate('/sso-continue', { replace: true });
           return;
         }
-        toast.error(error?.errors?.[0]?.longMessage || error?.message || 'Google sign-in failed');
+        toast.error(clerkErrorMessage(error, 'Google sign-in failed'));
         navigate('/login', { replace: true });
       }
     })();

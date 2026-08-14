@@ -5,6 +5,7 @@ import { FormDrawer, Field } from '../../components/FormDrawer';
 import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Roles, useListRoles } from '../../api';
+import { loadErrorMessage } from '../../lib/api-error';
 import { ROLE_NAMES, type Role } from '../../types';
 
 const ROLE_BADGE: Record<string, string> = {
@@ -77,7 +78,7 @@ export default function RolesPage(): React.JSX.Element {
         total={rows.length}
         page={page}
         loading={isLoading}
-        error={error ? 'Failed to load roles' : null}
+        error={error ? loadErrorMessage(error, 'roles') : null}
         onPageChange={setPage}
         hideSearch
         onRefetch={() => void refetch()}

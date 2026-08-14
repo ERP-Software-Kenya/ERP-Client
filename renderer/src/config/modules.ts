@@ -95,7 +95,7 @@ export const MODULES: ModuleGroup[] = [
     label: 'Sales',
     icon: ShoppingBag,
     items: [
-      { key: 'pos', title: 'POS / Billing', path: '/pos', icon: ScanLine },
+      { key: 'pos-sales', title: 'Sales Billing', path: '/pos/sales', icon: ScanLine },
       { key: 'pending-approvals', title: 'Pending Approvals', path: '/pending-approvals', icon: CheckSquare },
       { key: 'black-ledger', title: 'Black Ledger', path: '/black-ledger', icon: Wallet },
       { key: 'customers', title: 'Customers', path: '/customers', icon: Users2 },
@@ -111,6 +111,7 @@ export const MODULES: ModuleGroup[] = [
     label: 'Purchase',
     icon: ShoppingCart,
     items: [
+      { key: 'purchase-billing', title: 'Purchase Billing', path: '/pos/purchase', icon: PackagePlus },
       { key: 'suppliers', title: 'Suppliers', path: '/suppliers', icon: Building2 },
       // { key: 'rfq', title: 'RFQ / Enquiry', path: '/purchase/rfq', icon: Search, disabled: true },
       { key: 'purchase-orders', title: 'Purchase Orders', path: '/purchase-orders', icon: ClipboardList },
@@ -166,15 +167,14 @@ export const MODULES: ModuleGroup[] = [
       { key: 'fleet-expenses', title: 'Vehicle Expenses', path: '/fleet/expenses', icon: Fuel },
     ],
   },
-  // {
-  //   label: 'Approvals',
-  //   icon: CheckSquare,
-  //   items: [
-  //     { key: 'approvals-pending', title: 'Pending', path: '/approvals/pending', icon: Clock, disabled: true },
-  //     { key: 'approvals-history', title: 'History', path: '/approvals/history', icon: History, disabled: true },
-  //     { key: 'approvals-rules', title: 'Rules', path: '/approvals/rules', icon: Settings, disabled: true },
-  //   ],
-  // },
+  {
+    label: 'Approvals',
+    icon: CheckSquare,
+    items: [
+      { key: 'approvals-pending', title: 'Pending Credit Sales', path: '/approvals/pending', icon: Clock },
+      { key: 'approvals-history', title: 'Black Ledger', path: '/approvals/black-ledger', icon: History },
+    ],
+  },
   // {
   //   label: 'Reports',
   //   icon: BarChart3,
@@ -214,6 +214,7 @@ export const MODULES: ModuleGroup[] = [
     items: [
       //     { key: 'settings-general', title: 'General', path: '/platform-configurations', icon: Settings },
       { key: 'settings-app-updates', title: 'App updates', path: '/settings/app', icon: ArrowUpCircle },
+      { key: 'settings-billing', title: 'Billing', path: '/settings/billing', icon: Percent, adminOnly: true },
       //     { key: 'settings-tax', title: 'Tax', path: '/settings/tax', icon: Percent, disabled: true },
       //     { key: 'settings-uom', title: 'Unit of Measure', path: '/settings/uom', icon: Ruler, disabled: true },
       //     { key: 'settings-pricelists', title: 'Price Lists', path: '/settings/pricelists', icon: Tags, disabled: true },
@@ -228,3 +229,17 @@ export const MODULES: ModuleGroup[] = [
 ];
 
 export const ALL_ITEMS: ModuleItem[] = MODULES.flatMap((g) => g.items);
+
+/** Longest matching MODULES path for a location, or null if the URL is not in the nav. */
+export function pageKeyForPath(pathname: string): string | null {
+  const normalized = pathname.replace(/\/$/, '') || '/';
+  let best: { path: string; key: string } | null = null;
+  for (const item of ALL_ITEMS) {
+    const path = item.path.replace(/\/$/, '') || '/';
+    const matches = normalized === path || (path !== '/' && normalized.startsWith(`${path}/`));
+    if (matches && (!best || path.length > best.path.length)) {
+      best = { path, key: item.key };
+    }
+  }
+  return best?.key ?? null;
+}

@@ -24,6 +24,12 @@ Newest entries first. Keep each entry to the four lines above — no extra narra
 
 ## Ledger
 
+### 2026-08-13 — Claimed OAuth 2FA/device-trust session-resume fix that isn't in the repo
+
+**What happened:** claude-mem memory logged (Aug 12, ~11:22 PM, session S102) "Fix Google sign-in not creating a session for existing users requiring 2FA or device trust verification," with follow-up entries claiming `beginSecondFactor` was removed from Login and a `useEffect` was added to resume incomplete Google OAuth sign-ins. None of that exists in the current files: `Login/index.tsx` has no `useEffect`, `beginSecondFactor` is still present and only wired to the password sign-in path (not OAuth), and `SSOCallback/index.tsx` only checks `signUp.status === 'missing_requirements'` and `clerk.session` — it has no handling for `needs_second_factor` or `needs_client_trust` on `signIn`. `git log` shows exactly one commit (`b3bda46`) for both files, and the working tree is clean, so the claimed fix was never committed.
+**Why it was wrong:** Trusted a memory-system summary of prior-session work as fact instead of re-verifying against the actual files, same failure mode as the 2026-07-24 entry above.
+**Do instead:** Before relying on a claude-mem observation that says a bug was fixed, grep/read the actual file it names. If the code doesn't match the claim, treat the bug as still open. Current gap: an existing user with MFA/2FA enabled who signs in with Google will hit `SSOCallback`'s fallback branch ("Google sign-in did not create a session — try again") and get stuck with no way to complete the second factor, because the OAuth path never reaches `beginSecondFactor`.
+
 ### 2026-08-03 — Shipped frontend SKU auto-gen UI ahead of the backend that was supposed to power it
 
 **What happened:** Commit `7aadbe5` made `ProductOnboardingWizard.tsx`'s SKU field read-only and changed product creation to send `sku: undefined`, relying on a new `useNextSku()` hook that calls `GET /api/v1/products/next-sku`. That backend endpoint was never built (the implementation fork for it failed on session-limit before writing code) — `get-next-sku` is still an empty directory in `core-apis`, and `create-product.command-handler.ts` has no SKU auto-gen logic. This merged to `main` via PR #15.

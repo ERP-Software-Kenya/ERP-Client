@@ -1,5 +1,6 @@
-import { patch, post } from '../../lib/http';
-import type { Bill, InventoryItem, PaymentMethod } from '../../types';
+import { patch, post, put, get, del } from '../../lib/http';
+import { getErrorMessage, parseCreditApprovalError } from '../../lib/api-error';
+import type { Bill, InventoryItem, PaymentMethod, SaleType, CustomerType, PaymentTiming } from '../../types';
 
 export type CheckoutStepStatus = 'ok' | 'failed' | 'skipped';
 
@@ -40,8 +41,8 @@ export interface PosReceipt {
   partyLabel?: string;
   paymentMethod?: string;
   paymentReference?: string;
-  saleType?: 'normal' | 'credit' | 'black';
-  paymentTiming?: 'before_delivery' | 'after_delivery' | 'half' | 'cod';
+  saleType?: SaleType | string;
+  paymentTiming?: PaymentTiming | string;
   creditLimit?: number;
   creditBalance?: number;
   delivery?: DeliveryInfo;
@@ -66,6 +67,10 @@ export interface CheckoutResult {
   steps: CheckoutStep[];
   /** True when a printable receipt was issued (always for valid cart). */
   primaryOk: boolean;
+  /** Bill saved as draft and sent to Pending Approvals (credit over limit). */
+  pendingCreditApproval?: boolean;
+  approvalRequestId?: string;
+  billId?: string;
 }
 
 export interface SalesCheckoutInput {
@@ -85,9 +90,10 @@ export interface SalesCheckoutInput {
   subtotal: number;
   taxAmount: number;
   totalAmount: number;
-  saleType?: 'normal' | 'credit' | 'black';
-  customerType?: 'regular' | 'new' | 'shop' | 'big_customer';
-  paymentTiming?: 'before_delivery' | 'after_delivery' | 'half' | 'cod';
+  // ── Sales v2 fields ──
+  saleType?: SaleType | string;
+  customerType?: CustomerType | string;
+  paymentTiming?: PaymentTiming | string;
   partialAmount?: number;
   creditLimit?: number;
   creditBalance?: number;
@@ -95,6 +101,7 @@ export interface SalesCheckoutInput {
   facilitatorUserId?: string;
   facilitatorName?: string;
   commissionPct?: number;
+  existingBillId?: string;
 }
 
 export interface PurchaseCheckoutInput {
@@ -167,13 +174,6 @@ function buildReceiptLines(lines: PosLineInput[]) {
   });
 }
 
-function findInventory(
-  inventory: InventoryItem[] | undefined,
-  productId: string,
-  locationId: string,
-): InventoryItem | undefined {
-  return inventory?.find((i) => i.productId === productId && i.locationId === locationId);
-}
 
 function toBillPaymentMethod(method: PosPayMethod): PaymentMethod {
   switch (method) {
@@ -189,60 +189,80 @@ function toBillPaymentMethod(method: PosPayMethod): PaymentMethod {
   }
 }
 
-/** Apply add/remove for each line; one CheckoutStep per line (honest failures). */
-async function runStockLines(
-  op: 'add' | 'remove',
-  lines: PosLineInput[],
-  locationId: string | undefined,
-  inventory: InventoryItem[] | undefined,
-  referenceId?: string,
-): Promise<CheckoutStep[]> {
-  const label = op === 'remove' ? 'Stock remove' : 'Stock add';
-  if (!locationId) {
-    return [
-      skipped(
-        label,
-        'Skipped — pick a stock location (Locations). Orders use Stores; inventory uses Locations.',
-      ),
-    ];
-  }
-  if (!inventory?.length) {
-    return [skipped(label, 'Skipped — no inventory list loaded')];
-  }
-
-  const steps: CheckoutStep[] = [];
-  for (const line of lines) {
-    const inv = findInventory(inventory, line.productId, locationId);
-    const name = `${label}: ${line.name || line.sku || line.productId.slice(0, 8)}`;
-    if (!inv) {
-      steps.push({
-        name,
-        status: 'failed',
-        message: 'No inventory row for this product at selected location. Create one under Inventory first.',
-      });
-      continue;
-    }
-    const attempt = await tryStep(name, () =>
-      post(`/api/v1/stock-movements/${op}`, {
-        inventoryId: inv.id,
-        locationId,
-        productId: line.productId,
-        quantity: line.qty,
-        referenceId,
-        referenceType: referenceId ? 'pos' : undefined,
-        notes: `POS ${op}`,
-      }),
-    );
-    steps.push(attempt.step);
-  }
-  return steps;
-}
-
 export interface DraftSaleResult {
   /** Present only when the bill made it to DRAFT; steps carry the failure reason otherwise. */
   billId?: string;
   receipt: PosReceipt;
   steps: CheckoutStep[];
+}
+
+/**
+ * Updates an existing DRAFT bill (from Held Sales) instead of creating a new one.
+ */
+async function updateDraftSale(
+  billId: string,
+  input: SalesCheckoutInput,
+  walkInName: string | undefined,
+  steps: CheckoutStep[],
+  notesParts: string[],
+): Promise<{ billId: string; bill?: Bill; steps: CheckoutStep[] }> {
+  const headerAttempt = await tryStep(
+    'Update held bill',
+    () =>
+      put<Bill>(`/api/v1/bills/${billId}`, {
+        locationId: input.locationId,
+        customerId: input.customerId?.trim() || undefined,
+        walkInName: input.customerId?.trim() ? undefined : walkInName,
+        notes: notesParts.length ? notesParts.join(' · ') : undefined,
+        saleType: input.saleType,
+        customerType: input.customerType,
+        paymentTiming: input.paymentTiming,
+        partialAmount: input.paymentTiming === 'half' ? input.partialAmount : undefined,
+        facilitatorUserId: input.facilitatorUserId,
+        facilitatorName: input.facilitatorName,
+        commissionPct: input.commissionPct,
+      }),
+    (b) => b.id,
+  );
+  steps.push(headerAttempt.step);
+  if (headerAttempt.step.status === 'failed') {
+    return { billId: '', steps };
+  }
+
+  const loadAttempt = await tryStep('Load held bill items', () => get<Bill>(`/api/v1/bills/${billId}`));
+  steps.push(loadAttempt.step);
+  if (loadAttempt.step.status === 'failed') {
+    return { billId: '', steps };
+  }
+
+  for (const item of loadAttempt.result?.items ?? []) {
+    const removeAttempt = await tryStep(`Remove old item ${item.id.slice(0, 8)}…`, () =>
+      del(`/api/v1/bills/${billId}/items/${item.id}`),
+    );
+    steps.push(removeAttempt.step);
+  }
+
+  let latestBill: Bill | undefined = headerAttempt.result;
+  for (const l of input.lines) {
+    const addAttempt = await tryStep(
+      `Add item: ${l.name || l.sku || l.productId.slice(0, 8)}`,
+      () =>
+        post<Bill>(`/api/v1/bills/${billId}/items`, {
+          productId: l.productId,
+          quantity: l.qty,
+          unitPrice: l.unitPrice,
+          taxRate: l.taxPct,
+        }),
+      (b) => b.id,
+    );
+    steps.push(addAttempt.step);
+    if (addAttempt.step.status === 'failed') {
+      return { billId: '', steps };
+    }
+    if (addAttempt.result) latestBill = addAttempt.result;
+  }
+
+  return { billId, bill: latestBill, steps };
 }
 
 /**
@@ -335,6 +355,12 @@ export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftS
     notesParts.push(`Driver: ${input.delivery.driverName}`);
   }
 
+  if (input.existingBillId) {
+    const updateAttempt = await updateDraftSale(input.existingBillId, input, walkInName, steps, notesParts);
+    if (!updateAttempt.billId) return { receipt, steps };
+    return { receipt, steps, billId: updateAttempt.billId };
+  }
+
   const createAttempt = await tryStep(
     'Create bill',
     () =>
@@ -343,16 +369,20 @@ export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftS
         customerId: input.customerId?.trim() || undefined,
         walkInName: input.customerId?.trim() ? undefined : walkInName,
         notes: notesParts.length ? notesParts.join(' · ') : undefined,
-        saleType: input.saleType,
-        customerType: input.customerType,
-        paymentTiming: input.paymentTiming,
-        partialAmount: input.paymentTiming === 'half' ? input.partialAmount : undefined,
         items: input.lines.map((l) => ({
           productId: l.productId,
           quantity: l.qty,
           unitPrice: l.unitPrice,
           taxRate: l.taxPct,
         })),
+        // Sales v2 fields
+        saleType: input.saleType,
+        customerType: input.customerType,
+        paymentTiming: input.paymentTiming,
+        partialAmount: input.paymentTiming === 'half' ? input.partialAmount : undefined,
+        facilitatorUserId: input.facilitatorUserId,
+        facilitatorName: input.facilitatorName,
+        commissionPct: input.commissionPct,
       }),
     (b) => b.id,
   );
@@ -399,25 +429,54 @@ export async function runSalesCheckout(input: SalesCheckoutInput): Promise<Check
     return { receipt, steps, primaryOk: false };
   }
 
-  const completeAttempt = await tryStep(
-    'Complete bill',
-    () =>
-      patch<Bill>(`/api/v1/bills/${billId}/status`, {
-        status: 'COMPLETED',
-        paymentMethod: toBillPaymentMethod(input.paymentMethod),
-      }),
-    (b) => b.id,
-  );
-  steps.push(completeAttempt.step);
-
-  if (completeAttempt.step.status !== 'ok') {
-    return { receipt, steps, primaryOk: false };
+  let completeBill: Bill | undefined;
+  try {
+    completeBill = await patch<Bill>(`/api/v1/bills/${billId}/status`, {
+      status: 'COMPLETED',
+      paymentMethod: toBillPaymentMethod(input.paymentMethod),
+    });
+    steps.push({
+      name: 'Complete bill',
+      status: 'ok',
+      entityId: completeBill.id,
+      message: 'Completed',
+    });
+  } catch (e) {
+    const approval = parseCreditApprovalError(e);
+    if (approval.isPendingApproval) {
+      steps.push({
+        name: 'Complete bill',
+        status: 'skipped',
+        message: getErrorMessage(e),
+        entityId: billId,
+      });
+      steps.push({
+        name: 'Credit approval',
+        status: 'ok',
+        message: 'Sale held as draft — manager must approve on Pending Approvals',
+        entityId: approval.approvalRequestId ?? billId,
+      });
+      return {
+        receipt,
+        steps,
+        primaryOk: true,
+        pendingCreditApproval: true,
+        approvalRequestId: approval.approvalRequestId,
+        billId,
+      };
+    }
+    steps.push({
+      name: 'Complete bill',
+      status: 'failed',
+      message: getErrorMessage(e),
+    });
+    return { receipt, steps, primaryOk: false, billId };
   }
 
   // Extras inflate local receipt total beyond server bill — do not claim full sync.
   receipt.synced = input.extraCharges.length === 0;
-  if (completeAttempt.result?.billNumber) {
-    receipt.ref = completeAttempt.result.billNumber;
+  if (completeBill?.billNumber) {
+    receipt.ref = completeBill.billNumber;
   }
   steps.push({
     name: 'Inventory',
@@ -505,3 +564,5 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
 
   return { receipt, steps, primaryOk: true };
 }
+
+

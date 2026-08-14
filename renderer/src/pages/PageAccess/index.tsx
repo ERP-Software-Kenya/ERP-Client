@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/button';
 import { PageAccess } from '../../api';
 import type { PageAccessConfig } from '../../types';
 import { ALL_ITEMS } from '../../config/modules';
+import { isFullPageAccessRole } from '../../lib/page-access';
 
 const ROLES = [
   { key: 'super_admin',    label: 'Super Admin' },
@@ -66,7 +67,7 @@ export default function PageAccessPage() {
         <div>
           <h1 className="text-2xl font-bold">Page Access</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Configure which roles can access each page. Super Admin always has full access.
+            Configure which roles can access each page. Super Admin and Org Admin always have full access.
           </p>
         </div>
         <div className="flex gap-2">
@@ -99,7 +100,7 @@ export default function PageAccessPage() {
                   <td className="px-4 py-3 font-medium">{item.title}</td>
                   {ROLES.map((r) => (
                     <td key={r.key} className="px-4 py-3 text-center">
-                      {r.key === 'super_admin' ? (
+                      {isFullPageAccessRole(r.key) ? (
                         <span className="inline-block w-4 h-4 rounded bg-primary/20 text-primary text-xs flex items-center justify-center" title="Always allowed">✓</span>
                       ) : (
                         <input

@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { UpdateBanner } from '../UpdateBanner';
+import { PageAccessGate } from '../PageAccessRoute';
 
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const isPos = /\/pos\/?$/.test(location.pathname);
+  const isPos = /^\/pos(\/.*)?$/.test(location.pathname);
 
   return (
     <div className="h-screen w-full flex overflow-hidden bg-background text-foreground">
@@ -23,7 +24,7 @@ export default function AppLayout() {
           }
         >
           <div className={isPos ? 'h-full min-h-0 w-full' : 'w-full px-3 py-3'}>
-            <Outlet />
+            <PageAccessGate />
           </div>
         </main>
       </div>

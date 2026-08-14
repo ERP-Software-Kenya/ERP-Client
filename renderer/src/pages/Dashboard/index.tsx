@@ -58,6 +58,9 @@ import {
   useInventoryLowStock,
   useInventoryValuation,
   Inventory,
+  Analytics,
+  FleetVehicles,
+  FleetTrips,
 } from '../../api';
 import { formatEntityLabel } from '../../lib/entityLabel';
 import type { PurchaseOrder, Notification as NotificationType, Location, Product } from '../../types';
@@ -79,34 +82,11 @@ const C = {
 
 const PIE_COLORS = [C.blue, C.green, C.orange, C.rose, C.purple, C.teal];
 
-// ── Demo data (real bucketing requires server-side reporting endpoints) ─────────
-
-const DEMO_REVENUE_TREND = [
-  { month: 'Feb', revenue: 284000, cost: 198000 },
-  { month: 'Mar', revenue: 342000, cost: 231000 },
-  { month: 'Apr', revenue: 298000, cost: 204000 },
-  { month: 'May', revenue: 415000, cost: 287000 },
-  { month: 'Jun', revenue: 389000, cost: 265000 },
-  { month: 'Jul', revenue: 472000, cost: 318000 },
-  { month: 'Aug', revenue: 510000, cost: 341000 },
-];
-
-const DEMO_VEHICLE_METRICS = [
-  { name: 'Active', value: 8, color: C.green },
-  { name: 'Maintenance', value: 2, color: C.amber },
-  { name: 'Idle', value: 3, color: C.blue },
-  { name: 'Retired', value: 1, color: C.rose },
-];
-
-const DEMO_VEHICLE_TRIPS = [
-  { month: 'Feb', trips: 42 },
-  { month: 'Mar', trips: 58 },
-  { month: 'Apr', trips: 51 },
-  { month: 'May', trips: 67 },
-  { month: 'Jun', trips: 73 },
-  { month: 'Jul', trips: 69 },
-  { month: 'Aug', trips: 81 },
-];
+function fmtMonth(ym: string): string {
+  if (!ym.includes('-')) return ym;
+  const [year, month] = ym.split('-');
+  return new Date(Number(year), Number(month) - 1).toLocaleDateString('en', { month: 'short' });
+}
 
 // ── Hooks ──────────────────────────────────────────────────────────────────────
 
@@ -523,6 +503,7 @@ function AnalyticsTab() {
   const { data: productsList } = Products.useList();
   const { data: locationsList } = Locations.useList();
   const { data: paymentsData } = PaymentTransactions.useSearch({ limit: 1 });
+  const { data: revenueTrend, isLoading: revenueLoading } = Analytics.useRevenueTrend(6);
 
   const totalInventory = invSearch?.total ?? 0;
   const lowCount = lowStock?.length ?? 0;
@@ -643,28 +624,29 @@ function AnalyticsTab() {
 
           {/* Revenue trend area chart */}
           <AnimFade delay={80} className="lg:col-span-2">
-            <ChartCard title="Revenue vs Cost Trend" subtitle="Demo data — real trend needs server-side bucketing">
+            <ChartCard title="Revenue Trend" subtitle="Live · last 6 months">
+              {revenueLoading ? (
+                <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">Loading…</div>
+              ) : !(revenueTrend?.length) ? (
+                <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">No sales yet</div>
+              ) : (
               <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={DEMO_REVENUE_TREND}>
+                <AreaChart data={revenueTrend}>
                   <defs>
                     <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={C.green} stopOpacity={0.25} />
                       <stop offset="95%" stopColor={C.green} stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="costGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={C.orange} stopOpacity={0.2} />
-                      <stop offset="95%" stopColor={C.orange} stopOpacity={0} />
-                    </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <XAxis dataKey="month" tickFormatter={fmtMonth} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                   <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
                   <Tooltip content={<ChartTooltipBox currency />} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                   <Area type="monotone" dataKey="revenue" name="Revenue" stroke={C.green} strokeWidth={2} fill="url(#revGrad)" dot={{ r: 3, fill: C.green }} animationDuration={1400} />
-                  <Area type="monotone" dataKey="cost" name="Cost" stroke={C.orange} strokeWidth={2} fill="url(#costGrad)" dot={{ r: 3, fill: C.orange }} animationDuration={1600} />
                 </AreaChart>
               </ResponsiveContainer>
+              )}
             </ChartCard>
           </AnimFade>
         </div>
@@ -885,6 +867,38 @@ function OperationsTab() {
   const { data: transfers, isLoading: transfersLoading } = StockTransfers.useSearch({ limit: 8 });
   const { data: locationsList } = Locations.useList();
   const { data: valuation } = useInventoryValuation();
+  const { data: vehicles } = FleetVehicles.useList();
+  const { data: trips } = FleetTrips.useList();
+
+  const fleetStatus = useMemo(() => {
+    const counts: Record<string, number> = {
+      available: 0, in_transit: 0, maintenance: 0, idle: 0, out_of_service: 0,
+    };
+    const colors: Record<string, string> = {
+      available: C.green, in_transit: C.blue, maintenance: C.amber, idle: C.teal, out_of_service: C.rose,
+    };
+    const labels: Record<string, string> = {
+      available: 'Available', in_transit: 'In transit', maintenance: 'Maintenance', idle: 'Idle', out_of_service: 'Out of service',
+    };
+    for (const vehicle of vehicles ?? []) {
+      const status = vehicle.status ?? 'idle';
+      if (status in counts) counts[status] += 1;
+    }
+    return Object.entries(counts)
+      .filter(([, value]) => value > 0)
+      .map(([key, value]) => ({ name: labels[key], value, color: colors[key] }));
+  }, [vehicles]);
+
+  const tripVolume = useMemo(() => {
+    const byMonth = new Map<string, number>();
+    for (const trip of trips ?? []) {
+      const date = trip.startDatetime ? new Date(trip.startDatetime) : null;
+      if (!date || Number.isNaN(date.getTime())) continue;
+      const key = date.toLocaleDateString('en', { month: 'short' });
+      byMonth.set(key, (byMonth.get(key) ?? 0) + 1);
+    }
+    return Array.from(byMonth.entries()).map(([month, count]) => ({ month, trips: count }));
+  }, [trips]);
 
   // Location performance
   const locationPerf = useMemo(() => {
@@ -913,13 +927,15 @@ function OperationsTab() {
       <section>
         <SectionHeader icon={Truck} title="Vehicle Fleet" iconColor="text-cyan-500" />
         <div className="grid gap-4 lg:grid-cols-3">
-          {/* Fleet status donut (demo) */}
           <AnimFade delay={0}>
-            <ChartCard title="Fleet Status" subtitle="Demo data — vehicle module coming soon">
+            <ChartCard title="Fleet Status" subtitle="Live · current vehicles">
+              {fleetStatus.length === 0 ? (
+                <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">No vehicles yet</div>
+              ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie
-                    data={DEMO_VEHICLE_METRICS}
+                    data={fleetStatus}
                     cx="50%" cy="50%"
                     innerRadius={50} outerRadius={75}
                     dataKey="value"
@@ -927,7 +943,7 @@ function OperationsTab() {
                     labelLine={false}
                     label={(props) => <PieLabel {...props} />}
                   >
-                    {DEMO_VEHICLE_METRICS.map((entry, i) => (
+                    {fleetStatus.map((entry, i) => (
                       <Cell key={i} fill={entry.color} stroke="transparent" />
                     ))}
                   </Pie>
@@ -935,14 +951,18 @@ function OperationsTab() {
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                 </PieChart>
               </ResponsiveContainer>
+              )}
             </ChartCard>
           </AnimFade>
 
-          {/* Trip volume (demo) */}
+          {/* Trip volume */}
           <AnimFade delay={80} className="lg:col-span-2">
-            <ChartCard title="Monthly Trip Volume" subtitle="Demo data — vehicle tracking coming soon">
+            <ChartCard title="Trip Volume" subtitle="Live · by start month">
+              {tripVolume.length === 0 ? (
+                <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">No trips yet</div>
+              ) : (
               <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={DEMO_VEHICLE_TRIPS}>
+                <AreaChart data={tripVolume}>
                   <defs>
                     <linearGradient id="tripGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={C.cyan} stopOpacity={0.25} />
@@ -956,11 +976,11 @@ function OperationsTab() {
                   <Area type="monotone" dataKey="trips" name="Trips" stroke={C.cyan} strokeWidth={2} fill="url(#tripGrad)" dot={{ r: 3, fill: C.cyan }} animationDuration={1300} />
                 </AreaChart>
               </ResponsiveContainer>
+              )}
             </ChartCard>
           </AnimFade>
 
-          {/* Fleet KPI cards */}
-          {DEMO_VEHICLE_METRICS.map((v, i) => (
+          {fleetStatus.map((v, i) => (
             <AnimFade key={v.name} delay={i * 70}>
               <div className="p-4 bg-card border border-border rounded-xl shadow-sm flex items-center gap-4">
                 <div className="p-3 rounded-xl" style={{ background: `${v.color}18` }}>
@@ -980,10 +1000,10 @@ function OperationsTab() {
           <div className="mt-4 flex items-center gap-3 px-5 py-4 bg-cyan-500/5 border border-cyan-500/20 rounded-xl">
             <Zap size={16} className="text-cyan-500 flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">Vehicle module is available</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Enable the Vehicles module in sidebar settings to access full fleet management — trips, drivers, maintenance, fuel logs, and live tracking.</p>
+              <p className="text-sm font-semibold">Fleet management</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Vehicles, drivers, trips, and maintenance live under Fleet.</p>
             </div>
-            <Link to="/vehicles" className="text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 flex-shrink-0">
+            <Link to="/fleet" className="text-xs font-medium text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 flex-shrink-0">
               Open module <ChevronRight size={12} />
             </Link>
           </div>

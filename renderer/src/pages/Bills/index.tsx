@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { DataTable, Column } from '../../components/DataTable';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { FormDrawer, Field } from '../../components/FormDrawer';
-import { ViewDrawer } from '../../components/ViewDrawer';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Bills, Customers, Locations } from '../../api';
+import { BillViewDrawer } from './BillViewDrawer';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatEntityLabel, truncateId } from '../../lib/entityLabel';
+import { loadErrorMessage } from '../../lib/api-error';
 import type { Bill, BillStatus, CreateBillInput, Customer } from '../../types';
 
 const STATUS_FILTERS: Array<BillStatus | 'ALL'> = [
@@ -88,9 +89,7 @@ export default function BillsPage() {
   }, [statusFilter, locationFilter]);
 
   const { data, isLoading, isError, error, refetch } = Bills.useSearch({ filters });
-  const listError = isError
-    ? `Unable to load bills.${error instanceof Error && error.message ? ` (${error.message})` : ''}`
-    : null;
+  const listError = isError ? loadErrorMessage(error, 'bills') : null;
   const billRows = listError ? [] : (data?.items ?? []);
   const billCount = billRows.length;
 
@@ -189,21 +188,6 @@ export default function BillsPage() {
 
   const canDelete = (row: Bill) => row.status === 'INITIATED' || row.status === 'DRAFT';
 
-  const viewData = viewRow
-    ? ({
-        ...viewRow,
-        locationId: formatEntityLabel({
-          name: locationName.get(viewRow.locationId),
-          id: viewRow.locationId,
-        }),
-        customerId: viewRow.walkInName
-          ? viewRow.walkInName
-          : viewRow.customerId
-            ? partyLabel(viewRow, customerName)
-            : '—',
-      } as Record<string, unknown>)
-    : null;
-
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
       <p className="text-xs text-muted-foreground">
@@ -261,27 +245,19 @@ export default function BillsPage() {
         onDelete={(row) => setDeleteTarget(row)}
       />
 
-      <ViewDrawer
-        open={viewRow != null}
-        title="View Bill"
-        data={viewData}
+      <BillViewDrawer
+        billId={viewRow?.id ?? null}
+        locationName={
+          viewRow
+            ? formatEntityLabel({
+                name: locationName.get(viewRow.locationId),
+                id: viewRow.locationId,
+              })
+            : undefined
+        }
+        partyLabel={viewRow ? partyLabel(viewRow, customerName) : undefined}
         onClose={() => setViewRow(null)}
-      >
-        {viewRow && (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={() => {
-              const id = viewRow.id;
-              setViewRow(null);
-              navigate(`/bills/${id}`);
-            }}
-          >
-            Open full page
-          </Button>
-        )}
-      </ViewDrawer>
+      />
 
       <FormDrawer
         open={drawerOpen}

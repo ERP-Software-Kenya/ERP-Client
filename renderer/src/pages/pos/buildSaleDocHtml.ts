@@ -32,13 +32,15 @@ function linesTable(receipt: PosReceipt) {
       <tr>
         <td>${esc(l.name)}<div class="muted mono">${esc(l.sku)}</div></td>
         <td class="right">${l.qty}</td>
+        <td class="right">${fmt(l.rate)}</td>
+        <td class="right">${l.taxPct > 0 ? `${l.taxPct}%` : '—'}</td>
         <td class="right">${fmt(l.lineTotal)}</td>
       </tr>`,
     )
     .join('');
   return `
     <table>
-      <thead><tr><th>Item</th><th class="right">Qty</th><th class="right">Amt</th></tr></thead>
+      <thead><tr><th>Item</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Tax</th><th class="right">Amt</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }

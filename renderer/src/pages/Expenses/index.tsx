@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/input';
 import { FilterDropdown } from '../../components/FilterDropdown';
 import { ResourceSelect } from '../../components/ResourceSelect';
 import { Expenses, ExpensesApi, Locations, Organizations } from '../../api';
+import { loadErrorMessage } from '../../lib/api-error';
 import type { Expense, EExpenseStatus } from '../../types';
 
 const STATUS_OPTIONS = [
@@ -188,7 +189,7 @@ export default function ExpensesPage(): React.JSX.Element {
         total={expenses.length}
         page={page}
         loading={isLoading}
-        error={error ? 'Failed to load expenses' : null}
+        error={error ? loadErrorMessage(error, 'expenses') : null}
         onPageChange={setPage}
         hideSearch
         onRefetch={() => void refetch()}

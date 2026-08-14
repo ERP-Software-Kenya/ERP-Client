@@ -9,6 +9,7 @@ import { FormSelect } from '../../../components/FormSelect';
 import { FleetTrips, FleetVehicles, FleetDrivers, Customers } from '../../../api';
 import { usePagination } from '../../../hooks/usePagination';
 import { TripStatusBadge } from '../index';
+import { loadErrorMessage } from '../../../lib/api-error';
 import type { FleetTrip, FleetTripStatus } from '../../../types';
 
 const TRIP_STATUSES: FleetTripStatus[] = ['scheduled', 'in_transit', 'completed', 'cancelled', 'delayed'];
@@ -132,7 +133,7 @@ export default function FleetTripsPage(): React.JSX.Element {
         total={total}
         page={page}
         loading={isLoading}
-        error={isError ? `Failed to load trips: ${error instanceof Error ? error.message : 'Unknown error'}` : null}
+        error={isError ? loadErrorMessage(error, 'trips') : null}
         onPageChange={setPage}
         onSearchChange={setSearch}
         onRefetch={() => void refetch()}
