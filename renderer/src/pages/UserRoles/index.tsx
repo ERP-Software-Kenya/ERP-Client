@@ -3,16 +3,17 @@ import { FormDrawer, Field } from '../../components/FormDrawer';
 import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { UserRoles, useListUserRoles, useListRoles, useListUserDirectory } from '../../api';
+import { UserRoles, Locations, useListUserRoles, useListRoles, useListUserDirectory } from '../../api';
 import { loadErrorMessage } from '../../lib/api-error';
 import type { UserRole } from '../../types';
 
 interface FormState {
   userId: string;
   roleId: string;
+  locationId: string;
 }
 
-const EMPTY: FormState = { userId: '', roleId: '' };
+const EMPTY: FormState = { userId: '', roleId: '', locationId: '' };
 
 export default function UserRolesPage(): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -22,6 +23,7 @@ export default function UserRolesPage(): React.JSX.Element {
   const { data: assignments = [], isLoading, error, refetch } = useListUserRoles();
   const { data: roles = [] } = useListRoles();
   const { data: users = [] } = useListUserDirectory();
+  const { data: locations = [] } = Locations.useList();
   const createMutation = UserRoles.useCreate();
 
   const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r.name ?? r.id])), [roles]);
@@ -36,7 +38,7 @@ export default function UserRolesPage(): React.JSX.Element {
     ev.preventDefault();
     if (!form.userId || !form.roleId) return;
     createMutation.mutate(
-      { userId: form.userId, roleId: form.roleId } as Partial<UserRole>,
+      { userId: form.userId, roleId: form.roleId, locationId: form.locationId || undefined } as Partial<UserRole>,
       {
         onSuccess: () => {
           void refetch();
@@ -133,6 +135,21 @@ export default function UserRolesPage(): React.JSX.Element {
               <SelectContent>
                 {roles.map((r) => (
                   <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Scope to store" hint="Leave blank for an org-wide role.">
+            <Select
+              value={form.locationId || undefined}
+              onValueChange={(v) => setForm((f) => ({ ...f, locationId: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Org-wide (all stores)" />
+              </SelectTrigger>
+              <SelectContent>
+                {locations.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
