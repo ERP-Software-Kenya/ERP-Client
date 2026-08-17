@@ -47,6 +47,7 @@ const Expenses = lazy(() => import('./pages/Expenses'));
 const PlatformConfigurations = lazy(() => import('./pages/PlatformConfigurations'));
 const AppUpdates = lazy(() => import('./pages/AppUpdates'));
 const BillingSettings = lazy(() => import('./pages/BillingSettings'));
+const NotificationSettings = lazy(() => import('./pages/NotificationSettings'));
 const PurchaseItems = lazy(() => import('./pages/PurchaseItems'));
 const Roles = lazy(() => import('./pages/Roles'));
 const UserRoles = lazy(() => import('./pages/UserRoles'));
@@ -152,6 +153,7 @@ function App() {
             <Route path="platform-configurations" element={<PlatformConfigurations />} />
             <Route path="settings/app" element={<AppUpdates />} />
             <Route path="settings/billing" element={<BillingSettings />} />
+            <Route path="settings/notifications" element={<NotificationSettings />} />
             <Route path="purchase-items" element={<PurchaseItems />} />
             <Route path="roles" element={<Roles />} />
             <Route path="user-roles" element={<UserRoles />} />
