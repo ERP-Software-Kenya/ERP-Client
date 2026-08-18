@@ -11,6 +11,7 @@ import { ROLE_NAMES, type Role } from '../../types';
 const ROLE_BADGE: Record<string, string> = {
   super_admin:   'bg-red-500/10 text-red-500',
   org_admin:     'bg-purple-500/10 text-purple-500',
+  org_manager:   'bg-orange-500/10 text-orange-500',
   store_manager: 'bg-blue-500/10 text-blue-500',
   store_staff:   'bg-green-500/10 text-green-600',
 };
