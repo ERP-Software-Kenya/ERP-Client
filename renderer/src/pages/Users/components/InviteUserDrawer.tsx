@@ -4,7 +4,8 @@ import { FormDrawer, Field } from '../../../components/FormDrawer';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import { ClerkUsers, useListRoles, Locations } from '../../../api';
+import { ClerkUsers, useListRoles, Locations, Organizations } from '../../../api';
+import { useSession } from '../../../context/SessionContext';
 import type { InviteUserPayload } from '../../../types';
 
 interface Props {
@@ -12,13 +13,22 @@ interface Props {
   onClose: () => void;
 }
 
-const EMPTY: InviteUserPayload = { email: '', roleId: '', locationId: undefined, redirectUrl: '' };
+const ORG_WIDE = '__org_wide__';
+const EMPTY: InviteUserPayload = { email: '', roleId: '', organizationId: undefined, locationId: undefined, redirectUrl: '' };
 
 export function InviteUserDrawer({ open, onClose }: Props) {
   const [form, setForm] = useState<InviteUserPayload>(EMPTY);
+  const { isSuperAdmin } = useSession();
   const inviteMutation = ClerkUsers.useInvite();
   const { data: roles = [] } = useListRoles();
-  const { data: locations = [] } = Locations.useList();
+  const { data: orgs = [] } = Organizations.useList(isSuperAdmin);
+  const { data: orgLocations = [] } = Locations.useList(!isSuperAdmin);
+  const scopedLocations = Locations.useSearch({
+    limit: 100,
+    filters: form.organizationId ? { organizationId: form.organizationId } : {},
+    enabled: isSuperAdmin && !!form.organizationId,
+  });
+  const locations = isSuperAdmin ? (scopedLocations.data?.items ?? []) : orgLocations;
   const invitableRoles = roles.filter((r) => r.name !== 'super_admin');
 
   const close = () => {
@@ -30,14 +40,21 @@ export function InviteUserDrawer({ open, onClose }: Props) {
     e.preventDefault();
     inviteMutation.mutate(
       {
-        email:       form.email.trim(),
-        roleId:      form.roleId,
-        locationId:  form.locationId || undefined,
-        redirectUrl: form.redirectUrl?.trim() || undefined,
+        email:          form.email.trim(),
+        roleId:         form.roleId,
+        organizationId: isSuperAdmin ? form.organizationId : undefined,
+        locationId:     form.locationId || undefined,
+        redirectUrl:    form.redirectUrl?.trim() || undefined,
       },
       { onSuccess: close },
     );
   };
+
+  const canSubmit =
+    !inviteMutation.isPending &&
+    !!form.email.trim() &&
+    !!form.roleId &&
+    (!isSuperAdmin || !!form.organizationId);
 
   return (
     <FormDrawer
@@ -47,11 +64,7 @@ export function InviteUserDrawer({ open, onClose }: Props) {
       subtitle="Send a Clerk email invitation. Accepting it joins your organization with the role and store picked here."
       footer={
         <>
-          <Button
-            type="submit"
-            form="invite-user-form"
-            disabled={inviteMutation.isPending || !form.email.trim() || !form.roleId}
-          >
+          <Button type="submit" form="invite-user-form" disabled={!canSubmit}>
             {inviteMutation.isPending ? 'Sending…' : 'Send Invitation'}
           </Button>
           <Button type="button" variant="outline" onClick={close}>
@@ -76,6 +89,24 @@ export function InviteUserDrawer({ open, onClose }: Props) {
           </div>
         </Field>
 
+        {isSuperAdmin && (
+          <Field label="Organization" required hint="SuperAdmin accounts are org-less — pick the company this hire joins.">
+            <Select
+              value={form.organizationId || undefined}
+              onValueChange={(v) => setForm({ ...form, organizationId: v, locationId: undefined })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select organization" />
+              </SelectTrigger>
+              <SelectContent>
+                {orgs.map((o) => (
+                  <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
+
         <Field label="Role" required hint="Determines what they can access once they accept.">
           <Select value={form.roleId} onValueChange={(v) => setForm({ ...form, roleId: v })}>
             <SelectTrigger>
@@ -91,13 +122,14 @@ export function InviteUserDrawer({ open, onClose }: Props) {
 
         <Field label="Store (optional)" hint="Scope the role to one store/warehouse. Leave blank for org-wide access.">
           <Select
-            value={form.locationId ?? ''}
-            onValueChange={(v) => setForm({ ...form, locationId: v || undefined })}
+            value={form.locationId ?? ORG_WIDE}
+            onValueChange={(v) => setForm({ ...form, locationId: v === ORG_WIDE ? undefined : v })}
           >
             <SelectTrigger>
               <SelectValue placeholder="Org-wide (no store)" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={ORG_WIDE}>Org-wide (no store)</SelectItem>
               {locations.map((l) => (
                 <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
               ))}

@@ -52,8 +52,8 @@ export function UpdateRolesDrawer({ user, onClose }: Props) {
     <FormDrawer
       open={!!user}
       onClose={onClose}
-      title="Edit Roles"
-      subtitle={displayName}
+      title="Clerk labels"
+      subtitle={`${displayName} — these tags live on the Clerk user and do not grant ERP page or API access. Use User Roles for that.`}
       footer={
         <>
           <Button onClick={handleSave} disabled={updateMutation.isPending}>

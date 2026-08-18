@@ -710,6 +710,7 @@ export interface ClerkUserRolesResponse {
 export interface InviteUserPayload {
   email: string;
   roleId: string;
+  organizationId?: string;
   locationId?: string;
   redirectUrl?: string;
 }

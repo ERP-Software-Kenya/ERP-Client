@@ -410,6 +410,19 @@ export function useListRoles() {
 
 export const UserRoles = createCreateOnlyResource<UserRole>('/api/v1/user-roles', 'user-roles', 'User role');
 
+export function useUpdateUserRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Partial<UserRole> }) =>
+      put<UserRole>(`/api/v1/user-roles/${id}`, body),
+    onSuccess: () => {
+      toast.success('User role updated');
+      queryClient.invalidateQueries({ queryKey: ['user-roles'] });
+    },
+    onError: (error: Error) => toast.error(error.message || 'Failed to update user role'),
+  });
+}
+
 export function useListUserRoles() {
   return useQuery<UserRole[]>({
     queryKey: ['user-roles', 'list'],
