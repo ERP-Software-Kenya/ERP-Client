@@ -844,7 +844,7 @@ export const ClerkUsers = {
     });
   },
 
-  /** POST /api/v1/users/clerk/invite */
+  /** POST /api/v1/users/clerk/invite — body: { email, roleId, locationId?, redirectUrl? } */
   useInvite() {
     const queryClient = useQueryClient();
     return useMutation({
