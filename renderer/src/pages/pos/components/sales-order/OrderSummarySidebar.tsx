@@ -57,12 +57,10 @@ export function OrderSummarySidebar({
   const taxRateLabel = subtotal > 0 && totalTax > 0 ? ` (${((totalTax / subtotal) * 100).toFixed(0)}%)` : "";
 
   return (
-    <aside className="flex w-80 min-h-0 flex-shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
-      <div className="border-b border-border px-4 py-3">
-        <h2 className="text-sm font-semibold text-foreground">Order Summary</h2>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-3 text-sm">
+    <aside className="flex w-72 min-h-0 flex-shrink-0 flex-col border-l border-border bg-card">
+      {/* Summary rows */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Order Summary</p>
         <SummaryRow label="Subtotal" value={fmt(subtotal)} />
         <SummaryRow label={`Tax${taxRateLabel}`} value={fmt(totalTax)} />
         {extraTotal !== 0 && (
@@ -72,7 +70,7 @@ export function OrderSummarySidebar({
           <SummaryRow
             label={
               <span className="flex items-center gap-1">
-                Discount Adj. <Pencil size={10} className="text-muted-foreground" />
+                Discount <Pencil size={9} className="text-muted-foreground" />
               </span>
             }
             value={`-${fmt(discountAmount)}`}
@@ -80,31 +78,29 @@ export function OrderSummarySidebar({
           />
         )}
         {previousBalance > 0 && (
-          <SummaryRow label="Previous Balance" value={fmt(previousBalance)} valueClass="text-red-600" />
+          <SummaryRow label="Prev. Balance" value={fmt(previousBalance)} valueClass="text-red-500" />
         )}
 
-        <div className="border-t border-border pt-3">
+        <div className="border-t border-border pt-3 mt-1">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Grand Total</p>
-          <p className="text-3xl font-bold tabular-nums text-primary">{fmt(grandTotalWithBalance)}</p>
+          <p className="text-4xl font-black tabular-nums text-primary leading-none mt-1">{fmt(grandTotalWithBalance)}</p>
           {previousBalance > 0 && (
-            <p className="text-[10px] text-muted-foreground">Includes this sale ({fmt(grandTotal)}) + balance</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Includes balance ({fmt(previousBalance)})</p>
           )}
         </div>
 
         {payMethod === "cash" && grandTotal > 0 && (
-          <div className="pt-2">
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Cash Tendered</label>
+          <div className="pt-2 space-y-1">
+            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Cash Tendered</label>
             <input
               type="number"
               value={cashTendered}
               onChange={(e) => onCashTenderedChange(e.target.value)}
               placeholder="Amount received"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              className="w-full h-9 rounded border border-border bg-background px-3 text-sm outline-none focus:border-primary"
             />
             {cashTendered !== "" && !isNaN(Number(cashTendered)) && (
-              <p
-                className={`mt-1 text-xs ${Number(cashTendered) < grandTotal ? "text-destructive" : "text-muted-foreground"}`}
-              >
+              <p className={`text-xs font-semibold ${Number(cashTendered) < grandTotal ? "text-destructive" : "text-emerald-600"}`}>
                 {Number(cashTendered) < grandTotal
                   ? `Short by ${fmt(grandTotal - Number(cashTendered))}`
                   : `Change: ${fmt(Number(cashTendered) - grandTotal)}`}
@@ -114,51 +110,52 @@ export function OrderSummarySidebar({
         )}
 
         {saleType === "credit" && creditMissingCustomer && (
-          <p className="text-xs font-medium text-amber-700 dark:text-amber-400">Select a customer for credit sales</p>
+          <p className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-1">⚠ Select a customer</p>
         )}
         {saleType === "credit" && creditMissingLimit && (
-          <p className="text-xs font-medium text-destructive">Customer has no credit limit set</p>
+          <p className="text-xs font-medium text-destructive bg-red-50 dark:bg-red-950/30 rounded px-2 py-1">⚠ No credit limit set</p>
         )}
         {hasStockIssues && (
-          <p className="text-xs font-medium text-red-600">Fix stock issues before completing</p>
+          <p className="text-xs font-medium text-red-600 bg-red-50 dark:bg-red-950/30 rounded px-2 py-1">⚠ Fix stock issues</p>
         )}
       </div>
 
-      <div className="flex-shrink-0 space-y-2 border-t border-border p-4">
+      {/* Actions */}
+      <div className="flex-shrink-0 border-t border-border p-3 space-y-2">
         <button
           type="button"
           onClick={onCompleteSale}
           disabled={generateDisabled}
-          className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-40 ${
+          className={`flex w-full items-center justify-center gap-2 rounded-lg py-3.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-35 ${
             creditNeedsApproval ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary/90"
           }`}
         >
-          <Share2 size={16} />
+          <Share2 size={15} />
           {checkingOut
             ? "Processing…"
             : creditNeedsApproval
               ? "Send for Approval"
               : hasDriver
-                ? "Direct Share to Driver"
+                ? "Share to Driver"
                 : "Complete Sale"}
         </button>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           <button
             type="button"
             onClick={onPrintBill}
             disabled={!hasReceipt}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-medium transition hover:bg-muted disabled:opacity-40"
+            className="flex items-center justify-center gap-1 rounded-lg border border-border py-2 text-xs font-medium transition hover:bg-muted disabled:opacity-40"
           >
-            <Printer size={13} /> Print Bill
+            <Printer size={12} /> Print Bill
           </button>
           <button
             type="button"
             onClick={onDeliveryNote}
             disabled={!hasReceipt}
-            className="flex items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-medium transition hover:bg-muted disabled:opacity-40"
+            className="flex items-center justify-center gap-1 rounded-lg border border-border py-2 text-xs font-medium transition hover:bg-muted disabled:opacity-40"
           >
-            <Truck size={13} /> Delivery Note
+            <Truck size={12} /> Delivery Note
           </button>
         </div>
       </div>

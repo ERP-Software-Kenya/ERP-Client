@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type {
   Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
-  Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, Expense, PurchaseItem,
+  Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, CustomerCreditTransaction, Expense, PurchaseItem,
   ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer, StockTransferRequest,
@@ -236,6 +236,44 @@ export const Customers = {
         queryClient.invalidateQueries({ queryKey: ['customers'] });
       },
       onError: (error: Error) => toast.error(error.message || 'Failed to update customer'),
+    });
+  },
+  useGetBills(customerId: string | undefined, page = 1) {
+    return useQuery({
+      queryKey: ['customers', customerId, 'bills', page],
+      queryFn: () =>
+        get<PaginatedResponse<Bill>>(`/api/v1/customers/${customerId as string}/bills`, {
+          $page: page,
+          $perPage: 10,
+        }),
+      enabled: !!customerId,
+    });
+  },
+  useGetCreditTransactions(customerId: string | undefined, page = 1) {
+    return useQuery({
+      queryKey: ['customers', customerId, 'credit-transactions', page],
+      queryFn: () =>
+        get<PaginatedResponse<CustomerCreditTransaction>>(
+          `/api/v1/customers/${customerId as string}/credit-transactions`,
+          { $page: page, $perPage: 20 },
+        ),
+      enabled: !!customerId,
+    });
+  },
+  useRecordCreditTransaction(customerId: string | undefined) {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: {
+        type: 'payment' | 'adjustment';
+        amount: number;
+        paymentMethod?: string;
+        note?: string;
+      }) => post<Customer>(`/api/v1/customers/${customerId as string}/credit-transactions`, body),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['customers', customerId] });
+        queryClient.invalidateQueries({ queryKey: ['customers', customerId, 'credit-transactions'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to record transaction'),
     });
   },
 };

@@ -40,6 +40,7 @@ const StockRequestsPage = lazy(() => import('./pages/StockRequests'));
 const UnpublishedStockPage = lazy(() => import('./pages/UnpublishedStock'));
 const ProductLogsPage = lazy(() => import('./pages/ProductLogs'));
 const Customers = lazy(() => import('./pages/Customers'));
+const CustomerDetail = lazy(() => import('./pages/CustomerDetail'));
 const Orders = lazy(() => import('./pages/Orders'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const ActivityLogs = lazy(() => import('./pages/ActivityLogs'));
@@ -137,6 +138,7 @@ function App() {
             <Route path="unpublished-stock" element={<UnpublishedStockPage />} />
             <Route path="product-logs" element={<ProductLogsPage />} />
             <Route path="customers" element={<Customers />} />
+            <Route path="customers/:id" element={<CustomerDetail />} />
             <Route path="pending-approvals" element={<PendingApprovals />} />
             <Route path="black-ledger" element={<BlackLedger />} />
             <Route path="orders" element={<Orders />} />

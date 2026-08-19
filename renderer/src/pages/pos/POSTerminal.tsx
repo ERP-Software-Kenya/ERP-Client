@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Printer } from "lucide-react";
 import { toast } from "sonner";
+import { CustomerDetailDrawer } from "../../components/CustomerDetailDrawer";
 import { BillingSettings, Customers, CreditApprovals, ClerkUsers, FleetDrivers, Inventory, Locations, Products, Suppliers } from "../../api";
 import { get } from "../../lib/http";
 import { useAuth } from "../../context/AuthContext";
@@ -66,6 +67,8 @@ function BillSuccessModal({
   onPrintDoc,
   onClose,
   pendingCreditApproval,
+  creditBalanceAfter,
+  creditLimit,
 }: {
   receipt: PosReceipt;
   steps: CheckoutStep[];
@@ -73,6 +76,8 @@ function BillSuccessModal({
   onPrintDoc: (doc: PrintDoc) => void;
   onClose: () => void;
   pendingCreditApproval?: boolean;
+  creditBalanceAfter?: number;
+  creditLimit?: number;
 }) {
   const hasGaps = steps.some(
     (s) => s.status === "failed" || s.status === "skipped",
@@ -175,6 +180,25 @@ function BillSuccessModal({
             </p>
           ) : (
             <>
+              {receipt.saleType === "credit" && creditBalanceAfter != null && creditLimit != null && (
+                <div className="mb-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs space-y-1">
+                  <p className="font-semibold text-muted-foreground uppercase tracking-wide text-[10px]">Updated Credit Balance</p>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Balance (owed)</span>
+                    <span className="font-semibold tabular-nums">{creditBalanceAfter.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Limit</span>
+                    <span className="tabular-nums">{creditLimit.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Remaining</span>
+                    <span className={`font-semibold tabular-nums ${(creditLimit - creditBalanceAfter) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {(creditLimit - creditBalanceAfter).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              )}
               {receipt.mode === "sales" && (
                 <div className="mb-3 flex flex-wrap gap-1.5">
                   {docButtons.map((b) => (
@@ -297,7 +321,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const [showDelivery, setShowDelivery] = useState(false);
   const [delivery, setDelivery] = useState<DeliveryInfo>({});
   const [orderReference, setOrderReference] = useState("");
-  const [fulfillmentStoreIds, setFulfillmentStoreIds] = useState<string[]>([]);
+  // ponytail: fulfillment routing removed — will be per-line when needed
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -340,9 +364,10 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
       debouncedCustomerInfo.trim().length >= 2 &&
       !customerId,
   });
-  const { data: selectedCustomer } = Customers.useGet(
+  const { data: selectedCustomer, refetch: refetchSelectedCustomer } = Customers.useGet(
     mode === "sales" && customerId ? customerId : undefined,
   );
+  const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
   const { data: myRejected = [] } = CreditApprovals.useMyRejected(mode === "sales");
   const { data: typeRules = [] } = BillingSettings.useCustomerTypeRules();
   const { data: orgQuickCharges = [] } = BillingSettings.useQuickCharges({ enabled: true });
@@ -550,11 +575,6 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
     );
   }, [customerType, selectedCustomer?.id, typeRules]);
 
-  const toggleFulfillmentStore = (id: string) => {
-    setFulfillmentStoreIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  };
 
   const handleDriverSelect = (driverId: string) => {
     setSelectedDriverId(driverId);
@@ -608,9 +628,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
         )
       : undefined;
 
-  const fulfillmentStoreNames = fulfillmentStoreIds
-    .map((id) => locations.find((l) => l.id === id)?.name)
-    .filter(Boolean) as string[];
+  const fulfillmentStoreNames: string[] = [];
 
   const listSubtotal = lines.reduce((s, l) => s + l.qty * (l.officialRate ?? l.rate), 0);
   const discountAmount = Math.max(0, listSubtotal - subtotal);
@@ -641,7 +659,6 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
     setShowDelivery(false);
     setDelivery({});
     setOrderReference("");
-    setFulfillmentStoreIds([]);
     setSelectedDriverId("");
     setPrintDoc("receipt");
     setActiveDraftBillId(null);
@@ -988,8 +1005,8 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
             onShowHeldSales={() => setShowHeldSales(true)}
           />
 
-          <div className="flex min-h-0 flex-1 gap-3 overflow-hidden p-3">
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-hidden">
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               <CustomerInfoSection
                 saleRef={saleRef}
                 orderReference={orderReference}
@@ -1044,9 +1061,6 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
                   setDelivery((d) => ({ ...d, note }));
                   setShowDelivery(true);
                 }}
-                locations={locations}
-                fulfillmentStoreIds={fulfillmentStoreIds}
-                onToggleFulfillmentStore={toggleFulfillmentStore}
                 drivers={fleetDrivers}
                 selectedDriverId={selectedDriverId}
                 onDriverSelect={handleDriverSelect}
@@ -1225,6 +1239,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           onPrintReceipt={printReceipt}
           hasReceipt={!!lastReceipt || !!success}
           hasStockIssues={hasStockIssues}
+          onOpenCustomerDrawer={customerId ? () => setCustomerDrawerOpen(true) : undefined}
           accentBtnCls={accentCls.btn}
         />
       </div>
@@ -1239,6 +1254,8 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           onPrintDoc={handlePrintDoc}
           onClose={closeSuccess}
           pendingCreditApproval={success.pendingCreditApproval}
+          creditBalanceAfter={success.receipt.saleType === 'credit' ? selectedCustomer?.creditBalance : undefined}
+          creditLimit={success.receipt.saleType === 'credit' ? selectedCustomer?.creditLimit ?? undefined : undefined}
         />
       )}
 
@@ -1258,6 +1275,15 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
         <HeldSalesPanel
           onClose={() => setShowHeldSales(false)}
           onResume={(bill) => void resumeSale(bill.id)}
+        />
+      )}
+
+      {customerId && (
+        <CustomerDetailDrawer
+          customerId={customerId}
+          open={customerDrawerOpen}
+          onClose={() => setCustomerDrawerOpen(false)}
+          onCreditUpdated={() => void refetchSelectedCustomer()}
         />
       )}
     </div>

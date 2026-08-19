@@ -31,8 +31,9 @@ Currently customers are a flat list with a generic `ViewDrawer`. No customer det
 | Record Payment | Creates a `CustomerCreditTransaction` of type `payment` (negative amount reduces `creditBalance`). Same handler as manual adjustment, different type. |
 | Manual Adjustment | Creates a `CustomerCreditTransaction` of type `adjustment` (positive or negative). |
 | Note field | New nullable `note` column on `CustomerCreditTransaction` entity + migration. Used for audit reason. Required for `adjustment` type, optional for `payment`. |
-| Who can adjust credit | `OrgAdmin`, `OrgManager`, `SuperAdmin`, `StoreManager` only. `StoreStaff` can view but not adjust. |
-| Outstanding balance warning | Shown when `creditBalance > 0` on any sale type — informational only, not a blocker for Normal/Black sales. |
+| Who can record payment | All roles including `StoreStaff` — payment is just recording cash received. |
+| Who can adjust credit | `OrgAdmin`, `OrgManager`, `SuperAdmin`, `StoreManager` only. `StoreStaff` can record payments but cannot create adjustments. |
+| Outstanding balance warning | Shown only when `saleType === 'credit'` AND `creditBalance > 0` — informational only, not a blocker. Switching to Credit mode on a customer with a balance triggers it immediately. |
 
 ## Out of scope
 
@@ -45,9 +46,10 @@ Currently customers are a flat list with a generic `ViewDrawer`. No customer det
 
 ## Backend changes (core-apis)
 
-### 1. Migration — add `note` to `customer_credit_transactions`
+### 1. Migration — add `note` and `payment_method` to `customer_credit_transactions`
 
-New nullable `varchar` column `note` on `CustomerCreditTransactionEntity`.
+- New nullable `varchar` column `note` on `CustomerCreditTransactionEntity`.
+- New nullable `varchar` column `payment_method` — values: `cash | bank_transfer | cheque | other`. Only populated for `type = payment`.
 
 ### 2. New endpoint — list customer credit transactions
 
@@ -67,7 +69,8 @@ POST /v1/customers/:id/credit-transactions
 ```
 
 - Auth: `ClerkAuthGuard` + `RolesGuard(StoreManager, OrgManager, OrgAdmin, SuperAdmin)`
-- Body: `{ type: 'payment' | 'adjustment', amount: number, note?: string }`
+- Body: `{ type: 'payment' | 'adjustment', amount: number, paymentMethod?: 'cash' | 'bank_transfer' | 'cheque' | 'other', note?: string }`
+- `paymentMethod` is required when `type = payment`, ignored for `adjustment`
 - Handler:
   1. Load customer, assert org ownership
   2. Compute `balanceBefore = customer.creditBalance`
@@ -93,7 +96,7 @@ GET /v1/customers/:id/bills
 Add `creditStatus: 'none' | 'available' | 'warning' | 'over'` to `CustomerResponse`:
 - `none` — no credit limit set
 - `available` — `creditBalance < creditLimit * 0.8`
-- `warning` — `creditBalance >= creditLimit * 0.8`
+- `warning` — `creditBalance >= creditLimit * 0.9`
 - `over` — `creditBalance >= creditLimit`
 
 Computed field, not stored. Used by frontend to show badge in search dropdown.
@@ -117,7 +120,8 @@ Layout: two-column on desktop, stacked on small screens.
 
 **Record Payment form** (inline, not a drawer):
 - Amount (number, required, > 0)
-- Note (text, optional, placeholder: "e.g. cash paid at counter")
+- Payment Method (dropdown, required): Cash / Bank Transfer / Cheque / Other
+- Note (text, optional, placeholder: "e.g. cheque no. 001234")
 - Submit → `POST /customers/:id/credit-transactions` with `type: payment`
 
 **Adjust Credit form** (inline):
@@ -128,9 +132,9 @@ Layout: two-column on desktop, stacked on small screens.
 
 **Right column — History tabs**
 
-Tab 1: **Bills** — table: date, bill#, sale type badge, total, status chip. Paginated. Each row links to `/bills/:id`.
+Tab 1: **Bills** — table: date, bill#, sale type badge, total, status chip. Paginated. Each row links to `/bills/:id`. Black sale bills (`saleType === 'black'`) are filtered out server-side for `StoreStaff` and `StoreManager` — consistent with existing black ledger access rules. `OrgAdmin/OrgManager/SuperAdmin` see all bill types.
 
-Tab 2: **Credit Transactions** — table: date, type badge (credit sale / payment / adjustment), amount (color-coded + green, − red), balance before → after, note, who performed it. Paginated.
+Tab 2: **Credit Transactions** — table: date, type badge (credit sale / payment / adjustment), amount (color-coded + green, − red), payment method (for payments), balance before → after, note, who performed it. Paginated.
 
 ### B. Customers List — make rows clickable
 
@@ -165,6 +169,8 @@ New file: `renderer/src/components/CustomerDetailDrawer.tsx`
 A right-side drawer (same pattern as `FormDrawer`) that renders the Customer Detail page content (profile + credit summary + history tabs) without navigating away. Used in billing context.
 
 Props: `customerId: string`, `open: boolean`, `onClose: () => void`, `onCreditUpdated: () => void` (callback to refresh customer data in billing after a payment/adjustment).
+
+When a payment or adjustment is saved inside the drawer: fire `onCreditUpdated()` AND show a `sonner` toast — "Credit updated". The billing screen's `onCreditUpdated` handler re-fetches the customer by ID so the checkout card shows the new balance immediately without the cashier doing anything.
 
 ### E. Post-credit-sale success modal — show updated balance
 

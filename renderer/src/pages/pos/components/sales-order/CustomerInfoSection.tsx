@@ -44,34 +44,19 @@ export function CustomerInfoSection({
   const balance = customerId ? creditBalance : 0;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">Customer Information</h2>
-        {customerId && (
-          <button
-            type="button"
-            onClick={onClearCustomer}
-            className="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-          >
-            <Pencil size={12} /> Edit Customer
-          </button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
+    <section className="border-b border-border bg-card px-4 py-2.5">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2 md:grid-cols-4 lg:grid-cols-8 items-end">
         <Field label="Sales #">
-          <input
-            readOnly
-            value={saleRef}
-            className="w-full rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm font-mono text-muted-foreground"
-          />
+          <div className="flex h-8 items-center rounded border border-border bg-muted px-2.5 font-mono text-xs font-semibold text-foreground">
+            {saleRef}
+          </div>
         </Field>
         <Field label="Reference #">
           <input
             value={orderReference}
             onChange={(e) => onOrderReferenceChange(e.target.value)}
             placeholder="PO / Ref Number"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            className="h-8 w-full rounded border border-border bg-background px-2.5 text-xs outline-none focus:border-primary"
           />
         </Field>
         <Field label="Customer Name" className="col-span-2">
@@ -90,7 +75,7 @@ export function CustomerInfoSection({
           <select
             value={customerType}
             onChange={(e) => onCustomerTypeChange(e.target.value as CustomerType)}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            className="h-8 w-full rounded border border-border bg-background px-2.5 text-xs outline-none focus:border-primary"
           >
             {CUSTOMER_TYPES.map((o) => (
               <option key={o.value} value={o.value}>
@@ -101,20 +86,20 @@ export function CustomerInfoSection({
         </Field>
         <Field label="Balance">
           <div
-            className={`rounded-lg border border-border px-3 py-2 text-sm font-semibold tabular-nums ${
-              balance > 0 ? "text-red-600 dark:text-red-400" : "text-foreground"
+            className={`flex h-8 items-center rounded border border-border px-2.5 text-xs font-bold tabular-nums ${
+              balance > 0 ? "border-red-300 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400" : "bg-muted text-foreground"
             }`}
           >
             {fmt(balance)}
           </div>
         </Field>
         <Field label="Phone">
-          <div className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground">
+          <div className="flex h-8 items-center rounded border border-border bg-muted px-2.5 text-xs text-muted-foreground">
             {selectedCustomer?.phone ?? "—"}
           </div>
         </Field>
         <Field label="Email">
-          <div className="truncate rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground">
+          <div className="flex h-8 items-center truncate rounded border border-border bg-muted px-2.5 text-xs text-muted-foreground">
             {selectedCustomer?.email ?? "—"}
           </div>
         </Field>
@@ -134,7 +119,7 @@ function Field({
 }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <label className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </label>
       {children}

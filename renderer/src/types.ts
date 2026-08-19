@@ -527,6 +527,8 @@ export interface Invoice {
 }
 
 // core-apis customers: create sets organizationId from auth/fallback; search/PATCH/DELETE supported.
+export type CreditStatus = 'none' | 'available' | 'warning' | 'over';
+
 export interface Customer {
   id: string;
   organizationId?: string;
@@ -539,8 +541,23 @@ export interface Customer {
   customerType?: CustomerType | string | null;
   discountPercent?: number | null;
   skipOverLimitApproval?: boolean | null;
+  creditStatus?: CreditStatus;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface CustomerCreditTransaction {
+  id: string;
+  customerId: string;
+  type: 'credit_sale' | 'payment' | 'adjustment';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  billId?: string | null;
+  paymentMethod?: string | null;
+  note?: string | null;
+  performedById?: string | null;
+  createdAt: string;
 }
 
 export interface QuickCharge {

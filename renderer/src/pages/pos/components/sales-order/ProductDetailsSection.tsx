@@ -60,18 +60,18 @@ export function ProductDetailsSection({
   ];
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-4 py-3">
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-border bg-muted/40 px-4 py-2">
         <div className="flex items-center gap-2">
-          <ShoppingCart size={16} className="text-primary" />
-          <h2 className="text-sm font-semibold text-foreground">Product Details</h2>
+          <ShoppingCart size={14} className="text-primary" />
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Products</span>
           {lines.length > 0 && (
-            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-              {lines.length} items
+            <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+              {lines.length}
             </span>
           )}
         </div>
-        <div className="relative w-64">
+        <div className="relative w-72">
           <Scan size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             ref={searchRef}
@@ -79,7 +79,7 @@ export function ProductDetailsSection({
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && onEnter()}
             placeholder="Barcode scan or product search…"
-            className="w-full rounded-lg border border-border bg-background py-2 pl-8 pr-3 text-sm outline-none focus:border-primary"
+            className="w-full rounded border border-border bg-background py-1.5 pl-7 pr-3 text-xs outline-none focus:border-primary"
           />
           {suggestions.length > 0 && searchVal.trim() && (
             <div className="absolute z-30 mt-1 w-full rounded-lg border border-border bg-card shadow-lg">
@@ -104,29 +104,28 @@ export function ProductDetailsSection({
 
       <div className="min-h-0 flex-1 overflow-auto">
         {lines.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground/50">
-            <ShoppingCart size={36} strokeWidth={1.2} />
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground/40">
+            <ShoppingCart size={32} strokeWidth={1} />
             <p className="text-sm">Search or scan a product to add a line</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10 border-b border-border bg-muted">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10 border-b border-border bg-muted/80">
               <tr>
                 {[
                   "#",
                   "Product Name",
                   "Store",
                   "Unit",
-                  "Weight",
                   "Qty Avail",
-                  "Qty Need",
+                  "Qty",
                   ...(saleType === "black" ? ["Official", "Charged"] : tierCols.map((t) => t.label)),
-                  "Line Total",
+                  "Total",
                   "",
                 ].map((h) => (
                   <th
                     key={h}
-                    className="whitespace-nowrap px-2 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                    className="whitespace-nowrap px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
                   >
                     {h}
                   </th>
@@ -140,39 +139,38 @@ export function ProductDetailsSection({
                 return (
                   <tr
                     key={line.id}
-                    className={`hover:bg-muted/40 ${overStock ? "bg-red-50/80 dark:bg-red-950/20" : ""}`}
+                    className={`border-b border-border/50 hover:bg-primary/[0.03] ${overStock ? "bg-red-50/60 dark:bg-red-950/20" : ""}`}
                   >
-                    <td className="px-2 py-2 text-xs text-muted-foreground">{idx + 1}</td>
-                    <td className="px-2 py-2">
-                      <p className="font-medium text-foreground">{line.name}</p>
+                    <td className="px-2 py-1.5 text-muted-foreground">{idx + 1}</td>
+                    <td className="px-2 py-1.5 max-w-[180px]">
+                      <p className="font-medium text-foreground truncate">{line.name}</p>
                       <p className="font-mono text-[10px] text-muted-foreground">{line.sku}</p>
                     </td>
-                    <td className="px-2 py-2 text-xs text-muted-foreground">{line.storeCode ?? storeCode ?? "—"}</td>
-                    <td className="px-2 py-2 text-xs capitalize">{line.unitLabel}</td>
-                    <td className="px-2 py-2 text-xs text-muted-foreground">{line.unitLabel}</td>
-                    <td className="px-2 py-2">
+                    <td className="px-2 py-1.5 text-muted-foreground">{line.storeCode ?? storeCode ?? "—"}</td>
+                    <td className="px-2 py-1.5 capitalize text-muted-foreground">{line.unitLabel}</td>
+                    <td className="px-2 py-1.5">
                       {stock.found ? (
                         <StockBadge info={stock} saleType={saleType} />
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="px-2 py-1.5">
                       <div className="flex items-center gap-0.5">
                         <button
                           type="button"
                           onClick={() => onQtyChange(line.id, Math.max(1, line.qty - 1))}
                           className="rounded p-0.5 hover:bg-muted"
                         >
-                          <Minus size={11} />
+                          <Minus size={10} />
                         </button>
-                        <span className="w-6 text-center font-semibold">{line.qty}</span>
+                        <span className="w-7 text-center font-bold tabular-nums">{line.qty}</span>
                         <button
                           type="button"
                           onClick={() => onQtyChange(line.id, line.qty + 1)}
                           className="rounded p-0.5 hover:bg-muted"
                         >
-                          <Plus size={11} />
+                          <Plus size={10} />
                         </button>
                       </div>
                     </td>
@@ -212,14 +210,14 @@ export function ProductDetailsSection({
                         );
                       })
                     )}
-                    <td className="px-2 py-2 font-semibold tabular-nums">{fmt(lineTotal(line))}</td>
-                    <td className="px-2 py-2">
+                    <td className="px-2 py-1.5 font-bold tabular-nums text-foreground">{fmt(lineTotal(line))}</td>
+                    <td className="px-2 py-1.5">
                       <button
                         type="button"
                         onClick={() => onRemoveLine(line.id)}
-                        className="rounded p-1 text-muted-foreground hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500"
+                        className="rounded p-1 text-muted-foreground/50 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-500"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={12} />
                       </button>
                     </td>
                   </tr>
@@ -227,11 +225,11 @@ export function ProductDetailsSection({
               })}
               {extraCharges.map((ec) => (
                 <tr key={ec.id} className="bg-muted/30">
-                  <td colSpan={saleType === "black" ? 10 : 12} className="px-2 py-2 text-xs italic text-muted-foreground">
+                  <td colSpan={saleType === "black" ? 9 : 11} className="px-2 py-1.5 text-xs italic text-muted-foreground">
                     {ec.label}
                   </td>
-                  <td className="px-2 py-2 font-semibold">{fmt(ec.amount)}</td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 py-1.5 font-semibold text-xs">{fmt(ec.amount)}</td>
+                  <td className="px-2 py-1.5">
                     <button type="button" onClick={() => onRemoveCharge(ec.id)} className="text-muted-foreground hover:text-red-500">
                       <Trash2 size={13} />
                     </button>
