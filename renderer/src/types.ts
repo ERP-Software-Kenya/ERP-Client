@@ -474,6 +474,28 @@ export interface StockTransfer {
   items?: StockTransferItem[];
 }
 
+export interface StockTransferRequest {
+  id: string;
+  organizationId: string;
+  requestingLocationId: string;
+  requestingUserId?: string;
+  productId: string;
+  variantId?: string;
+  quantityRequested: number;
+  status: string;
+  acceptedByLocationId?: string;
+  acceptedByUserId?: string;
+  acceptedAt?: string;
+  claimedAt?: string;
+  cancelledByUserId?: string;
+  cancelledAt?: string;
+  fulfillmentTransferId?: string;
+  createdAt: string;
+  updatedAt?: string;
+  canFulfill?: boolean;
+  availableStock?: number;
+}
+
 // Verified 2026-07-26 against core-apis's OrderResponse/CreateOrderRequest source
 // directly — camelCase, matches the entity well. OrderEntity has no organizationId
 // column (tenancy flows through locationId -> location -> org). The real blocker for

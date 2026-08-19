@@ -36,6 +36,7 @@ const Notifications = lazy(() => import('./pages/Notifications'));
 const ReportGenerationLogs = lazy(() => import('./pages/ReportGenerationLogs'));
 const StockMovementsPage = lazy(() => import('./pages/StockMovements'));
 const StockTransfersPage = lazy(() => import('./pages/StockTransfers'));
+const StockRequestsPage = lazy(() => import('./pages/StockRequests'));
 const UnpublishedStockPage = lazy(() => import('./pages/UnpublishedStock'));
 const ProductLogsPage = lazy(() => import('./pages/ProductLogs'));
 const Customers = lazy(() => import('./pages/Customers'));
@@ -130,6 +131,7 @@ function App() {
             <Route path="report-generation-logs" element={<ReportGenerationLogs />} />
             <Route path="stock-movements" element={<StockMovementsPage />} />
             <Route path="stock-transfers" element={<StockTransfersPage />} />
+            <Route path="stock-requests" element={<StockRequestsPage />} />
             <Route path="unpublished-stock" element={<UnpublishedStockPage />} />
             <Route path="product-logs" element={<ProductLogsPage />} />
             <Route path="customers" element={<Customers />} />

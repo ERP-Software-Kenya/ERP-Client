@@ -126,6 +126,7 @@ export const MODULES: ModuleGroup[] = [
       { key: 'stock-movements', title: 'Stock Ledger', path: '/stock-movements', icon: BookOpen },
       // { key: 'adjustments', title: 'Adjustments', path: '/inventory/adjustments', icon: SlidersHorizontal, disabled: true },
       { key: 'stock-transfers', title: 'Transfers', path: '/stock-transfers', icon: ArrowLeftRight },
+      { key: 'stock-requests', title: 'Stock Requests', path: '/stock-requests', icon: PackagePlus },
       // { key: 'in-transit', title: 'In Transit', path: '/inventory/in-transit', icon: Loader2, disabled: true },
       // { key: 'batches', title: 'Batches / Lots', path: '/inventory/batches', icon: Tag, disabled: true },
       // { key: 'expiry', title: 'Expiry', path: '/inventory/expiry', icon: CalendarX, disabled: true },
