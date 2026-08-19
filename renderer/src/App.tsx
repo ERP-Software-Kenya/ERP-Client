@@ -2,11 +2,11 @@ import { lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import ProtectedRoute from './components/ProtectedRoute';
-import AppLayout from './components/layout/AppLayout';
 import { useAuth } from './context/AuthContext';
 import { PageAccessProvider } from './context/PageAccessContext';
 import PageAccessRoute from './components/PageAccessRoute';
 
+const AppLayout = lazy(() => import('./components/layout/AppLayout'));
 const SignIn = lazy(() => import('./pages/SignIn'));
 const SignUp = lazy(() => import('./pages/SignUp'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
