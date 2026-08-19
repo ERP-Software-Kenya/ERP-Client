@@ -69,7 +69,14 @@ export function useCentrifugo(user: MeResponse | null): void {
     const userSub = attachSub(cf, `user_${userId}`, onPublication);
     const orgSub  = orgId ? attachSub(cf, `org_${orgId}`, onPublication) : null;
 
-    cf.on('error', (ctx) => console.error('[centrifugo] connection error', ctx.error));
+    let notifiedOfError = false;
+    cf.on('error', (ctx) => {
+      console.error('[centrifugo] connection error', ctx.error);
+      if (!notifiedOfError) {
+        notifiedOfError = true;
+        toast.error('Real-time notifications unavailable');
+      }
+    });
     cf.connect();
     cfRef.current = cf;
 
