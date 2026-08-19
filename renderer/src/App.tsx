@@ -65,6 +65,7 @@ const FleetDriversPage = lazy(() => import('./pages/Fleet/Drivers'));
 const FleetTripsPage = lazy(() => import('./pages/Fleet/Trips'));
 const FleetMaintenancePage = lazy(() => import('./pages/Fleet/Maintenance'));
 const FleetExpensesPage = lazy(() => import('./pages/Fleet/Expenses'));
+const SalesList = lazy(() => import('./pages/SalesList'));
 const SalesBilling = lazy(() => import('./pages/pos/SalesBilling'));
 const PurchaseBilling = lazy(() => import('./pages/pos/PurchaseBilling'));
 
@@ -121,6 +122,7 @@ function App() {
             <Route path="dashboard/inventory" element={<InventoryDashboard />} />
             <Route path="dashboard/sales" element={<SalesDashboard />} />
             <Route path="pos" element={<PosRedirect />} />
+            <Route path="sales/list" element={<SalesList />} />
             <Route path="pos/sales" element={<SalesBilling />} />
             <Route path="pos/purchase" element={<PurchaseBilling />} />
             <Route path="bills" element={<Bills />} />

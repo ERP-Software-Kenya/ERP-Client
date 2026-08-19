@@ -91,7 +91,8 @@ export const MODULES: ModuleGroup[] = [
     label: 'Sales',
     icon: ShoppingBag,
     items: [
-      { key: 'pos-sales', title: 'Sales Billing', path: '/pos/sales', icon: ScanLine },
+      { key: 'pos-sales', title: 'New Sale', path: '/pos/sales', icon: ScanLine },
+      { key: 'sales-list', title: 'Sales List', path: '/sales/list', icon: FileText },
       { key: 'pending-approvals', title: 'Pending Approvals', path: '/pending-approvals', icon: CheckSquare },
       { key: 'black-ledger', title: 'Black Ledger', path: '/black-ledger', icon: Wallet },
       { key: 'customers', title: 'Customers', path: '/customers', icon: Users2 },

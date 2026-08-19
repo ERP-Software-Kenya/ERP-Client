@@ -85,7 +85,7 @@ export default function RolesPage(): React.JSX.Element {
         onRefetch={() => void refetch()}
         onAdd={() => setDrawerOpen(true)}
         addLabel="New Role"
-        footerNote="Roles are fixed system values — only 4 exist."
+        footerNote="Roles are fixed system values."
       />
 
       <FormDrawer
