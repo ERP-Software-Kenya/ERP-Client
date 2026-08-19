@@ -67,16 +67,12 @@ export interface ModuleItem {
   icon: LucideIcon;
   /** No page/API wired up yet — rendered in the sidebar but not clickable. */
   disabled?: boolean;
-  /** Hidden from store_manager / store_staff — only org_admin and super_admin see these. */
-  adminOnly?: boolean;
 }
 
 export interface ModuleGroup {
   label: string;
   icon: LucideIcon;
   items: ModuleItem[];
-  /** If true, the whole group is hidden for non-admin roles. */
-  adminOnly?: boolean;
 }
 
 
@@ -95,7 +91,8 @@ export const MODULES: ModuleGroup[] = [
     label: 'Sales',
     icon: ShoppingBag,
     items: [
-      { key: 'pos-sales', title: 'Sales Billing', path: '/pos/sales', icon: ScanLine },
+      { key: 'pos-sales', title: 'New Sale', path: '/pos/sales', icon: ScanLine },
+      { key: 'sales-list', title: 'Sales List', path: '/sales/list', icon: FileText },
       { key: 'pending-approvals', title: 'Pending Approvals', path: '/pending-approvals', icon: CheckSquare },
       { key: 'black-ledger', title: 'Black Ledger', path: '/black-ledger', icon: Wallet },
       { key: 'customers', title: 'Customers', path: '/customers', icon: Users2 },
@@ -197,16 +194,15 @@ export const MODULES: ModuleGroup[] = [
   {
     label: 'Administration',
     icon: Users,
-    adminOnly: true,
     items: [
-      { key: 'users', title: 'Users', path: '/users', icon: Users, adminOnly: true },
-      { key: 'roles', title: 'Roles & Permissions', path: '/roles', icon: Lock, adminOnly: true },
-      { key: 'user-roles', title: 'User Roles', path: '/user-roles', icon: UserCog, adminOnly: true },
-      { key: 'organizations', title: 'Organizations', path: '/organizations', icon: Building2, adminOnly: true },
-      { key: 'activity-logs', title: 'Activity Logs', path: '/activity-logs', icon: Activity, adminOnly: true },
-      { key: 'audit-log', title: 'Audit Log lookup', path: '/audit-log', icon: History, adminOnly: true },
-      { key: 'expenses', title: 'Expenses', path: '/expenses', icon: Wallet, adminOnly: true },
-      { key: 'page-access', title: 'Page Access', path: '/page-access', icon: ShieldCheck, adminOnly: true },
+      { key: 'users', title: 'Users', path: '/users', icon: Users },
+      { key: 'roles', title: 'Roles & Permissions', path: '/roles', icon: Lock },
+      { key: 'user-roles', title: 'User Roles', path: '/user-roles', icon: UserCog },
+      { key: 'organizations', title: 'Organizations', path: '/organizations', icon: Building2 },
+      { key: 'activity-logs', title: 'Activity Logs', path: '/activity-logs', icon: Activity },
+      { key: 'audit-log', title: 'Audit Log lookup', path: '/audit-log', icon: History },
+      { key: 'expenses', title: 'Expenses', path: '/expenses', icon: Wallet },
+      { key: 'page-access', title: 'Page Access', path: '/page-access', icon: ShieldCheck },
     ],
   },
   {
@@ -215,7 +211,7 @@ export const MODULES: ModuleGroup[] = [
     items: [
       //     { key: 'settings-general', title: 'General', path: '/platform-configurations', icon: Settings },
       { key: 'settings-app-updates', title: 'App updates', path: '/settings/app', icon: ArrowUpCircle },
-      { key: 'settings-billing', title: 'Billing', path: '/settings/billing', icon: Percent, adminOnly: true },
+      { key: 'settings-billing', title: 'Billing', path: '/settings/billing', icon: Percent },
       { key: 'settings-notifications', title: 'Notifications', path: '/settings/notifications', icon: Bell },
       //     { key: 'settings-tax', title: 'Tax', path: '/settings/tax', icon: Percent, disabled: true },
       //     { key: 'settings-uom', title: 'Unit of Measure', path: '/settings/uom', icon: Ruler, disabled: true },
