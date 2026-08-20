@@ -972,3 +972,78 @@ export interface StockByLocationPoint {
   valuation: number;
 }
 
+export interface PaymentMixPoint {
+  method: string;
+  amount: number;
+}
+
+export interface CategoryValuePoint {
+  categoryId?: string;
+  categoryName: string;
+  value: number;
+}
+
+export interface PurchaseExceptionsData {
+  pending: number;
+  approvalPending: number;
+  priceIncreased: number;
+}
+
+export interface DemandTierPoint {
+  tier: string;
+  count: number;
+}
+
+export interface ProductMovementRank {
+  productId: string;
+  productName: string;
+  quantity: number;
+  value: number;
+}
+
+export interface ProductMarginRank {
+  productId: string;
+  productName: string;
+  totalMargin: number;
+  totalRevenue: number;
+  avgUnitPrice: number;
+}
+
+export interface SupplierPricePoint {
+  productId: string;
+  productName: string;
+  supplierId: string;
+  supplierName: string;
+  avgUnitCost: number;
+}
+
+export interface InventoryStatusData {
+  normal: number;
+  low: number;
+  out: number;
+  over: number;
+  dead: number;
+}
+
+export interface InventoryStatusTrendPoint {
+  period: string;
+  normal: number;
+  low: number;
+  out: number;
+  over: number;
+  dead: number;
+}
+
+export interface StockDamageSummaryData {
+  totalUnits: number;
+  eventCount: number;
+  topProducts: ProductMovementRank[];
+}
+
+export interface DashboardAnalyticsParams {
+  period?: string;
+  from?: string;
+  to?: string;
+  locationId?: string;
+}
+

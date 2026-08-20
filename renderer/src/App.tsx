@@ -2,9 +2,11 @@ import { lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import ProtectedRoute from './components/ProtectedRoute';
+import AuthBootScreen from './components/auth/AuthBootScreen';
 import { useAuth } from './context/AuthContext';
 import { PageAccessProvider } from './context/PageAccessContext';
 import PageAccessRoute from './components/PageAccessRoute';
+import { clerk } from './lib/clerk';
 
 const AppLayout = lazy(() => import('./components/layout/AppLayout'));
 const SignIn = lazy(() => import('./pages/SignIn'));
@@ -78,10 +80,17 @@ function RouteFallback() {
   );
 }
 
+function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user, syncing, bootPhase } = useAuth();
+  if (syncing && clerk.session) return <AuthBootScreen phase={bootPhase ?? 'session'} />;
+  if (user) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 // Requires a valid Clerk session but not an org — used for the onboarding flow.
 function SessionRoute({ children }: { children: React.ReactNode }) {
-  const { user, syncing } = useAuth();
-  if (syncing && !user) return <RouteFallback />;
+  const { user, syncing, bootPhase } = useAuth();
+  if (syncing) return <AuthBootScreen phase={bootPhase ?? 'session'} />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -97,8 +106,8 @@ function App() {
     <HashRouter>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
-          <Route path="/login" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
+          <Route path="/login" element={<PublicOnlyRoute><SignIn /></PublicOnlyRoute>} />
+          <Route path="/signup" element={<PublicOnlyRoute><SignUp /></PublicOnlyRoute>} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/verify-second-factor" element={<VerifySecondFactor />} />
           <Route path="/sso-callback" element={<SSOCallback />} />

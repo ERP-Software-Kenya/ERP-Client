@@ -8,6 +8,14 @@ import { useAuth } from '../../context/AuthContext';
 import { clerk } from '../../lib/clerk';
 import { AuthService } from '../../services/auth.service';
 
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export default function CreateOrganization() {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -56,7 +64,11 @@ export default function CreateOrganization() {
             <Input
               id="name"
               value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const nextName = e.target.value;
+                setName(nextName);
+                setSlug((current) => (current === slugify(name) || !current ? slugify(nextName) : current));
+              }}
               required
               autoFocus
             />
@@ -66,10 +78,11 @@ export default function CreateOrganization() {
             <Input
               id="slug"
               value={slug}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSlug(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSlug(slugify(e.target.value))}
               placeholder="acme-inc"
               required
             />
+            <p className="text-xs text-muted-foreground">Used in links and invites. Lowercase letters, numbers, and dashes only.</p>
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Creating...' : 'Create Organization'}

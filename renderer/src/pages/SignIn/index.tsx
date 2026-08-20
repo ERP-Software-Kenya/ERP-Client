@@ -18,6 +18,12 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Backend /me still catching up after setActive — avoid flashing the login form.
+  // Require an active Clerk session so a stale syncing flag after logout cannot flash this UI.
+  if (syncing && clerk.session) {
+    return <AuthBootScreen phase={bootPhase ?? 'session'} />;
+  }
+
   if (user) {
     return <Navigate to="/" replace />;
   }
@@ -25,12 +31,6 @@ export default function SignIn() {
   // After OAuth, Clerk may leave an incomplete sign-up on this client.
   if (clerk.client?.signUp?.status === 'missing_requirements') {
     return <Navigate to="/sso-continue" replace />;
-  }
-
-  // Backend /me still catching up after setActive — avoid flashing the login form.
-  // Require an active Clerk session so a stale syncing flag after logout cannot flash this UI.
-  if (syncing && clerk.session) {
-    return <AuthBootScreen phase={bootPhase ?? 'session'} />;
   }
 
   const requireClerkClient = () => {
