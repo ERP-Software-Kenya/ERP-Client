@@ -1,9 +1,10 @@
+import * as fs from 'fs/promises';
 import * as path from 'path';
-import { app, BrowserWindow, Menu } from 'electron';
-import { getDb, closeDb } from './database';
-import { setupIpcHandlers } from './ipc-handlers';
-import { hasUsers, setupUser, adminResetPassword } from './auth';
+import { app, BrowserWindow, dialog, Menu, ipcMain } from 'electron';
 import { version as APP_VERSION } from '../../package.json';
+import { initSettingsStore, loadSettings, saveSettings } from './settings-store';
+import { initAutoUpdater } from './auto-updater';
+import { startStaticServer, stopStaticServer, STATIC_SERVER_ORIGIN } from './static-server';
 
 // Keep dev and packaged on same AppData folder
 app.setName('Core ERP Client');
@@ -23,11 +24,94 @@ app.on('second-instance', () => {
   }
 });
 
-let shuttingDown = false;
-function shutdownServices(): void {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  closeDb();
+let appIpcRegistered = false;
+
+function registerAppIpc(): void {
+  if (appIpcRegistered) return;
+  appIpcRegistered = true;
+
+  ipcMain.handle('app:get-version', () => APP_VERSION);
+
+  ipcMain.handle('app:get-update-settings', () => {
+    const s = loadSettings();
+    return {
+      githubToken: s.githubToken,
+      updateCheckIntervalMinutes: s.updateCheckIntervalMinutes,
+    };
+  });
+
+  ipcMain.handle('app:save-update-settings', (_event, partial: {
+    githubToken?: string;
+    updateCheckIntervalMinutes?: number;
+  }) => {
+    try {
+      const next = saveSettings({
+        ...(partial.githubToken !== undefined ? { githubToken: partial.githubToken } : {}),
+        ...(partial.updateCheckIntervalMinutes !== undefined
+          ? { updateCheckIntervalMinutes: partial.updateCheckIntervalMinutes }
+          : {}),
+      });
+      return {
+        success: true,
+        settings: {
+          githubToken: next.githubToken,
+          updateCheckIntervalMinutes: next.updateCheckIntervalMinutes,
+        },
+      };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  ipcMain.handle(
+    'app:save-pdf',
+    async (
+      _event,
+      payload: { html: string; defaultFileName?: string },
+    ): Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }> => {
+      let pdfWin: BrowserWindow | null = null;
+      try {
+        const html = payload?.html?.trim();
+        if (!html) return { success: false, error: 'Missing HTML for PDF' };
+
+        pdfWin = new BrowserWindow({
+          show: false,
+          width: 800,
+          height: 1100,
+          webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+          },
+        });
+
+        await pdfWin.loadURL(
+          `data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
+        );
+        // Let layout settle before rasterizing.
+        await new Promise((r) => setTimeout(r, 120));
+
+        const pdf = await pdfWin.webContents.printToPDF({
+          printBackground: true,
+          pageSize: 'A4',
+          margins: { marginType: 'default' },
+        });
+
+        const { canceled, filePath } = await dialog.showSaveDialog({
+          title: 'Save PDF',
+          defaultPath: payload.defaultFileName || 'document.pdf',
+          filters: [{ name: 'PDF', extensions: ['pdf'] }],
+        });
+        if (canceled || !filePath) return { success: false, canceled: true };
+
+        await fs.writeFile(filePath, pdf);
+        return { success: true, filePath };
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : String(e) };
+      } finally {
+        pdfWin?.destroy();
+      }
+    },
+  );
 }
 
 async function createWindow(): Promise<void> {
@@ -37,9 +121,9 @@ async function createWindow(): Promise<void> {
     minWidth: 960,
     minHeight: 640,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
     backgroundColor: '#0f172a',
     show: false,
@@ -53,13 +137,14 @@ async function createWindow(): Promise<void> {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
+    if (mainWindow) initAutoUpdater(mainWindow);
   });
 
   if (isDev) {
     await mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    await mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    await mainWindow.loadURL(`${STATIC_SERVER_ORIGIN}/`);
   }
 
   mainWindow.on('closed', () => {
@@ -68,44 +153,27 @@ async function createWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
-  // Init DB early (runs migrations)
-  getDb();
-  
-  // Ensure default admin exists and password is password123
-  try {
-    const db = getDb();
-    const adminExists = db.prepare('SELECT id FROM users WHERE username = ?').get('admin') as { id: number } | undefined;
-    
-    if (!adminExists) {
-      console.log('[Setup] Creating default admin user.');
-      setupUser({
-        name: 'System Admin',
-        username: 'admin',
-        password: 'password123',
-        pin: '1234'
-      });
-    } else {
-      console.log('[Setup] Admin exists, resetting password to password123.');
-      adminResetPassword(adminExists.id, 'password123');
+  initSettingsStore(app.getPath('userData'));
+  registerAppIpc();
+  if (!isDev) {
+    const rendererDir = path.join(__dirname, '../renderer');
+    try {
+      await startStaticServer(rendererDir);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      dialog.showErrorBox('Core ERP Client — Startup Error', message);
+      app.quit();
+      return;
     }
-  } catch (err) {
-    console.error('[Setup] Failed to seed/reset admin:', err);
   }
-
-  // Register all IPC handlers
-  setupIpcHandlers();
-  await createWindow();
+  return createWindow();
 });
 
 app.on('window-all-closed', () => {
-  shutdownServices();
   if (process.platform !== 'darwin') {
+    stopStaticServer();
     app.quit();
   }
-});
-
-app.on('before-quit', () => {
-  shutdownServices();
 });
 
 app.on('activate', async () => {

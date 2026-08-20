@@ -1,0 +1,367 @@
+{
+  ".claude/settings.json": {
+    "mtime": 1784873212.5758789,
+    "ast_hash": "839446f4dac366f79cac90c93f3d9af6",
+    "semantic_hash": ""
+  },
+  ".claude/settings.local.json": {
+    "mtime": 1784915772.2336774,
+    "ast_hash": "5f03c8bb3a166398a6b0fb52584bd9c9",
+    "semantic_hash": ""
+  },
+  "package.json": {
+    "mtime": 1784914776.6228476,
+    "ast_hash": "e83b1f4a14eede0d7d5d4dcc2215de48",
+    "semantic_hash": ""
+  },
+  "renderer/src/App.tsx": {
+    "mtime": 1784799874.8451748,
+    "ast_hash": "667d0e1064671316e3e7b39fed61ed62",
+    "semantic_hash": "667d0e1064671316e3e7b39fed61ed62"
+  },
+  "renderer/src/api.ts": {
+    "mtime": 1784799753.5433517,
+    "ast_hash": "42247dc11f9becdb18e494f60b6967de",
+    "semantic_hash": "42247dc11f9becdb18e494f60b6967de"
+  },
+  "renderer/src/components/ERPDataTable.tsx": {
+    "mtime": 1784794576.5504317,
+    "ast_hash": "672b177cbf365d8369900600e17fab28",
+    "semantic_hash": "672b177cbf365d8369900600e17fab28"
+  },
+  "renderer/src/components/ProtectedRoute.tsx": {
+    "mtime": 1784799841.2829275,
+    "ast_hash": "c3d6741eda6452a10e34a62f046533ff",
+    "semantic_hash": "c3d6741eda6452a10e34a62f046533ff"
+  },
+  "renderer/src/components/SidebarNav.tsx": {
+    "mtime": 1784794576.554421,
+    "ast_hash": "d128f220cdaf47265f302b35eeb93fd5",
+    "semantic_hash": "d128f220cdaf47265f302b35eeb93fd5"
+  },
+  "renderer/src/components/VehicleDetailView.tsx": {
+    "mtime": 1784794576.5554185,
+    "ast_hash": "6e40eee8de0d185882f04c48b12994fb",
+    "semantic_hash": "6e40eee8de0d185882f04c48b12994fb"
+  },
+  "renderer/src/components/VehiclesView.tsx": {
+    "mtime": 1784794576.5564406,
+    "ast_hash": "a683258b2967cc7c321c307da6e1192c",
+    "semantic_hash": "a683258b2967cc7c321c307da6e1192c"
+  },
+  "renderer/src/components/layout/AppLayout.tsx": {
+    "mtime": 1784794576.5565815,
+    "ast_hash": "b14ef413f210026a9d55b161bfb9a93f",
+    "semantic_hash": "b14ef413f210026a9d55b161bfb9a93f"
+  },
+  "renderer/src/components/layout/Sidebar.tsx": {
+    "mtime": 1784794576.5565815,
+    "ast_hash": "e8166309979300ec2ed803e7dba9078c",
+    "semantic_hash": "e8166309979300ec2ed803e7dba9078c"
+  },
+  "renderer/src/components/layout/Topbar.tsx": {
+    "mtime": 1784799898.7157173,
+    "ast_hash": "bb3a15b5dfb270c9387538623899c49b",
+    "semantic_hash": "bb3a15b5dfb270c9387538623899c49b"
+  },
+  "renderer/src/components/ui/button.tsx": {
+    "mtime": 1784794576.5575788,
+    "ast_hash": "ef785bfa71c008ce4360999518276f5a",
+    "semantic_hash": "ef785bfa71c008ce4360999518276f5a"
+  },
+  "renderer/src/components/ui/input.tsx": {
+    "mtime": 1784794576.5575788,
+    "ast_hash": "3dffaef11a819b98384125a0aadc960e",
+    "semantic_hash": "3dffaef11a819b98384125a0aadc960e"
+  },
+  "renderer/src/components/ui/label.tsx": {
+    "mtime": 1784794576.5575788,
+    "ast_hash": "7c9b4f3ea3521997da5af64fffb8afd1",
+    "semantic_hash": "7c9b4f3ea3521997da5af64fffb8afd1"
+  },
+  "renderer/src/config/modules.ts": {
+    "mtime": 1784794576.5586061,
+    "ast_hash": "6a5380722460daeefc1b09cf9a499a40",
+    "semantic_hash": "6a5380722460daeefc1b09cf9a499a40"
+  },
+  "renderer/src/context/AuthContext.tsx": {
+    "mtime": 1784827652.146717,
+    "ast_hash": "4c02dfad24390e071bd32711bb7debb0",
+    "semantic_hash": ""
+  },
+  "renderer/src/context/ThemeContext.tsx": {
+    "mtime": 1784794576.5587568,
+    "ast_hash": "c7312cb8e2cd591a12e3baa841884c22",
+    "semantic_hash": "c7312cb8e2cd591a12e3baa841884c22"
+  },
+  "renderer/src/hooks/useDebounce.ts": {
+    "mtime": 1784794576.5597546,
+    "ast_hash": "c9ce0b021e4a33ed0e4cf84c8c58bdb0",
+    "semantic_hash": "c9ce0b021e4a33ed0e4cf84c8c58bdb0"
+  },
+  "renderer/src/lib/clerk.ts": {
+    "mtime": 1784827533.3787212,
+    "ast_hash": "43443bce1c3c6de3651acf66ff49e964",
+    "semantic_hash": ""
+  },
+  "renderer/src/lib/utils.ts": {
+    "mtime": 1784794576.5607529,
+    "ast_hash": "1d8011eb18769078bf77502b220daa5e",
+    "semantic_hash": "1d8011eb18769078bf77502b220daa5e"
+  },
+  "renderer/src/main.tsx": {
+    "mtime": 1784801130.115583,
+    "ast_hash": "cc3caddd591db51d5d70838cefec21bf",
+    "semantic_hash": "cc3caddd591db51d5d70838cefec21bf"
+  },
+  "renderer/src/pages/CreateOrganization.tsx": {
+    "mtime": 1784799862.8618996,
+    "ast_hash": "0d216c3f1429f5c893bad909f75fc280",
+    "semantic_hash": "0d216c3f1429f5c893bad909f75fc280"
+  },
+  "renderer/src/pages/Dashboard.tsx": {
+    "mtime": 1784794576.5617487,
+    "ast_hash": "bf3288c7b4ec5a17f6465e3fe3173ce5",
+    "semantic_hash": "bf3288c7b4ec5a17f6465e3fe3173ce5"
+  },
+  "renderer/src/pages/Inventory.tsx": {
+    "mtime": 1784794576.5617487,
+    "ast_hash": "849c6846e5c34a7d0775434a15bd7f34",
+    "semantic_hash": "849c6846e5c34a7d0775434a15bd7f34"
+  },
+  "renderer/src/pages/Login.tsx": {
+    "mtime": 1784914776.6394322,
+    "ast_hash": "bb212b5b646525423fff5f14eb5e17a9",
+    "semantic_hash": ""
+  },
+  "renderer/src/pages/ModulePage.tsx": {
+    "mtime": 1784794576.562746,
+    "ast_hash": "db3cb7ed8687f7bc2eaa422517554abc",
+    "semantic_hash": "db3cb7ed8687f7bc2eaa422517554abc"
+  },
+  "renderer/src/pages/Products.tsx": {
+    "mtime": 1784794576.562746,
+    "ast_hash": "f2e2a1f6dfb7b5bb867bb1a774e14431",
+    "semantic_hash": "f2e2a1f6dfb7b5bb867bb1a774e14431"
+  },
+  "renderer/src/pages/VehicleDetailPage.tsx": {
+    "mtime": 1784794576.562746,
+    "ast_hash": "c99fbaa1ae59d3f7a7f72945e34b1bab",
+    "semantic_hash": "c99fbaa1ae59d3f7a7f72945e34b1bab"
+  },
+  "renderer/src/pages/VehiclesPage.tsx": {
+    "mtime": 1784794576.5637434,
+    "ast_hash": "bd0c2b688a8af0f01397af0786741d5a",
+    "semantic_hash": "bd0c2b688a8af0f01397af0786741d5a"
+  },
+  "renderer/src/services/auth.service.ts": {
+    "mtime": 1784799771.0881805,
+    "ast_hash": "ae0583778fb9190f6b8ec824f37e2916",
+    "semantic_hash": "ae0583778fb9190f6b8ec824f37e2916"
+  },
+  "renderer/src/types.ts": {
+    "mtime": 1784794576.5637434,
+    "ast_hash": "63807f86b9c37a2592d52c989375e788",
+    "semantic_hash": "63807f86b9c37a2592d52c989375e788"
+  },
+  "renderer/src/vite-env.d.ts": {
+    "mtime": 1784827505.7698388,
+    "ast_hash": "4d246f3a5e77e02c9954c44740cb8b69",
+    "semantic_hash": ""
+  },
+  "renderer/tsconfig.json": {
+    "mtime": 1784794576.5647407,
+    "ast_hash": "0f818100b2d039649f64984c46cb6752",
+    "semantic_hash": "0f818100b2d039649f64984c46cb6752"
+  },
+  "scripts/build-main.ts": {
+    "mtime": 1784802837.762456,
+    "ast_hash": "55ba74ff968f943566574205b26bf0b7",
+    "semantic_hash": "55ba74ff968f943566574205b26bf0b7"
+  },
+  "scripts/launch-electron.ts": {
+    "mtime": 1784794576.5647407,
+    "ast_hash": "43469a028f29e1ae930ba27e006e9791",
+    "semantic_hash": "43469a028f29e1ae930ba27e006e9791"
+  },
+  "scripts/publish-release.ts": {
+    "mtime": 1784794576.565738,
+    "ast_hash": "94ef27b25bc8d6ca7229f84295cecb19",
+    "semantic_hash": "94ef27b25bc8d6ca7229f84295cecb19"
+  },
+  "src/main/index.ts": {
+    "mtime": 1784802826.5696342,
+    "ast_hash": "0c3c1ac8350b1a19ea16f62da25baa32",
+    "semantic_hash": "0c3c1ac8350b1a19ea16f62da25baa32"
+  },
+  "tsconfig.json": {
+    "mtime": 1784802433.7146385,
+    "ast_hash": "7f00a05b4427b9021c95711e71cecb9e",
+    "semantic_hash": "7f00a05b4427b9021c95711e71cecb9e"
+  },
+  "vite.config.ts": {
+    "mtime": 1784794576.5687346,
+    "ast_hash": "f122a373e7323c9046fadc011189b6f8",
+    "semantic_hash": "f122a373e7323c9046fadc011189b6f8"
+  },
+  "CLAUDE.md": {
+    "mtime": 1784873212.5758789,
+    "ast_hash": "8a6643a420fdad6bfb583523bc6cef16",
+    "semantic_hash": "8a6643a420fdad6bfb583523bc6cef16"
+  },
+  "renderer/index.html": {
+    "mtime": 1784794576.54744,
+    "ast_hash": "6aa183a378a99c6ce588612663afa0a3",
+    "semantic_hash": "6aa183a378a99c6ce588612663afa0a3"
+  },
+  "renderer/src/components/LockScreen.tsx": {
+    "mtime": 1784743220.6637602,
+    "ast_hash": "cb49742e1e6f299ab31d9d2675ee75e8",
+    "semantic_hash": ""
+  },
+  "renderer/src/components/LoginScreen.tsx": {
+    "mtime": 1784743220.6793818,
+    "ast_hash": "84a64ae8cd3c86d0af1e59b5e4844925",
+    "semantic_hash": ""
+  },
+  "renderer/src/components/SetupScreen.tsx": {
+    "mtime": 1784743220.7262537,
+    "ast_hash": "32af026184e8f8d22a3174cfb2c53034",
+    "semantic_hash": ""
+  },
+  "renderer/src/components/UsersManagement.tsx": {
+    "mtime": 1784743220.7575016,
+    "ast_hash": "625595a42fec4fcabf9d3dcea3a36d80",
+    "semantic_hash": ""
+  },
+  "renderer/src/data/mockData.ts": {
+    "mtime": 1784743220.8031695,
+    "ast_hash": "ba13f836a4c0b9fd7e02eaf32df0d4ae",
+    "semantic_hash": ""
+  },
+  "renderer/src/global.d.ts": {
+    "mtime": 1784743220.8071673,
+    "ast_hash": "a79c7f4c595f4416f6bcbd2f17f609fa",
+    "semantic_hash": ""
+  },
+  "src/main/auth.ts": {
+    "mtime": 1784743220.9357371,
+    "ast_hash": "3dc1359106b7332b9a493bf85f92fc47",
+    "semantic_hash": ""
+  },
+  "src/main/database.ts": {
+    "mtime": 1784484413.9877815,
+    "ast_hash": "7876738f1d46fe0edcd953508a89d816",
+    "semantic_hash": ""
+  },
+  "src/main/ipc-handlers.ts": {
+    "mtime": 1784743220.9741583,
+    "ast_hash": "4de47330da4587832213f70637534f72",
+    "semantic_hash": ""
+  },
+  "src/main/preload.ts": {
+    "mtime": 1784914776.6394322,
+    "ast_hash": "c8c5615282f061fef5530bb65c51865a",
+    "semantic_hash": ""
+  },
+  "src/main/settings.ts": {
+    "mtime": 1784743220.9967892,
+    "ast_hash": "cc712e463b34cc13afe36ef3d46ae377",
+    "semantic_hash": ""
+  },
+  "src/main/utils.ts": {
+    "mtime": 1784484414.0086164,
+    "ast_hash": "e830316627c00b26a8db9f127338b2dd",
+    "semantic_hash": ""
+  },
+  ".claude/rules/lessons-learned.md": {
+    "mtime": 1784913907.7396705,
+    "ast_hash": "b553ee4ebe74ba3e2e30b9425168d23e",
+    "semantic_hash": ""
+  },
+  ".claude/skills/add-create-only-resource-page/SKILL.md": {
+    "mtime": 1784894624.9921963,
+    "ast_hash": "a5643bdc14bce2878c9c2ec845a78c18",
+    "semantic_hash": ""
+  },
+  ".claude/skills/add-crud-resource-page/SKILL.md": {
+    "mtime": 1784894269.116444,
+    "ast_hash": "bd0615adde25966ba1aa6b47e683442f",
+    "semantic_hash": ""
+  },
+  ".claude/skills/erp-client-conventions/SKILL.md": {
+    "mtime": 1784909563.3854647,
+    "ast_hash": "21563401ea97ba59ef7a5d504464d77b",
+    "semantic_hash": ""
+  },
+  ".claude/skills/verify-core-apis-capability/SKILL.md": {
+    "mtime": 1784908646.7734654,
+    "ast_hash": "261d0cb9c50ad647b8387be3738f33a8",
+    "semantic_hash": ""
+  },
+  "docs/requirements.md": {
+    "mtime": 1784909281.935605,
+    "ast_hash": "9be417ff64925f6d9d1ffe45bacd1ddd",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/plans/2026-07-23-phase1-crud-foundation.md": {
+    "mtime": 1784873212.5789273,
+    "ast_hash": "36586a4201ae5ecf8fe0529ac110adff",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/plans/2026-07-24-self-signup.md": {
+    "mtime": 1784909460.039366,
+    "ast_hash": "fc95783ce213767b8677dff02b9a4d75",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-07-23-erp-implementation-00-overview.md": {
+    "mtime": 1784893750.014741,
+    "ast_hash": "a0bbf55b7dcdf9dd0e59a4f55f068a3b",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-07-23-erp-implementation-01-crud-foundation.md": {
+    "mtime": 1784873212.5799422,
+    "ast_hash": "32028f98534432dcb20244b1a6543729",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-07-23-erp-implementation-02-purchase-module.md": {
+    "mtime": 1784873212.5799422,
+    "ast_hash": "234958641fa144c456731c489b6d75de",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-07-23-erp-implementation-03-sales-module.md": {
+    "mtime": 1784873212.580955,
+    "ast_hash": "906bea1ed51e80a1f8dd07a15f0f39ec",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-07-23-erp-implementation-04-inventory-transactions.md": {
+    "mtime": 1784873212.580955,
+    "ast_hash": "09224570099e8f6f027144df009b89a5",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-07-23-erp-implementation-05-roles-access.md": {
+    "mtime": 1784873212.5819697,
+    "ast_hash": "0854ee488ce252530509c34493255569",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-07-23-erp-implementation-06-reports.md": {
+    "mtime": 1784873212.5819697,
+    "ast_hash": "174b825b7e658cc61754c0190931e040",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-07-24-erp-implementation-00-overview.md": {
+    "mtime": 1784909405.3029752,
+    "ast_hash": "e871af01f5c08e8071e4a2b612a8584b",
+    "semantic_hash": ""
+  },
+  "docs/superpowers/specs/2026-07-24-self-signup-design.md": {
+    "mtime": 1784886642.9127767,
+    "ast_hash": "01d2ac066659315eb7b6d7a88254bff6",
+    "semantic_hash": ""
+  },
+  "inventory_management_spec.md": {
+    "mtime": 1784808272.3540998,
+    "ast_hash": "7af9ec9bcd5de84df40abd0868eec97c",
+    "semantic_hash": ""
+  }
+}
