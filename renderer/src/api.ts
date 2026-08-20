@@ -11,7 +11,6 @@ import type {
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer, StockTransferRequest,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
-  SaleType, CustomerType, PaymentTiming,
   CreditApprovalRequest, CommissionPayable,
   QuickCharge, CustomerTypeRule,
   Country, State, City,
@@ -24,6 +23,10 @@ import type {
   SalesSummaryData, RevenueTrendPoint, TopProduct, TopCustomer,
   PurchaseSummaryData, PurchaseTrendPoint, TopSupplier,
   InventorySummaryData, StockByLocationPoint,
+  PaymentMixPoint, CategoryValuePoint, PurchaseExceptionsData,
+  DemandTierPoint, ProductMovementRank, ProductMarginRank,
+  SupplierPricePoint, InventoryStatusData, InventoryStatusTrendPoint, StockDamageSummaryData,
+  DashboardAnalyticsParams,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -990,7 +993,7 @@ export const ClerkUsers = {
   useRevokeInvitation() {
     const queryClient = useQueryClient();
     return useMutation({
-      mutationFn: (invitationId: string) => del<void>(`/api/v1/users/clerk/invitations/${invitationId}`),
+      mutationFn: (invitationId: string) => del(`/api/v1/users/clerk/invitations/${invitationId}`),
       onSuccess: () => {
         toast.success('Invitation revoked');
         queryClient.invalidateQueries({ queryKey: [CLERK_INVITATIONS_KEY] });
@@ -1134,25 +1137,37 @@ export const MaintenanceTypes = {
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 
+function analyticsQueryParams(params?: DashboardAnalyticsParams & { limit?: number; months?: number; staleDays?: number }) {
+  const q: Record<string, string | number> = {};
+  if (params?.period) q.period = params.period;
+  if (params?.from) q.from = params.from;
+  if (params?.to) q.to = params.to;
+  if (params?.locationId) q.locationId = params.locationId;
+  if (params?.limit != null) q.limit = params.limit;
+  if (params?.months != null) q.months = params.months;
+  if (params?.staleDays != null) q.staleDays = params.staleDays;
+  return q;
+}
+
 export const Analytics = {
-  useSalesSummary() {
+  useSalesSummary(params?: DashboardAnalyticsParams) {
     return useQuery<SalesSummaryData>({
-      queryKey: ['analytics', 'sales-summary'],
-      queryFn:  () => get<SalesSummaryData>('/api/v1/analytics/sales-summary'),
+      queryKey: ['analytics', 'sales-summary', params],
+      queryFn:  () => get<SalesSummaryData>('/api/v1/analytics/sales-summary', analyticsQueryParams(params)),
       staleTime: 5 * 60 * 1000,
     });
   },
-  useRevenueTrend(months = 6) {
+  useRevenueTrend(params?: DashboardAnalyticsParams & { months?: number }) {
     return useQuery<RevenueTrendPoint[]>({
-      queryKey: ['analytics', 'revenue-trend', months],
-      queryFn:  () => get<RevenueTrendPoint[]>('/api/v1/analytics/revenue-trend', { months }),
+      queryKey: ['analytics', 'revenue-trend', params],
+      queryFn:  () => get<RevenueTrendPoint[]>('/api/v1/analytics/revenue-trend', analyticsQueryParams(params)),
       staleTime: 5 * 60 * 1000,
     });
   },
-  useTopProducts(limit = 10) {
+  useTopProducts(params?: DashboardAnalyticsParams & { limit?: number }) {
     return useQuery<TopProduct[]>({
-      queryKey: ['analytics', 'top-products', limit],
-      queryFn:  () => get<TopProduct[]>('/api/v1/analytics/top-products', { limit }),
+      queryKey: ['analytics', 'top-products', params],
+      queryFn:  () => get<TopProduct[]>('/api/v1/analytics/top-products', analyticsQueryParams({ limit: 10, ...params })),
       staleTime: 5 * 60 * 1000,
     });
   },
@@ -1163,17 +1178,38 @@ export const Analytics = {
       staleTime: 5 * 60 * 1000,
     });
   },
-  usePurchaseSummary() {
-    return useQuery<PurchaseSummaryData>({
-      queryKey: ['analytics', 'purchase-summary'],
-      queryFn:  () => get<PurchaseSummaryData>('/api/v1/analytics/purchase-summary'),
+  usePaymentMix(params?: DashboardAnalyticsParams) {
+    return useQuery<PaymentMixPoint[]>({
+      queryKey: ['analytics', 'payment-mix', params],
+      queryFn:  () => get<PaymentMixPoint[]>('/api/v1/analytics/payment-mix', analyticsQueryParams(params)),
       staleTime: 5 * 60 * 1000,
     });
   },
-  usePurchaseTrend(months = 6) {
+  usePurchaseSummary(params?: DashboardAnalyticsParams) {
+    return useQuery<PurchaseSummaryData>({
+      queryKey: ['analytics', 'purchase-summary', params],
+      queryFn:  () => get<PurchaseSummaryData>('/api/v1/analytics/purchase-summary', analyticsQueryParams(params)),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  usePurchaseTrend(params?: DashboardAnalyticsParams & { months?: number }) {
     return useQuery<PurchaseTrendPoint[]>({
-      queryKey: ['analytics', 'purchase-trend', months],
-      queryFn:  () => get<PurchaseTrendPoint[]>('/api/v1/analytics/purchase-trend', { months }),
+      queryKey: ['analytics', 'purchase-trend', params],
+      queryFn:  () => get<PurchaseTrendPoint[]>('/api/v1/analytics/purchase-trend', analyticsQueryParams(params)),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  usePurchaseByCategory(params?: DashboardAnalyticsParams) {
+    return useQuery<CategoryValuePoint[]>({
+      queryKey: ['analytics', 'purchase-by-category', params],
+      queryFn:  () => get<CategoryValuePoint[]>('/api/v1/analytics/purchase-by-category', analyticsQueryParams(params)),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  usePurchaseExceptions(params?: Pick<DashboardAnalyticsParams, 'locationId'>) {
+    return useQuery<PurchaseExceptionsData>({
+      queryKey: ['analytics', 'purchase-exceptions', params],
+      queryFn:  () => get<PurchaseExceptionsData>('/api/v1/analytics/purchase-exceptions', analyticsQueryParams(params)),
       staleTime: 5 * 60 * 1000,
     });
   },
@@ -1184,17 +1220,87 @@ export const Analytics = {
       staleTime: 5 * 60 * 1000,
     });
   },
-  useInventorySummary() {
+  useInventorySummary(params?: Pick<DashboardAnalyticsParams, 'locationId'>) {
     return useQuery<InventorySummaryData>({
-      queryKey: ['analytics', 'inventory-summary'],
-      queryFn:  () => get<InventorySummaryData>('/api/v1/analytics/inventory-summary'),
+      queryKey: ['analytics', 'inventory-summary', params],
+      queryFn:  () => get<InventorySummaryData>('/api/v1/analytics/inventory-summary', analyticsQueryParams(params)),
       staleTime: 5 * 60 * 1000,
     });
   },
-  useStockByLocation() {
+  useStockByLocation(params?: Pick<DashboardAnalyticsParams, 'locationId'>) {
     return useQuery<StockByLocationPoint[]>({
-      queryKey: ['analytics', 'stock-by-location'],
-      queryFn:  () => get<StockByLocationPoint[]>('/api/v1/analytics/stock-by-location'),
+      queryKey: ['analytics', 'stock-by-location', params],
+      queryFn:  () => get<StockByLocationPoint[]>('/api/v1/analytics/stock-by-location', analyticsQueryParams(params)),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useStockValueByCategory(params?: Pick<DashboardAnalyticsParams, 'locationId'>) {
+    return useQuery<CategoryValuePoint[]>({
+      queryKey: ['analytics', 'stock-value-by-category', params],
+      queryFn:  () => get<CategoryValuePoint[]>('/api/v1/analytics/stock-value-by-category', analyticsQueryParams(params)),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useProductDemandTiers(params?: DashboardAnalyticsParams) {
+    return useQuery<DemandTierPoint[]>({
+      queryKey: ['analytics', 'product-demand-tiers', params],
+      queryFn:  () => get<DemandTierPoint[]>('/api/v1/analytics/product-demand-tiers', analyticsQueryParams(params)),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useTopMarginProducts(params?: DashboardAnalyticsParams & { limit?: number }) {
+    return useQuery<ProductMarginRank[]>({
+      queryKey: ['analytics', 'top-margin-products', params],
+      queryFn:  () => get<ProductMarginRank[]>('/api/v1/analytics/top-margin-products', analyticsQueryParams({ limit: 10, ...params })),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useCostlyProducts(params?: DashboardAnalyticsParams & { limit?: number }) {
+    return useQuery<ProductMarginRank[]>({
+      queryKey: ['analytics', 'costly-products', params],
+      queryFn:  () => get<ProductMarginRank[]>('/api/v1/analytics/costly-products', analyticsQueryParams({ limit: 10, ...params })),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useFastMovingProducts(params?: DashboardAnalyticsParams & { limit?: number }) {
+    return useQuery<ProductMovementRank[]>({
+      queryKey: ['analytics', 'fast-moving-products', params],
+      queryFn:  () => get<ProductMovementRank[]>('/api/v1/analytics/fast-moving-products', analyticsQueryParams({ limit: 10, ...params })),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useDeadStock(params?: Pick<DashboardAnalyticsParams, 'locationId'> & { limit?: number; staleDays?: number }) {
+    return useQuery<ProductMovementRank[]>({
+      queryKey: ['analytics', 'dead-stock', params],
+      queryFn:  () => get<ProductMovementRank[]>('/api/v1/analytics/dead-stock', analyticsQueryParams(params)),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useSupplierPriceComparison(params?: DashboardAnalyticsParams & { limit?: number }) {
+    return useQuery<SupplierPricePoint[]>({
+      queryKey: ['analytics', 'supplier-price-comparison', params],
+      queryFn:  () => get<SupplierPricePoint[]>('/api/v1/analytics/supplier-price-comparison', analyticsQueryParams({ limit: 30, ...params })),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useInventoryStatus(params?: Pick<DashboardAnalyticsParams, 'locationId'> & { staleDays?: number }) {
+    return useQuery<InventoryStatusData>({
+      queryKey: ['analytics', 'inventory-status', params],
+      queryFn:  () => get<InventoryStatusData>('/api/v1/analytics/inventory-status', analyticsQueryParams(params)),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useInventoryStatusTrend(params?: DashboardAnalyticsParams & { staleDays?: number }) {
+    return useQuery<InventoryStatusTrendPoint[]>({
+      queryKey: ['analytics', 'inventory-status-trend', params],
+      queryFn:  () => get<InventoryStatusTrendPoint[]>('/api/v1/analytics/inventory-status-trend', analyticsQueryParams(params)),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
+  useStockDamageSummary(params?: DashboardAnalyticsParams & { limit?: number }) {
+    return useQuery<StockDamageSummaryData>({
+      queryKey: ['analytics', 'stock-damage-summary', params],
+      queryFn:  () => get<StockDamageSummaryData>('/api/v1/analytics/stock-damage-summary', analyticsQueryParams({ limit: 10, ...params })),
       staleTime: 5 * 60 * 1000,
     });
   },

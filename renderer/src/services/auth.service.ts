@@ -11,6 +11,9 @@ export interface MeResponse {
   isOnboarded: boolean;
   organization?: { id: string; name: string; slug: string; logoUrl?: string };
   membership?: { id: string; roleId: string; status: string; joinedAt?: string };
+  locationIds?: string[];
+  hasOrgWideAccess?: boolean;
+  currencyCode?: string;
 }
 
 export const AuthService = {

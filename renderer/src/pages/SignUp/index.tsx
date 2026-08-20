@@ -7,11 +7,12 @@ import { clerkErrorMessage, signUpWithPassword, startGoogleOAuth } from '../../l
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import AuthBootScreen from '../../components/auth/AuthBootScreen';
 import LoginVisualPanel from '../../components/auth/LoginVisualPanel';
 import { toast } from 'sonner';
 
 export default function SignUp() {
-  const { user } = useAuth();
+  const { user, syncing, bootPhase } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,6 +20,10 @@ export default function SignUp() {
   const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
+
+  if (syncing && clerk.session) {
+    return <AuthBootScreen phase={bootPhase ?? 'session'} />;
+  }
 
   if (user) {
     return <Navigate to="/" replace />;
