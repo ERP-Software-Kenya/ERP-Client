@@ -1,11 +1,11 @@
-export { configureApi, get, post, put, patch, del } from './lib/http';
-import { get, post, put, patch, del, uploadForm } from './lib/http';
+export { configureApi, get, post, put, patch, del, getBlob } from './lib/http';
+import { get, post, put, patch, del, uploadForm, getBlob } from './lib/http';
 import { createResource, createCreateOnlyResource } from './lib/resource';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type {
   Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
-  Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, CustomerCreditTransaction, Expense, PurchaseItem,
+  Notification, ItemReturn, ReportGenerationLog, GenerateReportInput, Order, Invoice, Customer, CustomerCreditTransaction, Expense, PurchaseItem,
   ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer, StockTransferRequest,
@@ -200,7 +200,40 @@ export const Notifications = {
   },
 };
 export const ItemReturns = createResource<ItemReturn>('/api/v1/item-returns', 'item-returns', 'Return');
-export const ReportGenerationLogs = createResource<ReportGenerationLog>('/api/v1/report-generation-logs', 'report-generation-logs', 'Report log');
+const _reportLogsBase = createResource<ReportGenerationLog>('/api/v1/report-generation-logs', 'report-generation-logs', 'Report log');
+
+export const ReportGenerationLogs = {
+  ..._reportLogsBase,
+
+  useGenerate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: GenerateReportInput) =>
+        post<ReportGenerationLog>('/api/v1/report-generation-logs/generate', body),
+      onSuccess: () => {
+        toast.success('Report generated successfully');
+        queryClient.invalidateQueries({ queryKey: ['report-generation-logs'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to generate report'),
+    });
+  },
+
+  useDownloadPdf() {
+    return useMutation({
+      mutationFn: async (id: string) => {
+        const { blob, filename } = await getBlob(`/api/v1/report-generation-logs/${id}/pdf`);
+        const url  = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href     = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      onSuccess: () => toast.success('PDF downloaded'),
+      onError: (error: Error) => toast.error(error.message || 'Failed to download PDF'),
+    });
+  },
+};
 export const Orders = createCreateOnlyResource<Order>('/api/v1/orders', 'orders', 'Order');
 export const Invoices = createCreateOnlyResource<Invoice>('/api/v1/invoices', 'invoices', 'Invoice');
 
