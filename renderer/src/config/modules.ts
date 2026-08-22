@@ -173,24 +173,13 @@ export const MODULES: ModuleGroup[] = [
       { key: 'approvals-history', title: 'Black Ledger', path: '/approvals/black-ledger', icon: History },
     ],
   },
-  // {
-  //   label: 'Reports',
-  //   icon: BarChart3,
-  //   items: [
-  //     { key: 'reports-home', title: 'Reports Home', path: '/reports', icon: BarChart3, disabled: true },
-  //     { key: 'report-generation-logs', title: 'Report Generation Logs', path: '/report-generation-logs', icon: ClipboardList },
-  //     { key: 'sales-summary', title: 'Sales Summary', path: '/reports/sales-summary', icon: TrendingUp, disabled: true },
-  //     { key: 'purchase-summary', title: 'Purchase Summary', path: '/reports/purchase-summary', icon: ShoppingCart, disabled: true },
-  //     { key: 'debtor-ageing', title: 'Debtor Ageing', path: '/reports/debtor-ageing', icon: CreditCard, disabled: true },
-  //     { key: 'creditor-ageing', title: 'Creditor Ageing', path: '/reports/creditor-ageing', icon: Banknote, disabled: true },
-  //     { key: 'stock-ageing', title: 'Stock Ageing', path: '/reports/stock-ageing', icon: Boxes, disabled: true },
-  //     { key: 'warehouse-stock', title: 'Warehouse Stock', path: '/reports/warehouse-stock', icon: Warehouse, disabled: true },
-  //     { key: 'lot-stock', title: 'Lot-wise Stock', path: '/reports/lot-stock', icon: Tag, disabled: true },
-  //     { key: 'sales-vs-purchase', title: 'Sales vs Purchase', path: '/reports/sales-vs-purchase', icon: BarChart2, disabled: true },
-  //     { key: 'product-profit', title: 'Product Profit', path: '/reports/product-profit', icon: BarChart3, disabled: true },
-  //     { key: 'tax-summary', title: 'Tax Summary', path: '/reports/tax-summary', icon: Percent, disabled: true },
-  //   ],
-  // },
+  {
+    label: 'Reports',
+    icon: BarChart3,
+    items: [
+      { key: 'report-generation-logs', title: 'Reports', path: '/report-generation-logs', icon: ClipboardList },
+    ],
+  },
   {
     label: 'Administration',
     icon: Users,
