@@ -372,11 +372,40 @@ export interface ItemReturn {
   createdAt?: string;
 }
 
+export type EReportPeriod = 'DAILY' | 'MONTHLY' | 'YEARLY' | 'CUSTOM';
+
+export type EReportType =
+  | 'total_sales' | 'cash_sales' | 'credit_sales' | 'total_bills' | 'average_bill_value'
+  | 'time_wise_sales' | 'top_selling_products' | 'slow_moving_products'
+  | 'total_expense' | 'shop_expense' | 'other_expense' | 'opening_cash' | 'closing_cash'
+  | 'total_purchase' | 'purchase_return' | 'total_profit' | 'net_profit'
+  | 'closing_stock' | 'low_stock_items' | 'out_of_stock_items' | 'damaged_stock' | 'returned_items'
+  | 'total_customers' | 'new_customers' | 'repeat_customers'
+  | 'credit_given' | 'credit_received' | 'pending_credit'
+  | 'supplier_payment' | 'pending_supplier_payment' | 'staff_attendance' | 'weekly_comparison';
+
 export interface ReportGenerationLog {
   id: string;
-  report_type?: string;
+  orgId?: string;
+  reportType?: EReportType;
+  reportPeriod?: EReportPeriod;
+  reportName?: string;
+  fromDate?: string;
+  toDate?: string;
+  locationId?: string;
+  generatedById?: string;
   status?: string;
-  created_at?: string;
+  fileUrl?: string;
+  errorMessage?: string;
+  createdAt?: string;
+}
+
+export interface GenerateReportInput {
+  reportType: EReportType;
+  reportPeriod: EReportPeriod;
+  fromDate: string;
+  toDate: string;
+  locationId?: string;
 }
 
 // Matches core-apis StockMovementResponse + StockOperationRequest / AdjustStockRequest.
