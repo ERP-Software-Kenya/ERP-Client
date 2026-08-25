@@ -348,6 +348,11 @@ export default function PurchaseOrderDetail() {
                         <span>
                           Ordered: <span className="font-medium text-foreground">{ordered}</span>
                         </span>
+                        {item.packQuantity != null && item.packSizeSnapshot != null && (
+                          <span>
+                            Packs: <span className="font-medium text-foreground">{item.packQuantity} × {item.packSizeSnapshot} units</span>
+                          </span>
+                        )}
                         <span>
                           Received:{' '}
                           <span className="font-medium text-emerald-600 dark:text-emerald-400">{received}</span>

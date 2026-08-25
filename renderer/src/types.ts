@@ -116,6 +116,8 @@ export interface Product {
   wholesalePrice?: number;
   transferPrice?: number;
   reorderPoint?: number;
+  manufacturer?: string;
+  packSize?: number;
   isActive?: boolean;
   createdAt?: string;
 }
@@ -169,6 +171,12 @@ export interface InventoryItem {
   maxStock?: number;
   averageCost?: number;
   binLocation?: string;
+  /** Pack size from product — null when product has no pack concept */
+  productPackSize?: number;
+  /** Whole packs on hand = floor(quantityOnHand / productPackSize). Null when no pack size. */
+  packsOnHand?: number;
+  /** Loose units beyond whole packs = quantityOnHand % productPackSize. Null when no pack size. */
+  looseUnits?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -212,8 +220,11 @@ export interface PurchaseOrder {
 
 export interface CreatePurchaseOrderItemInput {
   productId: string;
-  quantityOrdered: number;
+  /** Units ordered — omit when packQuantity is provided */
+  quantityOrdered?: number;
   unitCost: number;
+  /** Packs ordered — backend converts to units using product packSize */
+  packQuantity?: number;
 }
 
 export interface CreatePurchaseOrderInput {
@@ -705,6 +716,10 @@ export interface PurchaseItem {
   quantityAllocated?: number;
   unitCost?: number;
   totalCost?: number;
+  /** Packs entered at order time — null when ordered in units */
+  packQuantity?: number;
+  /** Product packSize snapshotted at order time — null when no pack concept used */
+  packSizeSnapshot?: number;
   createdAt?: string;
   updatedAt?: string;
 }
