@@ -167,7 +167,7 @@ export default function PurchaseOrderDetail() {
   const showActions = canVerify(po.status) || canMarkOrdered(po.status);
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-5">
       {/* Back */}
       <button
         type="button"
@@ -178,7 +178,7 @@ export default function PurchaseOrderDetail() {
         Back to Purchase Orders
       </button>
 
-      {/* Header */}
+      {/* Header — full width */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -215,9 +215,7 @@ export default function PurchaseOrderDetail() {
                   Mark as Ordered
                 </DropdownMenuItem>
               )}
-              {canMarkOrdered(po.status) && canVerify(po.status) && (
-                <DropdownMenuSeparator />
-              )}
+              {canMarkOrdered(po.status) && canVerify(po.status) && <DropdownMenuSeparator />}
               {canVerify(po.status) && (
                 <DropdownMenuItem onSelect={() => navigate(`/purchase-orders/${po.id}/receive`)}>
                   <ClipboardCheck size={14} />
@@ -229,28 +227,16 @@ export default function PurchaseOrderDetail() {
         )}
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard
-          icon={<DollarSign size={17} />}
-          label="Total Amount"
-          value={fmt(po.totalAmount)}
-        />
+      {/* Stat cards — 4-col grid across full width */}
+      <div className="grid grid-cols-4 gap-3">
+        <StatCard icon={<DollarSign size={17} />} label="Total Amount" value={fmt(po.totalAmount)} />
         <StatCard
           icon={<Package2 size={17} />}
           label="Line Items"
           value={itemsLoading ? '…' : String(items.length)}
-          sub={
-            itemsLoading
-              ? undefined
-              : `${fullyReceivedCount} / ${items.length} received`
-          }
+          sub={itemsLoading ? undefined : `${fullyReceivedCount} / ${items.length} received`}
         />
-        <StatCard
-          icon={<Calendar size={17} />}
-          label="Created"
-          value={fmtDate(po.createdAt)}
-        />
+        <StatCard icon={<Calendar size={17} />} label="Created" value={fmtDate(po.createdAt)} />
         <StatCard
           icon={<Calendar size={17} />}
           label={po.receivedAt ? 'Received On' : 'Expected By'}
@@ -267,7 +253,7 @@ export default function PurchaseOrderDetail() {
         </div>
       )}
 
-      {/* Line items */}
+      {/* Line items — proper table, fills full width */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
           <h2 className="font-semibold text-foreground text-sm">Line Items</h2>
@@ -279,143 +265,127 @@ export default function PurchaseOrderDetail() {
         </div>
 
         {itemsLoading ? (
-          <div className="px-5 py-12 text-center text-sm text-muted-foreground">
-            Loading items…
-          </div>
+          <div className="px-5 py-12 text-center text-sm text-muted-foreground">Loading items…</div>
         ) : items.length === 0 ? (
           <div className="px-5 py-12 text-center text-sm text-muted-foreground">
             No line items found for this purchase order.
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {items.map((item) => {
-              const ordered = Number(item.quantityOrdered ?? 0);
-              const received = Number(item.quantityReceived ?? 0);
-              const allocated = Number(item.quantityAllocated ?? 0);
-              const remaining = Math.max(0, ordered - received);
-              const unallocated = Math.max(0, received - allocated);
-              const receivePct = ordered > 0 ? Math.min(100, Math.round((received / ordered) * 100)) : 0;
-              const allocatePct = received > 0 ? Math.min(100, Math.round((allocated / received) * 100)) : 0;
-              const fullyReceived = ordered > 0 && received >= ordered;
-              const fullyAllocated = received > 0 && allocated >= received;
-              const product = item.productId ? productMap.get(item.productId) : undefined;
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 border-b border-border">
+                <tr>
+                  <th className="px-5 py-2.5 text-left text-xs font-semibold text-muted-foreground">Product</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground">Unit Cost</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground">Ordered</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-muted-foreground w-40">Receipt</th>
+                  <th className="px-4 py-2.5 text-xs font-semibold text-muted-foreground w-40">Allocated</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground">Pending</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground">Unallocated</th>
+                  <th className="px-5 py-2.5 text-right text-xs font-semibold text-muted-foreground">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {items.map((item) => {
+                  const ordered = Number(item.quantityOrdered ?? 0);
+                  const received = Number(item.quantityReceived ?? 0);
+                  const allocated = Number(item.quantityAllocated ?? 0);
+                  const remaining = Math.max(0, ordered - received);
+                  const unallocated = Math.max(0, received - allocated);
+                  const receivePct = ordered > 0 ? Math.min(100, Math.round((received / ordered) * 100)) : 0;
+                  const allocatePct = received > 0 ? Math.min(100, Math.round((allocated / received) * 100)) : 0;
+                  const fullyReceived = ordered > 0 && received >= ordered;
+                  const fullyAllocated = received > 0 && allocated >= received;
+                  const product = item.productId ? productMap.get(item.productId) : undefined;
 
-              return (
-                <div
-                  key={item.id}
-                  className="px-5 py-4 hover:bg-muted/20 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      {/* Product name + SKU */}
-                      <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+                  return (
+                    <tr key={item.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-5 py-3.5">
                         <p className="font-medium text-foreground">
                           {product?.name ?? (item.productId?.slice(0, 8) ?? '—')}
                         </p>
                         {product?.sku && (
-                          <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
+                          <span className="text-[10px] font-mono text-muted-foreground">
                             {product.sku}
                           </span>
                         )}
-                      </div>
-
-                      {/* Receipt progress */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                          <span className="w-16 text-right">Receipt</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-right tabular-nums text-muted-foreground">
+                        {item.unitCost != null ? fmt(item.unitCost) : '—'}
+                      </td>
+                      <td className="px-4 py-3.5 text-right tabular-nums font-medium text-foreground">
+                        {ordered}
+                      </td>
+                      <td className="px-4 py-3.5 w-40">
+                        <div className="flex items-center gap-2">
                           <div className="flex-1">
                             <ProgressBar
                               pct={receivePct}
                               color={fullyReceived ? 'bg-emerald-500' : received > 0 ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}
                             />
                           </div>
-                          <span className="w-12">{receivePct}%</span>
+                          <span className="text-[11px] tabular-nums text-muted-foreground w-8 text-right">
+                            {received}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                          <span className="w-16 text-right">Allocated</span>
+                      </td>
+                      <td className="px-4 py-3.5 w-40">
+                        <div className="flex items-center gap-2">
                           <div className="flex-1">
                             <ProgressBar
                               pct={allocatePct}
                               color={fullyAllocated ? 'bg-teal-500' : allocated > 0 ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'}
                             />
                           </div>
-                          <span className="w-12">{allocatePct}%</span>
+                          <span className="text-[11px] tabular-nums text-muted-foreground w-8 text-right">
+                            {allocated}
+                          </span>
                         </div>
-                      </div>
-
-                      {/* Stats row */}
-                      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
-                        <span>
-                          Ordered: <span className="font-medium text-foreground">{ordered}</span>
-                        </span>
-                        <span>
-                          Received:{' '}
-                          <span className="font-medium text-emerald-600 dark:text-emerald-400">{received}</span>
-                        </span>
-                        <span>
-                          Allocated:{' '}
-                          <span className="font-medium text-teal-600 dark:text-teal-400">{allocated}</span>
-                        </span>
-                        {remaining > 0 && (
-                          <span>
-                            Pending receipt:{' '}
-                            <span className="font-medium text-amber-600 dark:text-amber-400">{remaining}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-right tabular-nums">
+                        {remaining > 0
+                          ? <span className="font-medium text-amber-600 dark:text-amber-400">{remaining}</span>
+                          : <span className="text-muted-foreground/40">—</span>}
+                      </td>
+                      <td className="px-4 py-3.5 text-right tabular-nums">
+                        {unallocated > 0
+                          ? <span className="font-medium text-violet-600 dark:text-violet-400">{unallocated}</span>
+                          : <span className="text-muted-foreground/40">—</span>}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        {fullyAllocated && fullyReceived ? (
+                          <span className="inline-flex items-center gap-1 text-teal-500 text-xs font-medium">
+                            <Warehouse size={13} /> Allocated
+                          </span>
+                        ) : fullyReceived ? (
+                          <span className="inline-flex items-center gap-1 text-emerald-500 text-xs font-medium">
+                            <CheckCircle2 size={13} /> Received
+                          </span>
+                        ) : received > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-amber-500 text-xs font-medium">
+                            <Clock size={13} /> {receivePct}%
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-muted-foreground/40 text-xs">
+                            <XCircle size={13} /> Pending
                           </span>
                         )}
-                        {unallocated > 0 && (
-                          <span>
-                            Unallocated:{' '}
-                            <span className="font-medium text-violet-600 dark:text-violet-400">{unallocated}</span>
-                          </span>
-                        )}
-                        {item.unitCost != null && (
-                          <span>
-                            Unit cost: <span className="font-medium text-foreground">{fmt(item.unitCost)}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Status icon */}
-                    <div className="shrink-0 mt-1">
-                      {fullyAllocated && fullyReceived ? (
-                        <div className="flex items-center gap-1 text-teal-500 text-xs font-medium">
-                          <Warehouse size={16} />
-                          <span>Allocated</span>
-                        </div>
-                      ) : fullyReceived ? (
-                        <div className="flex items-center gap-1 text-emerald-500 text-xs font-medium">
-                          <CheckCircle2 size={16} />
-                          <span>Received</span>
-                        </div>
-                      ) : received > 0 ? (
-                        <div className="flex items-center gap-1 text-amber-500 text-xs font-medium">
-                          <Clock size={16} />
-                          <span>{receivePct}%</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-muted-foreground/40 text-xs">
-                          <XCircle size={16} />
-                          <span>Pending</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
-      {/* Partially allocated banner */}
+      {/* Status banners */}
       {po.status === 'partially_allocated' && (
         <div className="rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800/50 dark:bg-violet-950/30 px-4 py-4 flex items-center gap-3">
           <Warehouse size={20} className="text-violet-600 dark:text-violet-400 shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-semibold text-violet-700 dark:text-violet-400">
-              Partial allocation — stock pending
-            </p>
+            <p className="text-sm font-semibold text-violet-700 dark:text-violet-400">Partial allocation — stock pending</p>
             <p className="text-xs text-violet-600/80 dark:text-violet-500 mt-0.5">
               Some received stock has not yet been assigned to a location. Open Verify Receipt to complete the allocation.
             </p>
@@ -430,14 +400,11 @@ export default function PurchaseOrderDetail() {
         </div>
       )}
 
-      {/* Received but not yet allocated banner */}
       {po.status === 'received' && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:border-emerald-800/50 dark:bg-emerald-950/30 px-4 py-4 flex items-center gap-3">
           <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-              All items received — assign to locations
-            </p>
+            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">All items received — assign to locations</p>
             <p className="text-xs text-emerald-600/80 dark:text-emerald-500 mt-0.5">
               Goods are in. Open Verify Receipt to assign stock to warehouse locations and update inventory.
             </p>
@@ -452,14 +419,11 @@ export default function PurchaseOrderDetail() {
         </div>
       )}
 
-      {/* Fully allocated banner */}
       {po.status === 'allocated' && (
         <div className="rounded-xl border border-teal-200 bg-teal-50 dark:border-teal-800/50 dark:bg-teal-950/30 px-4 py-4 flex items-center gap-3">
           <Warehouse size={20} className="text-teal-600 dark:text-teal-400 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-teal-700 dark:text-teal-400">
-              Stock fully allocated
-            </p>
+            <p className="text-sm font-semibold text-teal-700 dark:text-teal-400">Stock fully allocated</p>
             <p className="text-xs text-teal-600/80 dark:text-teal-500 mt-0.5">
               All received stock has been assigned to locations and added to inventory.
               {po.receivedAt && ` Received on ${fmtDate(po.receivedAt)}.`}
@@ -468,14 +432,11 @@ export default function PurchaseOrderDetail() {
         </div>
       )}
 
-      {/* Cancelled banner */}
       {po.status === 'cancelled' && (
         <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-800/50 dark:bg-red-950/30 px-4 py-4 flex items-center gap-3">
           <XCircle size={20} className="text-red-600 dark:text-red-400 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-red-700 dark:text-red-400">
-              Order cancelled
-            </p>
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400">Order cancelled</p>
             <p className="text-xs text-red-600/80 dark:text-red-500 mt-0.5">
               This purchase order has been cancelled. No further actions are available.
             </p>
