@@ -1115,9 +1115,6 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
               onShareToDriver={shareToDriver}
               hasReceipt={!!lastReceipt || !!success}
               hasDriver={!!selectedDriverId}
-              locations={locations}
-              locationId={locationId}
-              onLocationChange={setLocationId}
             />
           </div>
         </>

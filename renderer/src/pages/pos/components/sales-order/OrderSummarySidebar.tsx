@@ -1,5 +1,5 @@
 import { LayoutDashboard, Printer, Truck } from "lucide-react";
-import type { Location, SaleType } from "../../../../types";
+import type { SaleType } from "../../../../types";
 import type { PosPayMethod } from "../../checkout";
 import { fmt } from "../../posHelpers";
 
@@ -29,9 +29,6 @@ export interface OrderSummarySidebarProps {
   onShareToDriver: () => void;
   hasReceipt: boolean;
   hasDriver: boolean;
-  locations: Location[];
-  locationId: string;
-  onLocationChange: (id: string) => void;
 }
 
 const PAY_METHOD_LABELS: Array<{ value: PosPayMethod; label: string }> = [
@@ -67,9 +64,6 @@ export function OrderSummarySidebar({
   onShareToDriver,
   hasReceipt,
   hasDriver,
-  locations,
-  locationId,
-  onLocationChange,
 }: OrderSummarySidebarProps) {
   const taxRateLabel = subtotal > 0 && totalTax > 0 ? ` (VAT ${((totalTax / subtotal) * 100).toFixed(0)}%)` : "";
   const amountPaid = cashTendered !== "" && !isNaN(Number(cashTendered)) ? Number(cashTendered) : 0;
@@ -142,64 +136,29 @@ export function OrderSummarySidebar({
         </div>
 
         <div className="px-4 py-3 space-y-4">
-          {/* Fulfillment Store */}
-          {locations.length > 0 && (
+          {/* Payment Method */}
+          <div className="space-y-2">
             <div>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">Fulfillment Store</p>
-              <div className="grid grid-cols-2 gap-2">
-                {locations.slice(0, 4).map((loc) => (
-                  <label
-                    key={loc.id}
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition ${
-                      locationId === loc.id
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="fulfillment-store"
-                      value={loc.id}
-                      checked={locationId === loc.id}
-                      onChange={() => onLocationChange(loc.id)}
-                      className="accent-primary"
-                    />
-                    {loc.name}
-                  </label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Method</label>
+              <select
+                value={payMethod}
+                onChange={(e) => onPayMethodChange(e.target.value as PosPayMethod)}
+                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              >
+                {PAY_METHOD_LABELS.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
                 ))}
-              </div>
+              </select>
             </div>
-          )}
-
-          {/* Payment Methods */}
-          <div>
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Payment Methods</p>
-            <div className="space-y-2">
-              {PAY_METHOD_LABELS.map(({ value, label }) => (
-                <div key={value} className="flex items-center justify-between gap-3">
-                  <span
-                    className={`text-sm cursor-pointer ${payMethod === value ? "font-medium text-foreground" : "text-muted-foreground"}`}
-                    onClick={() => onPayMethodChange(value)}
-                  >
-                    {label}
-                  </span>
-                  <input
-                    type="number"
-                    value={payMethod === value ? cashTendered : ""}
-                    onChange={(e) => {
-                      onPayMethodChange(value);
-                      onCashTenderedChange(e.target.value);
-                    }}
-                    onFocus={() => onPayMethodChange(value)}
-                    placeholder="0.00"
-                    className={`h-8 w-28 rounded-lg border text-right px-3 text-sm tabular-nums outline-none transition ${
-                      payMethod === value
-                        ? "border-primary bg-background focus:border-primary"
-                        : "border-border bg-muted/40 text-muted-foreground"
-                    }`}
-                  />
-                </div>
-              ))}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Amount Received</label>
+              <input
+                type="number"
+                value={cashTendered}
+                onChange={(e) => onCashTenderedChange(e.target.value)}
+                placeholder="0.00"
+                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-right text-sm tabular-nums outline-none focus:border-primary"
+              />
             </div>
           </div>
 
