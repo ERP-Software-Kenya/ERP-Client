@@ -1,13 +1,6 @@
 import type { FleetDriver, PaymentTiming, SaleType } from "../../../../types";
-import type { DeliveryInfo, PosPayMethod } from "../../checkout";
+import type { DeliveryInfo } from "../../checkout";
 import { fmt } from "../../posHelpers";
-
-const PAY_METHODS: Array<{ value: PosPayMethod; label: string }> = [
-  { value: "cash", label: "Cash" },
-  { value: "mpesa", label: "M-Pesa" },
-  { value: "bank", label: "Bank" },
-  { value: "other", label: "Other" },
-];
 
 const PAYMENT_TIMING: Array<{ value: PaymentTiming; label: string }> = [
   { value: "cod", label: "COD" },
@@ -17,8 +10,6 @@ const PAYMENT_TIMING: Array<{ value: PaymentTiming; label: string }> = [
 ];
 
 export interface PaymentLogisticsSectionProps {
-  payMethod: PosPayMethod;
-  onPayMethodChange: (m: PosPayMethod) => void;
   paymentReference: string;
   onPaymentReferenceChange: (v: string) => void;
   paymentTiming: PaymentTiming;
@@ -44,8 +35,6 @@ export interface PaymentLogisticsSectionProps {
 }
 
 export function PaymentLogisticsSection({
-  payMethod,
-  onPayMethodChange,
   paymentReference,
   onPaymentReferenceChange,
   paymentTiming,
@@ -69,42 +58,21 @@ export function PaymentLogisticsSection({
   commissionPct = "",
   onCommissionPctChange,
 }: PaymentLogisticsSectionProps) {
-  const inputCls = "h-7 rounded border border-border bg-background px-2 text-xs outline-none focus:border-primary";
+  const inputCls = "h-8 rounded-lg border border-border bg-background px-3 text-xs outline-none focus:border-primary";
 
   return (
-    <section className="flex-shrink-0 border-t border-border bg-card px-4 py-2.5">
-      <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
-        {/* Payment Method */}
-        <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Payment</p>
-          <div className="flex gap-1">
-            {PAY_METHODS.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                onClick={() => onPayMethodChange(m.value)}
-                className={`h-7 rounded px-3 text-xs font-semibold transition ${
-                  payMethod === m.value
-                    ? "bg-primary text-primary-foreground"
-                    : "border border-border text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
+    <section className="flex-shrink-0 border-t border-border bg-card px-6 py-3">
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         {/* Payment Timing */}
         <div>
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Timing</p>
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Payment Timing</p>
           <div className="flex gap-1">
             {PAYMENT_TIMING.map((t) => (
               <button
                 key={t.value}
                 type="button"
                 onClick={() => onPaymentTimingChange(t.value)}
-                className={`h-7 rounded px-2.5 text-xs font-medium transition ${
+                className={`h-8 rounded-lg px-3 text-xs font-medium transition ${
                   paymentTiming === t.value
                     ? "border border-primary bg-primary/10 text-primary font-semibold"
                     : "border border-border text-muted-foreground hover:bg-muted"
@@ -117,22 +85,20 @@ export function PaymentLogisticsSection({
         </div>
 
         {/* Reference */}
-        {payMethod !== "cash" && (
-          <div className="w-40">
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Reference</label>
-            <input
-              value={paymentReference}
-              onChange={(e) => onPaymentReferenceChange(e.target.value)}
-              placeholder="Transaction ID (optional)"
-              className={inputCls + " w-full"}
-            />
-          </div>
-        )}
+        <div className="w-40">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Reference</label>
+          <input
+            value={paymentReference}
+            onChange={(e) => onPaymentReferenceChange(e.target.value)}
+            placeholder="Transaction ID (optional)"
+            className={inputCls + " w-full"}
+          />
+        </div>
 
         {/* Partial amount */}
         {paymentTiming === "half" && (
           <div className="w-36">
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Partial Amt</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Partial Amt</label>
             <input
               type="number"
               value={partialAmount}
@@ -146,7 +112,7 @@ export function PaymentLogisticsSection({
         {/* Driver */}
         {drivers.length > 0 && (
           <div className="w-44">
-            <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Driver</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Driver</label>
             <select
               value={selectedDriverId}
               onChange={(e) => onDriverSelect(e.target.value)}
@@ -162,9 +128,9 @@ export function PaymentLogisticsSection({
           </div>
         )}
 
-        {/* Delivery */}
+        {/* Vehicle */}
         <div className="w-32">
-          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Vehicle</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Vehicle</label>
           <input
             type="text"
             value={delivery.vehicleNumber ?? ""}
@@ -173,8 +139,10 @@ export function PaymentLogisticsSection({
             className={inputCls + " w-full"}
           />
         </div>
+
+        {/* Delivery location */}
         <div className="w-36">
-          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Delivery location</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Delivery Location</label>
           <input
             type="text"
             value={delivery.location ?? ""}
@@ -186,7 +154,7 @@ export function PaymentLogisticsSection({
 
         {/* Notes */}
         <div className="flex-1 min-w-[160px]">
-          <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Notes</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Notes</label>
           <input
             value={notes}
             onChange={(e) => onNotesChange(e.target.value)}
@@ -196,10 +164,10 @@ export function PaymentLogisticsSection({
         </div>
       </div>
 
-      {/* Black sale facilitator — collapsible inline row */}
+      {/* Black sale facilitator */}
       {saleType === "black" && onFacilitatorModeChange && (
         <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-border pt-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="text-xs font-medium text-muted-foreground">
             Black · Markup {fmt(blackMarkup)}
           </span>
           <select

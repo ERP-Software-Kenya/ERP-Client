@@ -308,6 +308,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const [partialAmount, setPartialAmount] = useState("");
   const [holding, setHolding] = useState(false);
   const [showHeldSales, setShowHeldSales] = useState(false);
+  const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().split("T")[0]);
   /** Bill id being edited via Resume — checkout completes THIS bill instead of creating a new one. */
   const [activeDraftBillId, setActiveDraftBillId] = useState<string | null>(null);
   const [dismissedRejectionIds, setDismissedRejectionIds] = useState<string[]>(() => {
@@ -998,18 +999,13 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
       {mode === "sales" ? (
         <>
           <SalesOrderHeader
-            saleRef={saleRef}
-            saleType={saleType}
-            onSaleTypeChange={setSaleType}
-            canCreateBlackSale={canCreateBlackSale}
-            locations={locations}
-            locationId={locationId}
-            onLocationChange={setLocationId}
-            onVoidBill={voidBill}
             onHoldSale={() => void holdSale()}
             holding={holding}
             holdDisabled={holdDisabled}
             onShowHeldSales={() => setShowHeldSales(true)}
+            onCompleteSale={() => void generateBill()}
+            generateDisabled={generateDisabled}
+            checkingOut={checkingOut}
           />
 
           <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -1027,7 +1023,15 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
                 customerType={customerType}
                 onCustomerTypeChange={setCustomerType}
                 saleType={saleType}
+                onSaleTypeChange={setSaleType}
+                canCreateBlackSale={canCreateBlackSale}
                 creditBalance={creditBalance}
+                billedBy={`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || user?.email || "Admin"}
+                transactionDate={transactionDate}
+                onTransactionDateChange={setTransactionDate}
+                locations={locations}
+                locationId={locationId}
+                onLocationChange={setLocationId}
               />
 
               <ProductDetailsSection
@@ -1054,8 +1058,6 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
               />
 
               <PaymentLogisticsSection
-                payMethod={payMethod}
-                onPayMethodChange={setPayMethod}
                 paymentReference={paymentReference}
                 onPaymentReferenceChange={setPaymentReference}
                 paymentTiming={paymentTiming}
@@ -1095,6 +1097,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
               previousBalance={customerId ? creditBalance : 0}
               grandTotal={grandTotal}
               payMethod={payMethod}
+              onPayMethodChange={setPayMethod}
               cashTendered={cashTendered}
               onCashTenderedChange={setCashTendered}
               grandTotalWithBalance={grandTotalWithBalance}
@@ -1112,6 +1115,9 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
               onShareToDriver={shareToDriver}
               hasReceipt={!!lastReceipt || !!success}
               hasDriver={!!selectedDriverId}
+              locations={locations}
+              locationId={locationId}
+              onLocationChange={setLocationId}
             />
           </div>
         </>
