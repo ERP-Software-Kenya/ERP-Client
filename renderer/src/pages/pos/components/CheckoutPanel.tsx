@@ -64,6 +64,7 @@ export interface CheckoutPanelProps {
   creditBalance: number;
   creditRemaining: number;
   creditNeedsApproval: boolean;
+  creditOverLimitException?: boolean;
   creditMissingLimit: boolean;
 
   facilitatorMode: "none" | "user" | "name";
@@ -136,6 +137,7 @@ export function CheckoutPanel({
   creditBalance,
   creditRemaining,
   creditNeedsApproval,
+  creditOverLimitException,
   creditMissingLimit,
   facilitatorMode,
   onFacilitatorModeChange,
@@ -455,6 +457,11 @@ export function CheckoutPanel({
               {creditNeedsApproval && (
                 <p className="pt-1 font-semibold text-amber-800 dark:text-amber-300">
                   Needs approval — over credit limit
+                </p>
+              )}
+              {creditOverLimitException && (
+                <p className="pt-1 font-semibold text-sky-800 dark:text-sky-300">
+                  Over limit — skip-approval exception is on. Sale will complete without permission.
                 </p>
               )}
             </div>

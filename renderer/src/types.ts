@@ -580,6 +580,9 @@ export interface Customer {
   email?: string;
   phone?: string;
   gstin?: string;
+  address?: string;
+  pinCode?: string;
+  shopName?: string;
   creditLimit?: number | null;
   creditBalance?: number;
   customerType?: CustomerType | string | null;
@@ -601,6 +604,27 @@ export interface CustomerCreditTransaction {
   paymentMethod?: string | null;
   note?: string | null;
   performedById?: string | null;
+  createdAt: string;
+}
+
+export interface CreditTransactionDocument {
+  id: string;
+  customerId: string;
+  customerName: string | null;
+  billId: string | null;
+  billNumber: string | null;
+  walkInName: string | null;
+  type: 'credit_sale' | 'payment' | 'adjustment';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  paymentMethod: string | null;
+  note: string | null;
+  subtotal: number | null;
+  discountAmount: number | null;
+  taxAmount: number | null;
+  totalAmount: number | null;
+  billedAt: string | null;
   createdAt: string;
 }
 
