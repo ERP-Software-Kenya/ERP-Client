@@ -20,6 +20,14 @@ describe('canAccessPage', () => {
     assert.equal(canAccessPage(['org_admin'], 'users', usersOnlyForStoreManager), true);
   });
 
+  it('denies org_admin SuperAdmin-only pages like organizations', () => {
+    assert.equal(canAccessPage(['org_admin'], 'organizations', emptyMap), false);
+  });
+
+  it('grants super_admin SuperAdmin-only pages', () => {
+    assert.equal(canAccessPage(['super_admin'], 'organizations', emptyMap), true);
+  });
+
   it('denies store_staff when configs are empty', () => {
     assert.equal(canAccessPage(['store_staff'], 'users', emptyMap), false);
   });
