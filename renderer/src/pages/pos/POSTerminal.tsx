@@ -51,6 +51,11 @@ import { CustomerInfoSection } from "./components/sales-order/CustomerInfoSectio
 import { ProductDetailsSection } from "./components/sales-order/ProductDetailsSection";
 import { PaymentLogisticsSection } from "./components/sales-order/PaymentLogisticsSection";
 import { OrderSummarySidebar } from "./components/sales-order/OrderSummarySidebar";
+import { PurchaseOrderHeader } from "./components/purchase-order/PurchaseOrderHeader";
+import { PurchaseDocumentDetails } from "./components/purchase-order/PurchaseDocumentDetails";
+import { PurchaseSupplierInfo } from "./components/purchase-order/PurchaseSupplierInfo";
+import { PurchaseLineItems } from "./components/purchase-order/PurchaseLineItems";
+import { PurchaseStockPayment } from "./components/purchase-order/PurchaseStockPayment";
 import type { QuickChargeTile } from "./components/ProductSearchPanel";
 import { creditSaleRequiresApproval, discountedRate, effectiveDiscountPercent, effectiveSkipOverLimitApproval } from "./effectiveBilling";
 
@@ -309,6 +314,9 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const [holding, setHolding] = useState(false);
   const [showHeldSales, setShowHeldSales] = useState(false);
   const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [supplierMode, setSupplierMode] = useState<"old" | "new">("old");
+  const [stockNotes, setStockNotes] = useState("");
   /** Bill id being edited via Resume — checkout completes THIS bill instead of creating a new one. */
   const [activeDraftBillId, setActiveDraftBillId] = useState<string | null>(null);
   const [dismissedRejectionIds, setDismissedRejectionIds] = useState<string[]>(() => {
@@ -893,6 +901,11 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
     setCustomerInfo("");
   };
 
+  const handleNewSupplierCreated = (s: { id: string }) => {
+    setSupplierId(s.id);
+    setSupplierMode("old");
+  };
+
   const handleCustomerInfoChange = (v: string) => {
     setCustomerInfo(v);
     setCustomerId("");
@@ -1119,143 +1132,96 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           </div>
         </>
       ) : (
-        <>
-      <PosToolbar
-        mode={mode}
-        saleType={saleType}
-        onSaleTypeChange={setSaleType}
-        canCreateBlackSale={canCreateBlackSale}
-        locations={locations}
-        locationsLoading={locationsLoading}
-        locationId={locationId}
-        onLocationChange={setLocationId}
-        stockLocation={stockLocation}
-        payMethod={payMethod}
-        onPayMethodChange={setPayMethod}
-        paymentTiming={paymentTiming}
-        onPaymentTimingChange={setPaymentTiming}
-        customerType={customerType}
-        onCustomerTypeChange={setCustomerType}
-        badgeCls={accentCls.badge}
-      />
+        /* ── Purchase screen — form-based redesign ── */
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <PurchaseOrderHeader
+            onCancel={voidBill}
+            onSubmit={() => void generateBill()}
+            generateDisabled={generateDisabled}
+            checkingOut={checkingOut}
+          />
 
-      <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
-        <ProductSearchPanel
-          mode={mode}
-          saleType={saleType}
-          getStockInfo={getProductStock}
-          searchRef={searchRef}
-          searchVal={searchVal}
-          onSearchChange={setSearchVal}
-          onEnter={handleAddBtn}
-          suggestions={suggestions}
-          onAddProduct={addProduct}
-          onAddBtn={handleAddBtn}
-          onAddQuickCharge={addQuickCharge}
-          quickCharges={orgQuickCharges.map((c) => ({ label: c.label, amount: c.amount }))}
-          supplierId={supplierId}
-          onSupplierChange={setSupplierId}
-          suppliers={suppliers}
-          accentBtnCls={accentCls.btn}
-        />
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Row 1: Document Details + Supplier Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <PurchaseDocumentDetails
+                supplierMode={supplierMode}
+                onSupplierModeChange={setSupplierMode}
+                purchaseDate={purchaseDate}
+                onPurchaseDateChange={setPurchaseDate}
+                supplierRef={supplierRef}
+                onSupplierRefChange={setSupplierRef}
+                billedBy={`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || user?.email || "Admin"}
+              />
 
-        <CartTable
-          mode={mode}
-          saleType={saleType}
-          getStockInfo={getProductStock}
-          lineOverStock={lineOverStock}
-          hasStockIssues={hasStockIssues}
-          lines={lines}
-          extraCharges={extraCharges}
-          onQtyChange={handleLineQtyChange}
-          onRateChange={handleRateChange}
-          onRemoveLine={removeLine}
-          onRemoveCharge={removeCharge}
-          onVoidBill={voidBill}
-          onHoldSale={() => void holdSale()}
-          holding={holding}
-          holdDisabled={holdDisabled}
-          onShowHeldSales={() => setShowHeldSales(true)}
-          checkoutResult={checkoutResult}
-          showCheckoutFailureBanner={!!checkoutResult && !success}
-          accentBadgeCls={accentCls.badge}
-        />
+              <PurchaseSupplierInfo
+                supplierMode={supplierMode}
+                suppliers={suppliers}
+                supplierId={supplierId}
+                onSupplierChange={setSupplierId}
+                selectedSupplier={suppliers.find((s) => s.id === supplierId)}
+                onNewSupplierCreated={handleNewSupplierCreated}
+              />
+            </div>
 
-        <CheckoutPanel
-          mode={mode}
-          saleType={saleType}
-          lineCount={lines.length}
-          subtotal={subtotal}
-          totalTax={totalTax}
-          extraTotal={extraTotal}
-          grandTotal={grandTotal}
-          blackMarkup={blackMarkup}
-          payMethod={payMethod}
-          cashTendered={cashTendered}
-          onCashTenderedChange={setCashTendered}
-          paymentReference={paymentReference}
-          onPaymentReferenceChange={setPaymentReference}
-          paymentTiming={paymentTiming}
-          partialAmount={partialAmount}
-          onPartialAmountChange={setPartialAmount}
-          partialAmountMissing={partialAmountMissing}
-          showDelivery={showDelivery}
-          onToggleDelivery={() => setShowDelivery((v) => !v)}
-          delivery={delivery}
-          onDeliveryChange={setDelivery}
-          customerInfo={customerInfo}
-          onCustomerInfoChange={handleCustomerInfoChange}
-          customerId={customerId}
-          onCustomerSelect={handleCustomerSelect}
-          onClearCustomer={handleClearCustomer}
-          showCustomerSuggestions={showCustomerSuggestions}
-          onShowCustomerSuggestions={setShowCustomerSuggestions}
-          debouncedCustomerInfo={debouncedCustomerInfo}
-          customerSearchItems={customerSearch?.items ?? []}
-          showCreateCustomer={showCreateCustomer}
-          onOpenCreateCustomer={() => {
-            setShowCreateCustomer(true);
-            setShowCustomerSuggestions(false);
-          }}
-          onCloseCreateCustomer={() => setShowCreateCustomer(false)}
-          onCustomerCreated={handleCustomerCreated}
-          selectedCustomer={selectedCustomer}
-          customerType={customerType}
-          creditLimit={creditLimit}
-          creditBalance={creditBalance}
-          creditRemaining={creditRemaining}
-          creditNeedsApproval={creditNeedsApproval}
-          creditOverLimitException={creditOverLimitException}
-          creditMissingLimit={creditMissingLimit}
-          facilitatorMode={facilitatorMode}
-          onFacilitatorModeChange={setFacilitatorMode}
-          facilitatorSearchVal={facilitatorSearchVal}
-          onFacilitatorSearchChange={(v) => {
-            setFacilitatorSearchVal(v);
-            setFacilitatorUserId("");
-          }}
-          facilitatorUserId={facilitatorUserId}
-          onFacilitatorUserSelect={handleFacilitatorUserSelect}
-          showFacilitatorSuggestions={showFacilitatorSuggestions}
-          onShowFacilitatorSuggestions={setShowFacilitatorSuggestions}
-          facilitatorSearchResults={facilitatorSearch?.data ?? []}
-          facilitatorName={facilitatorName}
-          onFacilitatorNameChange={setFacilitatorName}
-          commissionPct={commissionPct}
-          onCommissionPctChange={setCommissionPct}
-          supplierRef={supplierRef}
-          onSupplierRefChange={setSupplierRef}
-          onGenerateBill={() => void generateBill()}
-          generateDisabled={generateDisabled}
-          checkingOut={checkingOut}
-          onPrintReceipt={printReceipt}
-          hasReceipt={!!lastReceipt || !!success}
-          hasStockIssues={hasStockIssues}
-          onOpenCustomerDrawer={customerId ? () => setCustomerDrawerOpen(true) : undefined}
-          accentBtnCls={accentCls.btn}
-        />
-      </div>
-        </>
+            {/* Row 2: Line Items */}
+            <PurchaseLineItems
+              searchRef={searchRef}
+              searchVal={searchVal}
+              onSearchChange={setSearchVal}
+              onEnter={handleAddBtn}
+              suggestions={suggestions}
+              onAddProduct={addProduct}
+              lines={lines}
+              extraCharges={extraCharges}
+              onQtyChange={handleLineQtyChange}
+              onRateChange={handleRateChange}
+              onRemoveLine={removeLine}
+              onRemoveCharge={removeCharge}
+              checkoutResult={checkoutResult}
+              showCheckoutFailureBanner={!!checkoutResult && !success}
+            />
+
+            {/* Row 3: Stock Information + Payment Summary */}
+            <PurchaseStockPayment
+              stockNotes={stockNotes}
+              onStockNotesChange={setStockNotes}
+              locations={locations}
+              locationId={locationId}
+              onLocationChange={setLocationId}
+              subtotal={subtotal}
+              totalTax={totalTax}
+              grandTotal={grandTotal}
+              payMethod={payMethod}
+              onPayMethodChange={setPayMethod}
+              cashTendered={cashTendered}
+              onCashTenderedChange={setCashTendered}
+              generateDisabled={generateDisabled}
+              checkingOut={checkingOut}
+              onSubmit={() => void generateBill()}
+              onCancel={voidBill}
+            />
+          </div>
+
+          {/* Footer action bar */}
+          <div className="flex flex-shrink-0 items-center justify-end gap-3 border-t border-border bg-card px-6 py-3">
+            <button
+              type="button"
+              onClick={voidBill}
+              className="rounded-lg border border-border px-5 py-2 text-sm font-medium text-muted-foreground hover:bg-muted transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={generateDisabled}
+              onClick={() => void generateBill()}
+              className="rounded-lg bg-orange-500 px-6 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {checkingOut ? "Processing…" : "Submit Transaction"}
+            </button>
+          </div>
+        </div>
       )}
 
       {success && (
