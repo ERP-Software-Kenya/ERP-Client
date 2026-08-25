@@ -107,7 +107,6 @@ export interface SalesCheckoutInput {
 }
 
 export interface PurchaseCheckoutInput {
-  locationId: string;
   storeName?: string;
   locationName?: string;
   inventory?: InventoryItem[];
@@ -523,10 +522,6 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
     synced: false,
   };
 
-  if (!input.locationId) {
-    steps.push({ name: 'Validate location', status: 'failed', message: 'Select a location from the top bar' });
-    return { receipt, steps, primaryOk: false };
-  }
   if (!input.supplierId) {
     steps.push({ name: 'Validate supplier', status: 'failed', message: 'Select a supplier from the left panel' });
     return { receipt, steps, primaryOk: false };
@@ -542,7 +537,6 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
     'Create purchase order',
     () =>
       post<{ id: string; poNumber?: string }>('/api/v1/purchase-orders', {
-        locationId: input.locationId,
         supplierId: input.supplierId,
         notes: input.supplierRef || undefined,
         items: input.lines.map((l) => ({

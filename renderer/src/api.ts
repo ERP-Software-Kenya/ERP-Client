@@ -14,7 +14,7 @@ import type {
   CreditApprovalRequest, CommissionPayable,
   QuickCharge, CustomerTypeRule,
   Country, State, City,
-  CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
+  CreatePurchaseOrderInput, ReceivePurchaseOrderInput, AllocatePurchaseOrderInput,
   ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
   PageAccessConfig,
@@ -64,11 +64,25 @@ export const PurchaseOrders = {
       mutationFn: ({ id, body }: { id: string; body: ReceivePurchaseOrderInput }) =>
         post<PurchaseOrder>(`/api/v1/purchase-orders/${id}/receive`, body),
       onSuccess: () => {
-        toast.success('Purchase order received');
+        toast.success('Items marked as received');
         queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['purchase-items'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to record receipt'),
+    });
+  },
+  useAllocate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: AllocatePurchaseOrderInput }) =>
+        post<PurchaseOrder>(`/api/v1/purchase-orders/${id}/allocate`, body),
+      onSuccess: () => {
+        toast.success('Stock allocated to locations');
+        queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['purchase-items'] });
         queryClient.invalidateQueries({ queryKey: ['inventory'] });
       },
-      onError: (error: Error) => toast.error(error.message || 'Failed to receive purchase order'),
+      onError: (error: Error) => toast.error(error.message || 'Failed to allocate stock'),
     });
   },
 };

@@ -186,12 +186,18 @@ export interface Supplier {
   updatedAt?: string;
 }
 
-export type PurchaseOrderStatus = 'draft' | 'ordered' | 'partially_received' | 'received' | 'cancelled';
+export type PurchaseOrderStatus =
+  | 'draft'
+  | 'ordered'
+  | 'partially_received'
+  | 'received'
+  | 'partially_allocated'
+  | 'allocated'
+  | 'cancelled';
 
 export interface PurchaseOrder {
   id: string;
   organizationId?: string;
-  locationId?: string;
   supplierId?: string;
   createdById?: string;
   poNumber?: string;
@@ -211,7 +217,6 @@ export interface CreatePurchaseOrderItemInput {
 }
 
 export interface CreatePurchaseOrderInput {
-  locationId: string;
   supplierId: string;
   expectedAt?: string;
   notes?: string;
@@ -224,8 +229,18 @@ export interface ReceivePurchaseOrderItemInput {
 }
 
 export interface ReceivePurchaseOrderInput {
-  locationId: string;
   items: ReceivePurchaseOrderItemInput[];
+  notes?: string;
+}
+
+export interface AllocatePurchaseOrderItemInput {
+  purchaseItemId: string;
+  locationId: string;
+  quantity: number;
+}
+
+export interface AllocatePurchaseOrderInput {
+  allocations: AllocatePurchaseOrderItemInput[];
   notes?: string;
 }
 
@@ -663,6 +678,7 @@ export interface PurchaseItem {
   productId?: string;
   quantityOrdered?: number;
   quantityReceived?: number;
+  quantityAllocated?: number;
   unitCost?: number;
   totalCost?: number;
   createdAt?: string;
