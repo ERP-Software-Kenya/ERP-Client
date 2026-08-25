@@ -128,11 +128,9 @@
   "126": "Condition-Based Waiting",
   "127": "Global Constraints",
   "128": "File map",
-  "129": "input.tsx",
   "130": "Context: Full Session Record — 2026-08-12",
   "131": "File map",
   "132": "POS / Billing — design",
-  "133": "GenerateModal.tsx",
   "134": "buildSaleDocHtml.ts",
   "135": "Part A — Roles & RBAC (core-apis)",
   "136": "Global Constraints",
@@ -142,7 +140,6 @@
   "140": "Part D — POS stock awareness (NEW today)",
   "141": "Frontend ↔ Backend parity (section-by-section)",
   "142": "Core-apis inventory endpoint audit",
-  "143": "resource.ts",
   "144": "Part B — Roles & page access (ERP-Client)",
   "145": "Part C — POS UX refactor (prior design, implemented)",
   "146": "Part E — Credit approvals flow",
@@ -160,9 +157,5 @@
   "158": "spec-reviewer-prompt.md",
   "159": "find-polluter.sh",
   "160": "1.md",
-  "161": "grill-me/SKILL.md",
-  "162": "ProductImage",
-  "163": "POS Phase 3 — Settings: Quick Charges + type pricing/credit",
-  "164": "POS Phase 4 — Separate Sales and Purchase billing",
-  "165": "PRESET_ROLES"
+  "161": "grill-me/SKILL.md"
 }

@@ -1,16 +1,27 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Eye } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { DataTable, type Column } from '../../components/DataTable';
+import { FilterDropdown } from '../../components/FilterDropdown';
 import { Button } from '../../components/ui/button';
 import { Bills, Customers, Locations } from '../../api';
 import { BillViewDrawer } from '../Bills/BillViewDrawer';
 import { formatEntityLabel, truncateId } from '../../lib/entityLabel';
 import { loadErrorMessage } from '../../lib/api-error';
-import type { Bill, BillStatus, SaleType } from '../../types';
+import type { Bill } from '../../types';
 
-const STATUS_FILTERS: Array<BillStatus | 'ALL'> = ['ALL', 'COMPLETED', 'DRAFT', 'INITIATED', 'CANCELLED'];
-const SALE_TYPE_FILTERS: Array<SaleType | 'ALL'> = ['ALL', 'normal', 'credit', 'black'];
+const STATUS_OPTIONS = [
+  { value: 'COMPLETED', label: 'Completed' },
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'INITIATED', label: 'Initiated' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
+
+const SALE_TYPE_OPTIONS = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'credit', label: 'Credit' },
+  { value: 'black', label: 'Black' },
+];
 
 function money(n: number | undefined | null): string {
   if (n == null || Number.isNaN(Number(n))) return '—';
@@ -58,9 +69,9 @@ function exportCsv(rows: Bill[], customerName: Map<string, string>, locationName
 
 export default function SalesListPage() {
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<BillStatus | 'ALL'>('ALL');
-  const [saleTypeFilter, setSaleTypeFilter] = useState<SaleType | 'ALL'>('ALL');
-  const [locationFilter, setLocationFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [saleTypeFilter, setSaleTypeFilter] = useState<string | null>(null);
+  const [locationFilter, setLocationFilter] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [viewRow, setViewRow] = useState<Bill | null>(null);
@@ -69,9 +80,17 @@ export default function SalesListPage() {
   const { data: customersPage } = Customers.useSearch({});
   const customers = customersPage?.items ?? [];
 
+  const locationOptions = useMemo(
+    () => locations.map((l) => ({
+      value: l.id,
+      label: l.type ? `${l.name} (${l.type})` : l.name,
+    })),
+    [locations],
+  );
+
   const filters = useMemo(() => {
     const f: Record<string, string> = {};
-    if (statusFilter !== 'ALL') f.status = statusFilter;
+    if (statusFilter) f.status = statusFilter;
     if (locationFilter) f.locationId = locationFilter;
     return Object.keys(f).length ? f : undefined;
   }, [statusFilter, locationFilter]);
@@ -82,7 +101,7 @@ export default function SalesListPage() {
 
   const rows = useMemo(() => {
     let r = allRows;
-    if (saleTypeFilter !== 'ALL') {
+    if (saleTypeFilter) {
       r = r.filter((b) => (b.saleType ?? 'normal') === saleTypeFilter);
     }
     if (dateFrom) {
@@ -192,31 +211,26 @@ export default function SalesListPage() {
         hideSearch
         toolbar={
           <>
-            <span className="text-xs text-muted-foreground">Status:</span>
-            {STATUS_FILTERS.map((s) => (
-              <Button key={s} size="sm" variant={statusFilter === s ? 'default' : 'outline'} onClick={() => setStatusFilter(s)}>
-                {s === 'ALL' ? 'All' : s}
-              </Button>
-            ))}
-            <div className="h-5 w-px bg-border" />
-            <span className="text-xs text-muted-foreground">Type:</span>
-            {SALE_TYPE_FILTERS.map((t) => (
-              <Button key={t} size="sm" variant={saleTypeFilter === t ? 'default' : 'outline'} onClick={() => setSaleTypeFilter(t)}>
-                {t === 'ALL' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}
-              </Button>
-            ))}
-            <div className="h-5 w-px bg-border" />
-            <span className="text-xs text-muted-foreground">Store:</span>
-            <select
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+            <FilterDropdown
+              label="Status"
+              options={STATUS_OPTIONS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+            <FilterDropdown
+              label="Type"
+              options={SALE_TYPE_OPTIONS}
+              value={saleTypeFilter}
+              onChange={setSaleTypeFilter}
+            />
+            <FilterDropdown
+              label="Store"
+              options={locationOptions}
               value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-            >
-              <option value="">All</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.type ? `${l.name} (${l.type})` : l.name}</option>
-              ))}
-            </select>
+              onChange={setLocationFilter}
+              searchable
+              searchPlaceholder="Search stores…"
+            />
             <div className="h-5 w-px bg-border" />
             <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-md border border-border bg-background px-2 py-1 text-sm outline-none" />
             <span className="text-xs text-muted-foreground">to</span>
