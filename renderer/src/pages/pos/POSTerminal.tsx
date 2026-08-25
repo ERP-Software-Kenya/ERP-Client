@@ -1186,9 +1186,6 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
             <PurchaseStockPayment
               stockNotes={stockNotes}
               onStockNotesChange={setStockNotes}
-              locations={locations}
-              locationId={locationId}
-              onLocationChange={setLocationId}
               subtotal={subtotal}
               totalTax={totalTax}
               grandTotal={grandTotal}

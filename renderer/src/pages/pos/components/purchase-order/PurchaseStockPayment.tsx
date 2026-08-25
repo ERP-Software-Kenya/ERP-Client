@@ -1,5 +1,4 @@
 import { Package } from "lucide-react";
-import type { Location } from "../../../../types";
 import type { PosPayMethod } from "../../checkout";
 import { fmt } from "../../posHelpers";
 
@@ -13,9 +12,6 @@ const PAY_METHODS: Array<{ value: PosPayMethod; label: string }> = [
 export interface PurchaseStockPaymentProps {
   stockNotes: string;
   onStockNotesChange: (v: string) => void;
-  locations: Location[];
-  locationId: string;
-  onLocationChange: (id: string) => void;
   subtotal: number;
   totalTax: number;
   grandTotal: number;
@@ -32,9 +28,6 @@ export interface PurchaseStockPaymentProps {
 export function PurchaseStockPayment({
   stockNotes,
   onStockNotesChange,
-  locations,
-  locationId,
-  onLocationChange,
   subtotal,
   totalTax,
   grandTotal,
@@ -55,31 +48,14 @@ export function PurchaseStockPayment({
           <Package size={15} className="text-primary" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">Stock Information</h2>
         </div>
-        <div className="px-4 py-4 space-y-3">
-          {locations.length > 0 && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Receiving Location</label>
-              <select
-                value={locationId}
-                onChange={(e) => onLocationChange(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-              >
-                {locations.map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-muted-foreground">Stock Location / Notes</label>
-            <textarea
-              value={stockNotes}
-              onChange={(e) => onStockNotesChange(e.target.value)}
-              placeholder="Enter stock details, location codes, or transaction notes…"
-              rows={4}
-              className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-          </div>
+        <div className="px-4 py-4">
+          <textarea
+            value={stockNotes}
+            onChange={(e) => onStockNotesChange(e.target.value)}
+            placeholder="Enter transaction notes…"
+            rows={6}
+            className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          />
         </div>
       </div>
 
