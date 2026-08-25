@@ -607,6 +607,27 @@ export interface CustomerCreditTransaction {
   createdAt: string;
 }
 
+export interface CreditTransactionDocument {
+  id: string;
+  customerId: string;
+  customerName: string | null;
+  billId: string | null;
+  billNumber: string | null;
+  walkInName: string | null;
+  type: 'credit_sale' | 'payment' | 'adjustment';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  paymentMethod: string | null;
+  note: string | null;
+  subtotal: number | null;
+  discountAmount: number | null;
+  taxAmount: number | null;
+  totalAmount: number | null;
+  billedAt: string | null;
+  createdAt: string;
+}
+
 export interface QuickCharge {
   id: string;
   organizationId: string;

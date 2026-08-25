@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type {
   Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
-  Notification, ItemReturn, ReportGenerationLog, GenerateReportInput, Order, Invoice, Customer, CustomerCreditTransaction, Expense, PurchaseItem,
+  Notification, ItemReturn, ReportGenerationLog, GenerateReportInput, Order, Invoice, Customer, CustomerCreditTransaction, CreditTransactionDocument, Expense, PurchaseItem,
   ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer, StockTransferRequest,
@@ -324,6 +324,30 @@ export const Customers = {
         queryClient.invalidateQueries({ queryKey: ['customers', customerId, 'credit-transactions'] });
       },
       onError: (error: Error) => toast.error(error.message || 'Failed to record transaction'),
+    });
+  },
+};
+
+export const CreditTransactions = {
+  useSearch(params?: {
+    page?: number;
+    perPage?: number;
+    type?: 'credit_sale' | 'payment' | 'adjustment';
+    search?: string;
+    customerId?: string;
+    enabled?: boolean;
+  }) {
+    return useQuery({
+      queryKey: ['credit-transactions', params?.page ?? 1, params?.perPage ?? 20, params?.type ?? 'all', params?.search ?? '', params?.customerId ?? ''],
+      queryFn: () =>
+        get<PaginatedResponse<CreditTransactionDocument>>('/api/v1/credit-transactions', {
+          $page: params?.page ?? 1,
+          $perPage: params?.perPage ?? 20,
+          ...(params?.type ? { type: params.type } : {}),
+          ...(params?.search ? { search: params.search } : {}),
+          ...(params?.customerId ? { customerId: params.customerId } : {}),
+        }),
+      enabled: params?.enabled ?? true,
     });
   },
 };
