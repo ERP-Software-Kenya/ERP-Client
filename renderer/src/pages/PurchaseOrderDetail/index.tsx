@@ -309,6 +309,11 @@ export default function PurchaseOrderDetail() {
                             {product.sku}
                           </span>
                         )}
+                        {item.packQuantity != null && item.packSizeSnapshot != null && (
+                          <span className="block text-[10px] text-muted-foreground">
+                            {item.packQuantity} × {item.packSizeSnapshot} units/pack
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3.5 text-right tabular-nums text-muted-foreground">
                         {item.unitCost != null ? fmt(item.unitCost) : '—'}
