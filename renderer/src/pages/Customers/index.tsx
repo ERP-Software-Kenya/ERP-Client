@@ -5,10 +5,11 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { CustomerFormDrawer } from '../../components/CustomerFormDrawer';
 import { ViewDrawer } from '../../components/ViewDrawer';
 import { Customers, Organizations } from '../../api';
+import { useSession } from '../../context/SessionContext';
 import { usePagination } from '../../hooks/usePagination';
 import { formatEntityLabel } from '../../lib/entityLabel';
 import { loadErrorMessage } from '../../lib/api-error';
-import type { CreditStatus } from '../../types';
+import type { CreditStatus, Customer } from '../../types';
 
 function CreditStatusDot({ status }: { status?: CreditStatus }) {
   const cls: Record<string, string> = {
@@ -40,12 +41,16 @@ export default function CustomersPage() {
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
 
   const removeMutation = Customers.useDelete();
-  const { data: orgs } = Organizations.useList();
+  const { organization, isSuperAdmin } = useSession();
+  const { data: orgs } = Organizations.useList(isSuperAdmin);
   const orgName = useMemo(() => {
     const m = new Map<string, string>();
+    if (organization) {
+      m.set(organization.id, formatEntityLabel({ name: organization.name, id: organization.id }));
+    }
     for (const o of orgs ?? []) m.set(o.id, formatEntityLabel({ name: o.name, id: o.id }));
     return m;
-  }, [orgs]);
+  }, [orgs, organization]);
   // Customers SearchCustomersRequest omits $page/$perPage — single API default page only.
   const { setSearch, debouncedSearch } = usePagination();
   const { data, isLoading, isError, error, refetch } = Customers.useSearch({
