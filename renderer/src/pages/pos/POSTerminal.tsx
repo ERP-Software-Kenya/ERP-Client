@@ -738,7 +738,6 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
               fulfillmentStores: fulfillmentStoreNames.length ? fulfillmentStoreNames : undefined,
             })
           : await runPurchaseCheckout({
-              locationId,
               storeName: stockLocation?.name,
               locationName: stockLocation?.name,
               inventory,

@@ -9,9 +9,9 @@ import {
   ClipboardCheck,
   Clock,
   DollarSign,
-  MapPin,
   Package2,
   ShoppingCart,
+  Warehouse,
   XCircle,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -22,32 +22,39 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
-import { Locations, Products, PurchaseOrders, Suppliers } from '../../api';
+import { Products, PurchaseOrders, Suppliers } from '../../api';
 import { getErrorMessage } from '../../lib/api-error';
 import type { PurchaseOrder, PurchaseOrderStatus } from '../../types';
 
 const STATUS_CONFIG: Record<PurchaseOrderStatus, { label: string; cls: string; dot: string }> = {
-  draft:             { label: 'Draft',              cls: 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300',           dot: 'bg-slate-400' },
-  ordered:           { label: 'Ordered',            cls: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',               dot: 'bg-blue-500' },
-  partially_received: { label: 'Partially Received', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',          dot: 'bg-amber-500' },
-  received:          { label: 'Received',           cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',   dot: 'bg-emerald-500' },
-  cancelled:         { label: 'Cancelled',          cls: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400',                  dot: 'bg-red-500' },
+  draft:               { label: 'Draft',               cls: 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300',          dot: 'bg-slate-400' },
+  ordered:             { label: 'Ordered',             cls: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',              dot: 'bg-blue-500' },
+  partially_received:  { label: 'Partially Received',  cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',          dot: 'bg-amber-500' },
+  received:            { label: 'Received',            cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',  dot: 'bg-emerald-500' },
+  partially_allocated: { label: 'Partially Allocated', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',      dot: 'bg-violet-500' },
+  allocated:           { label: 'Allocated',           cls: 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-400',             dot: 'bg-teal-500' },
+  cancelled:           { label: 'Cancelled',           cls: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400',                 dot: 'bg-red-500' },
 };
 
 function canVerify(status?: PurchaseOrderStatus): boolean {
-  return status === 'draft' || status === 'ordered' || status === 'partially_received';
+  return (
+    status === 'ordered' ||
+    status === 'partially_received' ||
+    status === 'received' ||
+    status === 'partially_allocated'
+  );
 }
 
 function canMarkOrdered(status?: PurchaseOrderStatus): boolean {
   return status === 'draft';
 }
 
-function fmt(n: number | null | undefined) {
+function fmt(n: number | null | undefined): string {
   if (n == null) return '—';
   return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function fmtDate(d: string | Date | undefined | null) {
+function fmtDate(d: string | Date | undefined | null): string {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
@@ -86,25 +93,17 @@ function StatCard({
   );
 }
 
-function ItemProgress({
+function ProgressBar({
   pct,
-  fullyReceived,
-  hasAny,
+  color,
 }: {
   pct: number;
-  fullyReceived: boolean;
-  hasAny: boolean;
+  color: string;
 }) {
   return (
     <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
       <div
-        className={`h-full rounded-full transition-all duration-500 ${
-          fullyReceived
-            ? 'bg-emerald-500'
-            : hasAny
-              ? 'bg-amber-500'
-              : 'bg-slate-300 dark:bg-slate-600'
-        }`}
+        className={`h-full rounded-full transition-all duration-500 ${color}`}
         style={{ width: `${pct}%` }}
       />
     </div>
@@ -119,7 +118,6 @@ export default function PurchaseOrderDetail() {
   const { data: items = [], isLoading: itemsLoading } = PurchaseOrders.useGetItems(id);
   const { data: products = [] } = Products.useList();
   const { data: suppliers = [] } = Suppliers.useList();
-  const { data: locations = [] } = Locations.useList();
   const updateMutation = PurchaseOrders.useUpdate();
 
   const productMap = useMemo(
@@ -130,17 +128,23 @@ export default function PurchaseOrderDetail() {
     () => suppliers.find((s) => s.id === po?.supplierId),
     [suppliers, po?.supplierId],
   );
-  const location = useMemo(
-    () => locations.find((l) => l.id === po?.locationId),
-    [locations, po?.locationId],
-  );
 
   const fullyReceivedCount = useMemo(
     () =>
       items.filter(
-        (i) =>
-          Number(i.quantityOrdered ?? 0) > 0 &&
-          Number(i.quantityReceived ?? 0) >= Number(i.quantityOrdered ?? 0),
+        (item) =>
+          Number(item.quantityOrdered ?? 0) > 0 &&
+          Number(item.quantityReceived ?? 0) >= Number(item.quantityOrdered ?? 0),
+      ).length,
+    [items],
+  );
+
+  const fullyAllocatedCount = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          Number(item.quantityReceived ?? 0) > 0 &&
+          Number(item.quantityAllocated ?? 0) >= Number(item.quantityReceived ?? 0),
       ).length,
     [items],
   );
@@ -159,10 +163,6 @@ export default function PurchaseOrderDetail() {
       </div>
     );
   }
-
-  const locationLabel = location
-    ? `${location.name} (${location.type.charAt(0).toUpperCase() + location.type.slice(1)})`
-    : (po.locationId?.slice(0, 8) ?? '—');
 
   const showActions = canVerify(po.status) || canMarkOrdered(po.status);
 
@@ -187,17 +187,12 @@ export default function PurchaseOrderDetail() {
             </h1>
             <StatusBadge status={po.status} />
           </div>
-          <div className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-            {supplier && (
-              <>
-                <Building2 size={13} className="shrink-0" />
-                <span>{supplier.name}</span>
-                <span className="text-border">·</span>
-              </>
-            )}
-            <MapPin size={13} className="shrink-0" />
-            <span>{locationLabel}</span>
-          </div>
+          {supplier && (
+            <div className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+              <Building2 size={13} className="shrink-0" />
+              <span>{supplier.name}</span>
+            </div>
+          )}
         </div>
 
         {showActions && (
@@ -248,7 +243,7 @@ export default function PurchaseOrderDetail() {
           sub={
             itemsLoading
               ? undefined
-              : `${fullyReceivedCount} / ${items.length} fully received`
+              : `${fullyReceivedCount} / ${items.length} received`
           }
         />
         <StatCard
@@ -260,7 +255,7 @@ export default function PurchaseOrderDetail() {
           icon={<Calendar size={17} />}
           label={po.receivedAt ? 'Received On' : 'Expected By'}
           value={po.receivedAt ? fmtDate(po.receivedAt) : fmtDate(po.expectedAt)}
-          sub={po.receivedAt ? 'Fully received' : po.expectedAt ? 'Delivery deadline' : undefined}
+          sub={po.receivedAt ? 'Goods received' : po.expectedAt ? 'Delivery deadline' : undefined}
         />
       </div>
 
@@ -278,7 +273,7 @@ export default function PurchaseOrderDetail() {
           <h2 className="font-semibold text-foreground text-sm">Line Items</h2>
           {!itemsLoading && items.length > 0 && (
             <span className="text-xs text-muted-foreground">
-              {fullyReceivedCount} / {items.length} fully received
+              {fullyReceivedCount} / {items.length} received · {fullyAllocatedCount} / {items.length} allocated
             </span>
           )}
         </div>
@@ -296,10 +291,13 @@ export default function PurchaseOrderDetail() {
             {items.map((item) => {
               const ordered = Number(item.quantityOrdered ?? 0);
               const received = Number(item.quantityReceived ?? 0);
+              const allocated = Number(item.quantityAllocated ?? 0);
               const remaining = Math.max(0, ordered - received);
-              const pct = ordered > 0 ? Math.min(100, Math.round((received / ordered) * 100)) : 0;
+              const unallocated = Math.max(0, received - allocated);
+              const receivePct = ordered > 0 ? Math.min(100, Math.round((received / ordered) * 100)) : 0;
+              const allocatePct = received > 0 ? Math.min(100, Math.round((allocated / received) * 100)) : 0;
               const fullyReceived = ordered > 0 && received >= ordered;
-              const hasAny = received > 0;
+              const fullyAllocated = received > 0 && allocated >= received;
               const product = item.productId ? productMap.get(item.productId) : undefined;
 
               return (
@@ -321,47 +319,58 @@ export default function PurchaseOrderDetail() {
                         )}
                       </div>
 
-                      {/* Progress bar */}
-                      <ItemProgress pct={pct} fullyReceived={fullyReceived} hasAny={hasAny} />
+                      {/* Receipt progress */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <span className="w-16 text-right">Receipt</span>
+                          <div className="flex-1">
+                            <ProgressBar
+                              pct={receivePct}
+                              color={fullyReceived ? 'bg-emerald-500' : received > 0 ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}
+                            />
+                          </div>
+                          <span className="w-12">{receivePct}%</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <span className="w-16 text-right">Allocated</span>
+                          <div className="flex-1">
+                            <ProgressBar
+                              pct={allocatePct}
+                              color={fullyAllocated ? 'bg-teal-500' : allocated > 0 ? 'bg-violet-500' : 'bg-slate-300 dark:bg-slate-600'}
+                            />
+                          </div>
+                          <span className="w-12">{allocatePct}%</span>
+                        </div>
+                      </div>
 
                       {/* Stats row */}
                       <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
                         <span>
-                          Ordered:{' '}
-                          <span className="font-medium text-foreground">{ordered}</span>
+                          Ordered: <span className="font-medium text-foreground">{ordered}</span>
                         </span>
                         <span>
                           Received:{' '}
-                          <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                            {received}
-                          </span>
+                          <span className="font-medium text-emerald-600 dark:text-emerald-400">{received}</span>
                         </span>
                         <span>
-                          Remaining:{' '}
-                          <span
-                            className={`font-medium ${
-                              remaining > 0
-                                ? 'text-amber-600 dark:text-amber-400'
-                                : 'text-muted-foreground'
-                            }`}
-                          >
-                            {remaining}
-                          </span>
+                          Allocated:{' '}
+                          <span className="font-medium text-teal-600 dark:text-teal-400">{allocated}</span>
                         </span>
-                        {item.unitCost != null && (
+                        {remaining > 0 && (
                           <span>
-                            Unit cost:{' '}
-                            <span className="font-medium text-foreground">
-                              {fmt(item.unitCost)}
-                            </span>
+                            Pending receipt:{' '}
+                            <span className="font-medium text-amber-600 dark:text-amber-400">{remaining}</span>
                           </span>
                         )}
-                        {item.totalCost != null && (
+                        {unallocated > 0 && (
                           <span>
-                            Line total:{' '}
-                            <span className="font-medium text-foreground">
-                              {fmt(item.totalCost)}
-                            </span>
+                            Unallocated:{' '}
+                            <span className="font-medium text-violet-600 dark:text-violet-400">{unallocated}</span>
+                          </span>
+                        )}
+                        {item.unitCost != null && (
+                          <span>
+                            Unit cost: <span className="font-medium text-foreground">{fmt(item.unitCost)}</span>
                           </span>
                         )}
                       </div>
@@ -369,15 +378,20 @@ export default function PurchaseOrderDetail() {
 
                     {/* Status icon */}
                     <div className="shrink-0 mt-1">
-                      {fullyReceived ? (
+                      {fullyAllocated && fullyReceived ? (
+                        <div className="flex items-center gap-1 text-teal-500 text-xs font-medium">
+                          <Warehouse size={16} />
+                          <span>Allocated</span>
+                        </div>
+                      ) : fullyReceived ? (
                         <div className="flex items-center gap-1 text-emerald-500 text-xs font-medium">
                           <CheckCircle2 size={16} />
-                          <span>Done</span>
+                          <span>Received</span>
                         </div>
-                      ) : hasAny ? (
+                      ) : received > 0 ? (
                         <div className="flex items-center gap-1 text-amber-500 text-xs font-medium">
                           <Clock size={16} />
-                          <span>{pct}%</span>
+                          <span>{receivePct}%</span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1 text-muted-foreground/40 text-xs">
@@ -394,16 +408,60 @@ export default function PurchaseOrderDetail() {
         )}
       </div>
 
-      {/* Received banner */}
+      {/* Partially allocated banner */}
+      {po.status === 'partially_allocated' && (
+        <div className="rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800/50 dark:bg-violet-950/30 px-4 py-4 flex items-center gap-3">
+          <Warehouse size={20} className="text-violet-600 dark:text-violet-400 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-violet-700 dark:text-violet-400">
+              Partial allocation — stock pending
+            </p>
+            <p className="text-xs text-violet-600/80 dark:text-violet-500 mt-0.5">
+              Some received stock has not yet been assigned to a location. Open Verify Receipt to complete the allocation.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(`/purchase-orders/${po.id}/receive`)}
+            className="shrink-0 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold transition-colors"
+          >
+            Allocate
+          </button>
+        </div>
+      )}
+
+      {/* Received but not yet allocated banner */}
       {po.status === 'received' && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:border-emerald-800/50 dark:bg-emerald-950/30 px-4 py-4 flex items-center gap-3">
           <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-              All items received
+              All items received — assign to locations
             </p>
             <p className="text-xs text-emerald-600/80 dark:text-emerald-500 mt-0.5">
-              Stock has been updated in inventory.
+              Goods are in. Open Verify Receipt to assign stock to warehouse locations and update inventory.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(`/purchase-orders/${po.id}/receive`)}
+            className="shrink-0 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors"
+          >
+            Allocate
+          </button>
+        </div>
+      )}
+
+      {/* Fully allocated banner */}
+      {po.status === 'allocated' && (
+        <div className="rounded-xl border border-teal-200 bg-teal-50 dark:border-teal-800/50 dark:bg-teal-950/30 px-4 py-4 flex items-center gap-3">
+          <Warehouse size={20} className="text-teal-600 dark:text-teal-400 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-teal-700 dark:text-teal-400">
+              Stock fully allocated
+            </p>
+            <p className="text-xs text-teal-600/80 dark:text-teal-500 mt-0.5">
+              All received stock has been assigned to locations and added to inventory.
               {po.receivedAt && ` Received on ${fmtDate(po.receivedAt)}.`}
             </p>
           </div>
