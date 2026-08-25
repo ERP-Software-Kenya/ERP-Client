@@ -274,26 +274,26 @@ export const Customers = {
       onError: (error: Error) => toast.error(error.message || 'Failed to update customer'),
     });
   },
-  useGetBills(customerId: string | undefined, page = 1) {
+  useGetBills(customerId: string | undefined, page = 1, perPage = 10, enabled = true) {
     return useQuery({
-      queryKey: ['customers', customerId, 'bills', page],
+      queryKey: ['customers', customerId, 'bills', page, perPage],
       queryFn: () =>
         get<PaginatedResponse<Bill>>(`/api/v1/customers/${customerId as string}/bills`, {
           $page: page,
-          $perPage: 10,
+          $perPage: perPage,
         }),
-      enabled: !!customerId,
+      enabled: !!customerId && enabled,
     });
   },
-  useGetCreditTransactions(customerId: string | undefined, page = 1) {
+  useGetCreditTransactions(customerId: string | undefined, page = 1, perPage = 20, enabled = true) {
     return useQuery({
-      queryKey: ['customers', customerId, 'credit-transactions', page],
+      queryKey: ['customers', customerId, 'credit-transactions', page, perPage],
       queryFn: () =>
         get<PaginatedResponse<CustomerCreditTransaction>>(
           `/api/v1/customers/${customerId as string}/credit-transactions`,
-          { $page: page, $perPage: 20 },
+          { $page: page, $perPage: perPage },
         ),
-      enabled: !!customerId,
+      enabled: !!customerId && enabled,
     });
   },
   useRecordCreditTransaction(customerId: string | undefined) {

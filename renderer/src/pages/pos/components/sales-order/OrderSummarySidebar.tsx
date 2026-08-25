@@ -16,6 +16,7 @@ export interface OrderSummarySidebarProps {
   grandTotalWithBalance: number;
   saleType: SaleType;
   creditNeedsApproval: boolean;
+  creditOverLimitException?: boolean;
   creditMissingCustomer: boolean;
   creditMissingLimit: boolean;
   hasStockIssues: boolean;
@@ -42,6 +43,7 @@ export function OrderSummarySidebar({
   grandTotalWithBalance,
   saleType,
   creditNeedsApproval,
+  creditOverLimitException,
   creditMissingCustomer,
   creditMissingLimit,
   hasStockIssues,
@@ -109,6 +111,12 @@ export function OrderSummarySidebar({
           </div>
         )}
 
+        {saleType === "credit" && creditNeedsApproval && (
+          <p className="text-xs font-medium text-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-1">Needs approval — over credit limit</p>
+        )}
+        {saleType === "credit" && creditOverLimitException && (
+          <p className="text-xs font-medium text-sky-800 bg-sky-50 dark:bg-sky-950/30 rounded px-2 py-1">Over limit — skip-approval exception is on</p>
+        )}
         {saleType === "credit" && creditMissingCustomer && (
           <p className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-1">⚠ Select a customer</p>
         )}

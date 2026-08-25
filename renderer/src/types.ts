@@ -565,6 +565,9 @@ export interface Customer {
   email?: string;
   phone?: string;
   gstin?: string;
+  address?: string;
+  pinCode?: string;
+  shopName?: string;
   creditLimit?: number | null;
   creditBalance?: number;
   customerType?: CustomerType | string | null;

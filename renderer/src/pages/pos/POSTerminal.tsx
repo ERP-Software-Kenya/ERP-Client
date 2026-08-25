@@ -52,7 +52,7 @@ import { ProductDetailsSection } from "./components/sales-order/ProductDetailsSe
 import { PaymentLogisticsSection } from "./components/sales-order/PaymentLogisticsSection";
 import { OrderSummarySidebar } from "./components/sales-order/OrderSummarySidebar";
 import type { QuickChargeTile } from "./components/ProductSearchPanel";
-import { discountedRate, effectiveDiscountPercent, effectiveSkipOverLimitApproval } from "./effectiveBilling";
+import { creditSaleRequiresApproval, discountedRate, effectiveDiscountPercent, effectiveSkipOverLimitApproval } from "./effectiveBilling";
 
 let lineIdSeq = 100;
 
@@ -608,12 +608,17 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const creditLimit = Number(selectedCustomer?.creditLimit ?? 0);
   const creditBalance = Number(selectedCustomer?.creditBalance ?? 0);
   const creditRemaining = creditLimit - creditBalance;
-  const creditNeedsApproval =
+  const skipOverLimitApproval = effectiveSkipOverLimitApproval(selectedCustomer, customerType, typeRules);
+  const creditOverLimit =
     saleType === "credit" &&
     !!customerId &&
     creditLimit > 0 &&
-    creditBalance + grandTotal > creditLimit &&
-    !effectiveSkipOverLimitApproval(selectedCustomer, customerType, typeRules);
+    creditBalance + grandTotal > creditLimit;
+  const creditNeedsApproval =
+    saleType === "credit" &&
+    !!customerId &&
+    creditSaleRequiresApproval(creditLimit, creditBalance, grandTotal, skipOverLimitApproval);
+  const creditOverLimitException = creditOverLimit && skipOverLimitApproval;
   const creditMissingCustomer = mode === "sales" && saleType === "credit" && !customerId;
   const creditMissingLimit =
     mode === "sales" &&
@@ -761,6 +766,9 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           steps: result.steps,
           pendingCreditApproval: result.pendingCreditApproval,
         });
+        if (saleType === "credit" && customerId) {
+          void refetchSelectedCustomer();
+        }
       }
     } finally {
       setCheckingOut(false);
@@ -1093,6 +1101,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
               grandTotalWithBalance={grandTotalWithBalance}
               saleType={saleType}
               creditNeedsApproval={creditNeedsApproval}
+              creditOverLimitException={creditOverLimitException}
               creditMissingCustomer={creditMissingCustomer}
               creditMissingLimit={creditMissingLimit}
               hasStockIssues={hasStockIssues}
@@ -1214,6 +1223,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           creditBalance={creditBalance}
           creditRemaining={creditRemaining}
           creditNeedsApproval={creditNeedsApproval}
+          creditOverLimitException={creditOverLimitException}
           creditMissingLimit={creditMissingLimit}
           facilitatorMode={facilitatorMode}
           onFacilitatorModeChange={setFacilitatorMode}
