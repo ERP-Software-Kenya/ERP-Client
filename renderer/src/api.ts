@@ -1228,6 +1228,13 @@ export const Analytics = {
       staleTime: 5 * 60 * 1000,
     });
   },
+  useSalesByCategory(params?: DashboardAnalyticsParams) {
+    return useQuery<CategoryValuePoint[]>({
+      queryKey: ['analytics', 'sales-by-category', params],
+      queryFn:  () => get<CategoryValuePoint[]>('/api/v1/analytics/sales-by-category', analyticsQueryParams(params)),
+      staleTime: 5 * 60 * 1000,
+    });
+  },
   useRevenueTrend(params?: DashboardAnalyticsParams & { months?: number }) {
     return useQuery<RevenueTrendPoint[]>({
       queryKey: ['analytics', 'revenue-trend', params],
