@@ -1,42 +1,47 @@
-import { describe, expect, it } from 'vitest';
-import { buildCreditorStatementHtml } from './statementPdf';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-describe('buildCreditorStatementHtml', () => {
-  it('is a customer account statement with debit/credit/balance columns', () => {
-    const html = buildCreditorStatementHtml({
-      orgName: 'Test Org',
-      customerName: 'Yaddah',
-      customerAddress: 'Eldoret',
-      pinCode: '30100',
-      shopName: 'Yaddah Shop',
-      currentOwed: 49_000,
-      rows: [
-        {
-          date: '2026-03-01T00:00:00.000Z',
-          invNo: '3001',
-          description: 'Credit sale',
-          debit: 52_000,
-          credit: 0,
-          balance: 52_000,
-        },
-        {
-          date: '2026-03-05T00:00:00.000Z',
-          invNo: '',
-          description: 'Bank Payment',
-          debit: 0,
-          credit: 3_000,
-          balance: 49_000,
-        },
-      ],
-    });
-    expect(html).toContain('CUSTOMER ACCOUNT STATEMENT');
-    expect(html).toContain('INV NO');
-    expect(html).toContain('DEBIT');
-    expect(html).toContain('CREDIT');
-    expect(html).toContain('BALANCE');
-    expect(html).toContain('3001');
-    expect(html).toContain('Yaddah');
-    expect(html).toContain('CURRENT BALANCE');
-    expect(html).toContain('Only');
+const getBlob = vi.fn();
+const toastSuccess = vi.fn();
+const toastError = vi.fn();
+
+vi.mock('../../lib/http', () => ({ getBlob: (...args: unknown[]) => getBlob(...args) }));
+vi.mock('sonner', () => ({
+  toast: {
+    success: (...a: unknown[]) => toastSuccess(...a),
+    error: (...a: unknown[]) => toastError(...a),
+  },
+}));
+
+describe('printCreditorStatement', () => {
+  const click = vi.fn();
+
+  beforeEach(() => {
+    getBlob.mockReset();
+    toastSuccess.mockReset();
+    toastError.mockReset();
+    click.mockReset();
+    (globalThis as { document?: unknown }).document = {
+      createElement: () => ({ click, href: '', download: '' }),
+    };
+    (globalThis as { URL: typeof URL }).URL = {
+      createObjectURL: () => 'blob:mock',
+      revokeObjectURL: () => undefined,
+    } as unknown as typeof URL;
+  });
+
+  afterEach(() => {
+    delete (globalThis as { document?: unknown }).document;
+  });
+
+  it('downloads PDF from the statement export endpoint', async () => {
+    const blob = new Blob(['%PDF'], { type: 'application/pdf' });
+    getBlob.mockResolvedValue({ blob, filename: 'statement-Yaddah.pdf' });
+
+    const { printCreditorStatement } = await import('./statementPdf');
+    await printCreditorStatement({ customerId: 'cust-1' });
+
+    expect(getBlob).toHaveBeenCalledWith('/api/v1/customers/cust-1/statement/pdf');
+    expect(click).toHaveBeenCalled();
+    expect(toastSuccess).toHaveBeenCalled();
   });
 });

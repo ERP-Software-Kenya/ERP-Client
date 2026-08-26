@@ -6,7 +6,6 @@ import { CreditTransactions } from '../../api';
 import { CustomerFormDrawer } from '../../components/CustomerFormDrawer';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { useSession } from '../../context/SessionContext';
 import { usePagination } from '../../hooks/usePagination';
 import { loadErrorMessage } from '../../lib/api-error';
 import { fmt } from '../pos/posHelpers';
@@ -45,7 +44,6 @@ function documentDate(row: CreditTransactionDocument) {
 
 export default function CreditorsPage() {
   const navigate = useNavigate();
-  const { organization } = useSession();
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
   const [typeFilter, setTypeFilter] = useState<DocumentTypeFilter>('all');
   const { data, isLoading, isError, error, refetch } = CreditTransactions.useSearch({
@@ -74,8 +72,6 @@ export default function CreditorsPage() {
     try {
       await printCreditorStatement({
         customerId: selected.customerId,
-        orgName: organization?.name ?? 'Account statement',
-        logoUrl: organization?.logoUrl,
       });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not print statement');
