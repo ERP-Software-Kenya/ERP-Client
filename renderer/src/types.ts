@@ -998,6 +998,25 @@ export interface SalesSummaryData {
   activeCustomers: number;
   completedBills: number;
   pendingBills: number;
+  totalUnitsSold: number;
+  comparisonLabel?: string;
+  previous?: {
+    completedBills: number;
+    activeCustomers: number;
+    totalUnitsSold: number;
+    revenue: number;
+    avgBillValue: number;
+  };
+  topSelling?: SalesProductHighlight;
+  topMargin?: SalesProductHighlight;
+  topCostly?: SalesProductHighlight;
+}
+
+export interface SalesProductHighlight {
+  productId: string;
+  productName: string;
+  currentValue: number;
+  previousValue: number;
 }
 
 export interface RevenueTrendPoint {
