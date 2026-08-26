@@ -569,7 +569,7 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
     message: `PO ${receipt.ref} created with Draft status. Open Purchase Orders to verify and receive stock.`,
   });
 
-  return { receipt, steps, primaryOk: true };
+  return { receipt, steps, primaryOk: true, billId: createAttempt.result.id };
 }
 
 

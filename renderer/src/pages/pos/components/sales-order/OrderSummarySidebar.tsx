@@ -1,4 +1,4 @@
-import { Pencil, Printer, Share2, Truck } from "lucide-react";
+import { LayoutDashboard, Printer, Truck } from "lucide-react";
 import type { SaleType } from "../../../../types";
 import type { PosPayMethod } from "../../checkout";
 import { fmt } from "../../posHelpers";
@@ -11,6 +11,7 @@ export interface OrderSummarySidebarProps {
   previousBalance: number;
   grandTotal: number;
   payMethod: PosPayMethod;
+  onPayMethodChange: (m: PosPayMethod) => void;
   cashTendered: string;
   onCashTenderedChange: (v: string) => void;
   grandTotalWithBalance: number;
@@ -30,6 +31,13 @@ export interface OrderSummarySidebarProps {
   hasDriver: boolean;
 }
 
+const PAY_METHOD_LABELS: Array<{ value: PosPayMethod; label: string }> = [
+  { value: "cash", label: "Cash Receipt" },
+  { value: "bank", label: "Bill / Invoice" },
+  { value: "mpesa", label: "M-Pesa / Bank" },
+  { value: "other", label: "Other" },
+];
+
 export function OrderSummarySidebar({
   subtotal,
   totalTax,
@@ -38,6 +46,7 @@ export function OrderSummarySidebar({
   previousBalance,
   grandTotal,
   payMethod,
+  onPayMethodChange,
   cashTendered,
   onCashTenderedChange,
   grandTotalWithBalance,
@@ -56,104 +65,143 @@ export function OrderSummarySidebar({
   hasReceipt,
   hasDriver,
 }: OrderSummarySidebarProps) {
-  const taxRateLabel = subtotal > 0 && totalTax > 0 ? ` (${((totalTax / subtotal) * 100).toFixed(0)}%)` : "";
+  const taxRateLabel = subtotal > 0 && totalTax > 0 ? ` (VAT ${((totalTax / subtotal) * 100).toFixed(0)}%)` : "";
+  const amountPaid = cashTendered !== "" && !isNaN(Number(cashTendered)) ? Number(cashTendered) : 0;
+  const balanceDue = grandTotalWithBalance - amountPaid;
 
   return (
-    <aside className="flex w-72 min-h-0 flex-shrink-0 flex-col border-l border-border bg-card">
-      {/* Summary rows */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 pb-2 space-y-1.5">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Order Summary</p>
-        <SummaryRow label="Subtotal" value={fmt(subtotal)} />
-        <SummaryRow label={`Tax${taxRateLabel}`} value={fmt(totalTax)} />
-        {extraTotal !== 0 && (
-          <SummaryRow label="Extra Charges" value={`${extraTotal < 0 ? "-" : "+"}${fmt(Math.abs(extraTotal))}`} />
-        )}
-        {discountAmount > 0 && (
-          <SummaryRow
-            label={
-              <span className="flex items-center gap-1">
-                Discount <Pencil size={9} className="text-muted-foreground" />
-              </span>
-            }
-            value={`-${fmt(discountAmount)}`}
-            valueClass="text-emerald-600"
-          />
-        )}
-        {previousBalance > 0 && (
-          <SummaryRow label="Prev. Balance" value={fmt(previousBalance)} valueClass="text-red-500" />
-        )}
-
-        <div className="border-t border-border pt-3 mt-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Grand Total</p>
-          <p className="text-4xl font-black tabular-nums text-primary leading-none mt-1">{fmt(grandTotalWithBalance)}</p>
-          {previousBalance > 0 && (
-            <p className="text-[10px] text-muted-foreground mt-0.5">Includes balance ({fmt(previousBalance)})</p>
-          )}
+    <aside className="flex w-80 min-h-0 flex-shrink-0 flex-col gap-3 overflow-y-auto border-l border-border bg-muted/40 p-4">
+      {/* Order Summary Card */}
+      <div className="rounded-xl border border-border bg-card shadow-sm">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <LayoutDashboard size={15} className="text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Order Summary</h2>
         </div>
 
-        {payMethod === "cash" && grandTotal > 0 && (
-          <div className="pt-2 space-y-1">
-            <label className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Cash Tendered</label>
-            <input
-              type="number"
-              value={cashTendered}
-              onChange={(e) => onCashTenderedChange(e.target.value)}
-              placeholder="Amount received"
-              className="w-full h-9 rounded border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-            />
-            {cashTendered !== "" && !isNaN(Number(cashTendered)) && (
-              <p className={`text-xs font-semibold ${Number(cashTendered) < grandTotal ? "text-destructive" : "text-emerald-600"}`}>
-                {Number(cashTendered) < grandTotal
-                  ? `Short by ${fmt(grandTotal - Number(cashTendered))}`
-                  : `Change: ${fmt(Number(cashTendered) - grandTotal)}`}
-              </p>
-            )}
-          </div>
-        )}
+        <div className="px-4 py-3 space-y-2.5">
+          <SummaryRow label="Subtotal" value={fmt(subtotal)} />
 
-        {saleType === "credit" && creditNeedsApproval && (
-          <p className="text-xs font-medium text-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-1">Needs approval — over credit limit</p>
-        )}
-        {saleType === "credit" && creditOverLimitException && (
-          <p className="text-xs font-medium text-sky-800 bg-sky-50 dark:bg-sky-950/30 rounded px-2 py-1">Over limit — skip-approval exception is on</p>
-        )}
-        {saleType === "credit" && creditMissingCustomer && (
-          <p className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded px-2 py-1">⚠ Select a customer</p>
-        )}
-        {saleType === "credit" && creditMissingLimit && (
-          <p className="text-xs font-medium text-destructive bg-red-50 dark:bg-red-950/30 rounded px-2 py-1">⚠ No credit limit set</p>
-        )}
-        {hasStockIssues && (
-          <p className="text-xs font-medium text-red-600 bg-red-50 dark:bg-red-950/30 rounded px-2 py-1">⚠ Fix stock issues</p>
-        )}
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm text-muted-foreground">Total Discount</span>
+            <div className="flex h-8 w-28 items-center rounded-lg border border-border bg-background px-3 text-right text-sm tabular-nums text-muted-foreground">
+              {discountAmount > 0 ? (
+                <span className="text-emerald-600 font-medium w-full text-right">{fmt(discountAmount)}</span>
+              ) : (
+                <span className="w-full text-right">0.00</span>
+              )}
+            </div>
+          </div>
+
+          {extraTotal !== 0 && (
+            <SummaryRow label="Extra Charges" value={`${extraTotal < 0 ? "-" : "+"}${fmt(Math.abs(extraTotal))}`} />
+          )}
+
+          <SummaryRow label={`Tax${taxRateLabel}`} value={fmt(totalTax)} />
+
+          {previousBalance > 0 && (
+            <SummaryRow label="Prev. Balance" value={fmt(previousBalance)} valueClass="text-red-500" />
+          )}
+
+          <div className="border-t border-border pt-2.5 flex items-center justify-between">
+            <span className="text-sm font-semibold text-foreground">Total Amount</span>
+            <span className="text-lg font-bold tabular-nums text-primary">{fmt(grandTotalWithBalance)}</span>
+          </div>
+        </div>
+
+        {/* Status notices */}
+        <div className="px-4 pb-3 space-y-1.5">
+          {saleType === "credit" && creditNeedsApproval && (
+            <p className="text-xs font-medium text-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-1.5">Needs approval — over credit limit</p>
+          )}
+          {saleType === "credit" && creditOverLimitException && (
+            <p className="text-xs font-medium text-sky-800 bg-sky-50 dark:bg-sky-950/30 rounded-lg px-3 py-1.5">Over limit — skip-approval exception is on</p>
+          )}
+          {saleType === "credit" && creditMissingCustomer && (
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-1.5">⚠ Select a customer</p>
+          )}
+          {saleType === "credit" && creditMissingLimit && (
+            <p className="text-xs font-medium text-destructive bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-1.5">⚠ No credit limit set</p>
+          )}
+          {hasStockIssues && (
+            <p className="text-xs font-medium text-red-600 bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-1.5">⚠ Fix stock issues</p>
+          )}
+        </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex-shrink-0 border-t border-border p-3 space-y-2">
+      {/* Payment Details Card */}
+      <div className="rounded-xl border border-border bg-card shadow-sm">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+          <LayoutDashboard size={15} className="text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">Payment Details</h2>
+        </div>
+
+        <div className="px-4 py-3 space-y-4">
+          {/* Payment Method */}
+          <div className="space-y-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Payment Method</label>
+              <select
+                value={payMethod}
+                onChange={(e) => onPayMethodChange(e.target.value as PosPayMethod)}
+                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              >
+                {PAY_METHOD_LABELS.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Amount Received</label>
+              <input
+                type="number"
+                value={cashTendered}
+                onChange={(e) => onCashTenderedChange(e.target.value)}
+                placeholder="0.00"
+                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-right text-sm tabular-nums outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-border pt-2 space-y-1.5">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Amount Paid</span>
+              <span className="tabular-nums font-medium">{fmt(amountPaid)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-medium text-foreground">Balance Due</span>
+              <span className={`tabular-nums font-bold text-base ${balanceDue > 0 ? "text-red-500" : "text-emerald-600"}`}>
+                {fmt(Math.max(0, balanceDue))}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      <div className="space-y-2">
         <button
           type="button"
           onClick={onCompleteSale}
           disabled={generateDisabled}
-          className={`flex w-full items-center justify-center gap-2 rounded-lg py-3.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-35 ${
+          className={`flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-35 ${
             creditNeedsApproval ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary/90"
           }`}
         >
-          <Share2 size={15} />
           {checkingOut
             ? "Processing…"
             : creditNeedsApproval
               ? "Send for Approval"
               : hasDriver
                 ? "Share to Driver"
-                : "Complete Sale"}
+                : "Complete Transaction"}
         </button>
 
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={onPrintBill}
             disabled={!hasReceipt}
-            className="flex items-center justify-center gap-1 rounded-lg border border-border py-2 text-xs font-medium transition hover:bg-muted disabled:opacity-40"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-border py-2 text-xs font-medium transition hover:bg-muted disabled:opacity-40"
           >
             <Printer size={12} /> Print Bill
           </button>
@@ -161,7 +209,7 @@ export function OrderSummarySidebar({
             type="button"
             onClick={onDeliveryNote}
             disabled={!hasReceipt}
-            className="flex items-center justify-center gap-1 rounded-lg border border-border py-2 text-xs font-medium transition hover:bg-muted disabled:opacity-40"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-border py-2 text-xs font-medium transition hover:bg-muted disabled:opacity-40"
           >
             <Truck size={12} /> Delivery Note
           </button>
@@ -181,9 +229,9 @@ function SummaryRow({
   valueClass?: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`font-semibold tabular-nums ${valueClass}`}>{value}</span>
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className={`text-sm font-medium tabular-nums ${valueClass}`}>{value}</span>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { formatEntityLabel } from '../../lib/entityLabel';
+import { getBlob } from '../../lib/http';
 import type { Bill } from '../../types';
 import type { PosReceipt } from './checkout';
 import { buildSaleDocHtml, defaultPdfFileName, type SaleDocKind } from './buildSaleDocHtml';
@@ -49,6 +50,34 @@ export function printSaleDoc(receipt: PosReceipt, kind: SaleDocKind = 'receipt')
   w.document.close();
   w.focus();
   w.print();
+}
+
+export async function downloadBillPdf(billId: string): Promise<void> {
+  try {
+    const { blob, filename } = await getBlob(`/api/v1/bills/${billId}/pdf`);
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    toast.error('Could not download bill PDF');
+  }
+}
+
+export async function downloadPurchaseOrderPdf(purchaseOrderId: string): Promise<void> {
+  try {
+    const { blob, filename } = await getBlob(`/api/v1/purchase-orders/${purchaseOrderId}/pdf`);
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    toast.error('Could not download purchase order PDF');
+  }
 }
 
 export async function downloadSaleDoc(
