@@ -505,6 +505,8 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           p4: tiers.p4,
           activeTier: tier,
           storeCode: stockLocation?.name?.slice(0, 1).toUpperCase(),
+          manufacturer: p.manufacturer,
+          packSize: p.packSize,
         },
       ]);
     }
@@ -523,11 +525,11 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
     setLines((ls) =>
       ls.map((l) => {
         if (l.id !== lineId) return l;
-        let qty = Math.max(1, newQty);
+        let qty = Math.max(mode === "sales" ? 0.001 : 1, newQty);
         if (mode === "sales") {
           const stock = getStockInfo(stockMap, l.productId, saleType);
           const others = cartQtyForProduct(ls, l.productId, lineId);
-          const maxForLine = Math.max(1, stock.available - others);
+          const maxForLine = Math.max(0.001, stock.available - others);
           if (!stock.found) {
             toast.error("No stock record for this product at this location");
             return l;
@@ -600,8 +602,9 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const removeCharge = (id: number) =>
     setExtraCharges((ec) => ec.filter((c) => c.id !== id));
 
-  const subtotal = lines.reduce((s, l) => s + l.qty * l.rate, 0);
-  const totalTax = lines.reduce((s, l) => s + (l.qty * l.rate * l.taxPct) / 100, 0);
+  const lineUnits = (l: typeof lines[0]) => mode === 'purchase' ? l.qty * (l.packSize ?? 1) : l.qty;
+  const subtotal = lines.reduce((s, l) => s + lineUnits(l) * l.rate, 0);
+  const totalTax = lines.reduce((s, l) => s + (lineUnits(l) * l.rate * l.taxPct) / 100, 0);
   const extraTotal = extraCharges.reduce((s, c) => s + c.amount, 0);
   const grandTotal = subtotal + totalTax + extraTotal;
   const blackMarkup = saleType === "black" ? lines.reduce((s, l) => s + (l.rate - l.officialRate) * l.qty, 0) : 0;
@@ -698,6 +701,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
       qty: l.qty,
       unitPrice: l.rate,
       taxPct: l.taxPct,
+      packSize: mode === 'purchase' ? l.packSize : undefined,
     }));
 
   const generateBill = async () => {
