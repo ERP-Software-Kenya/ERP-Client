@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   Clock,
   DollarSign,
+  FileDown,
   Package2,
   ShoppingCart,
   Warehouse,
@@ -24,6 +25,7 @@ import {
 } from '../../components/ui/dropdown-menu';
 import { Products, PurchaseOrders, Suppliers } from '../../api';
 import { getErrorMessage } from '../../lib/api-error';
+import { downloadPurchaseOrderPdf } from '../pos/billReceipt';
 import type { PurchaseOrder, PurchaseOrderStatus } from '../../types';
 
 const STATUS_CONFIG: Record<PurchaseOrderStatus, { label: string; cls: string; dot: string }> = {
@@ -113,12 +115,20 @@ function ProgressBar({
 export default function PurchaseOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [pdfDownloading, setPdfDownloading] = useState(false);
 
   const { data: po, isLoading, error } = PurchaseOrders.useGet(id);
   const { data: items = [], isLoading: itemsLoading } = PurchaseOrders.useGetItems(id);
   const { data: products = [] } = Products.useList();
   const { data: suppliers = [] } = Suppliers.useList();
   const updateMutation = PurchaseOrders.useUpdate();
+
+  const handleDownloadPdf = async () => {
+    if (!id) return;
+    setPdfDownloading(true);
+    await downloadPurchaseOrderPdf(id);
+    setPdfDownloading(false);
+  };
 
   const productMap = useMemo(
     () => new Map(products.map((p) => [p.id, { name: p.name ?? 'Unnamed', sku: p.sku }])),
@@ -195,7 +205,19 @@ export default function PurchaseOrderDetail() {
           )}
         </div>
 
-        {showActions && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={() => void handleDownloadPdf()}
+            disabled={pdfDownloading}
+          >
+            <FileDown size={14} />
+            {pdfDownloading ? 'Generating…' : 'Download PDF'}
+          </Button>
+
+          {showActions && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
@@ -224,7 +246,8 @@ export default function PurchaseOrderDetail() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Stat cards — 4-col grid across full width */}

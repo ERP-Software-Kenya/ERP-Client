@@ -18,6 +18,8 @@ export interface PosLineInput {
   qty: number;
   unitPrice: number;
   taxPct: number;
+  /** Units per pack — present only for pack products in purchase mode */
+  packSize?: number;
 }
 
 export type PosPayMethod = 'cash' | 'mpesa' | 'till' | 'bank' | 'other';
@@ -163,14 +165,15 @@ function localRef(prefix: string) {
 
 function buildReceiptLines(lines: PosLineInput[]) {
   return lines.map((l) => {
-    const lineTax = (l.qty * l.unitPrice * l.taxPct) / 100;
+    const units = l.qty * (l.packSize ?? 1);
+    const lineTax = (units * l.unitPrice * l.taxPct) / 100;
     return {
       sku: l.sku || l.productId.slice(0, 8),
       name: l.name || 'Item',
-      qty: l.qty,
+      qty: units,
       rate: l.unitPrice,
       taxPct: l.taxPct,
-      lineTotal: l.qty * l.unitPrice + lineTax,
+      lineTotal: units * l.unitPrice + lineTax,
     };
   });
 }
@@ -541,7 +544,9 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
         notes: input.supplierRef || undefined,
         items: input.lines.map((l) => ({
           productId: l.productId,
-          quantityOrdered: l.qty,
+          ...(l.packSize != null
+            ? { packQuantity: l.qty }
+            : { quantityOrdered: l.qty }),
           unitCost: l.unitPrice,
         })),
       }),
@@ -564,7 +569,7 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
     message: `PO ${receipt.ref} created with Draft status. Open Purchase Orders to verify and receive stock.`,
   });
 
-  return { receipt, steps, primaryOk: true };
+  return { receipt, steps, primaryOk: true, billId: createAttempt.result.id };
 }
 
 

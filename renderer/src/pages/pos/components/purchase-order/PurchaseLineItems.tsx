@@ -106,6 +106,7 @@ export function PurchaseLineItems({
                   <p className="font-mono text-[10px] text-muted-foreground">{line.sku}</p>
                 </td>
                 <td className="px-3 py-2.5 text-sm text-muted-foreground">
+<<<<<<< Updated upstream
                   {line.storeCode ?? "—"}
                 </td>
                 <td className="px-3 py-2.5">
@@ -125,6 +126,34 @@ export function PurchaseLineItems({
                     >
                       <Plus size={11} />
                     </button>
+=======
+                  {line.manufacturer ?? "—"}
+                </td>
+                <td className="px-3 py-2.5">
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onQtyChange(line.id, Math.max(1, line.qty - 1))}
+                        className="rounded p-0.5 text-muted-foreground hover:bg-muted"
+                      >
+                        <Minus size={11} />
+                      </button>
+                      <span className="w-7 text-center text-sm font-semibold tabular-nums">{line.qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => onQtyChange(line.id, line.qty + 1)}
+                        className="rounded p-0.5 text-muted-foreground hover:bg-muted"
+                      >
+                        <Plus size={11} />
+                      </button>
+                    </div>
+                    {line.packSize != null && (
+                      <span className="text-[10px] text-muted-foreground leading-none">
+                        {line.qty * line.packSize} units
+                      </span>
+                    )}
+>>>>>>> Stashed changes
                   </div>
                 </td>
                 <td className="px-3 py-2.5 text-sm text-muted-foreground">e.g. S</td>
@@ -145,7 +174,11 @@ export function PurchaseLineItems({
                 </td>
                 <td className="px-3 py-2.5 text-sm text-muted-foreground tabular-nums">0%</td>
                 <td className="px-3 py-2.5 text-sm font-semibold tabular-nums text-foreground">
+<<<<<<< Updated upstream
                   {fmt(lineTotal(line))}
+=======
+                  {fmt(line.qty * (line.packSize ?? 1) * line.rate)}
+>>>>>>> Stashed changes
                 </td>
                 <td className="px-3 py-2.5">
                   <button

@@ -21,6 +21,10 @@ export interface BillLine {
   p4?: number;
   activeTier?: PriceTier;
   storeCode?: string;
+  /** Product manufacturer/brand — shown in purchase line items table */
+  manufacturer?: string;
+  /** Product pack size — units per pack, null when sold individually */
+  packSize?: number;
 }
 
 export function customerTypeToTier(ct: CustomerType | string): PriceTier {

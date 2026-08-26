@@ -31,7 +31,7 @@ import { ReceiptDocument } from "./ReceiptDocument";
 import { DebtorNoteDocument } from "./DebtorNoteDocument";
 import { StatementDocument } from "./StatementDocument";
 import { DeliveryNoteDocument } from "./DeliveryNoteDocument";
-import { downloadSaleDoc } from "./billReceipt";
+import { downloadSaleDoc, downloadBillPdf, downloadPurchaseOrderPdf } from "./billReceipt";
 import { HeldSalesPanel } from "./HeldSalesPanel";
 import { productRate, customerTypeToTier, productTierPrices, type BillLine, type ExtraCharge, type Mode, type PriceTier, type PrintDoc } from "./posHelpers";
 import {
@@ -74,6 +74,7 @@ function BillSuccessModal({
   pendingCreditApproval,
   creditBalanceAfter,
   creditLimit,
+  billId,
 }: {
   receipt: PosReceipt;
   steps: CheckoutStep[];
@@ -83,6 +84,7 @@ function BillSuccessModal({
   pendingCreditApproval?: boolean;
   creditBalanceAfter?: number;
   creditLimit?: number;
+  billId?: string;
 }) {
   const hasGaps = steps.some(
     (s) => s.status === "failed" || s.status === "skipped",
@@ -254,10 +256,19 @@ function BillSuccessModal({
                 <Printer size={15} />
                 Print
               </button>
-              {receipt.mode === "sales" && (
+              {receipt.mode === "sales" && billId && (
                 <button
                   type="button"
-                  onClick={() => void downloadSaleDoc(receipt, printDoc)}
+                  onClick={() => void downloadBillPdf(billId)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
+                >
+                  PDF
+                </button>
+              )}
+              {receipt.mode === "purchase" && billId && (
+                <button
+                  type="button"
+                  onClick={() => void downloadPurchaseOrderPdf(billId)}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
                 >
                   PDF
@@ -298,6 +309,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
     receipt: PosReceipt;
     steps: CheckoutStep[];
     pendingCreditApproval?: boolean;
+    billId?: string;
   } | null>(null);
   const [lastReceipt, setLastReceipt] = useState<PosReceipt | null>(null);
   const [printDoc, setPrintDoc] = useState<PrintDoc>("receipt");
@@ -514,6 +526,8 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           p4: tiers.p4,
           activeTier: tier,
           storeCode: stockLocation?.name?.slice(0, 1).toUpperCase(),
+          manufacturer: p.manufacturer,
+          packSize: p.packSize,
         },
       ]);
     }
@@ -532,11 +546,11 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
     setLines((ls) =>
       ls.map((l) => {
         if (l.id !== lineId) return l;
-        let qty = Math.max(1, newQty);
+        let qty = Math.max(mode === "sales" ? 0.001 : 1, newQty);
         if (mode === "sales") {
           const stock = getStockInfo(stockMap, l.productId, saleType);
           const others = cartQtyForProduct(ls, l.productId, lineId);
-          const maxForLine = Math.max(1, stock.available - others);
+          const maxForLine = Math.max(0.001, stock.available - others);
           if (!stock.found) {
             toast.error("No stock record for this product at this location");
             return l;
@@ -609,8 +623,9 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const removeCharge = (id: number) =>
     setExtraCharges((ec) => ec.filter((c) => c.id !== id));
 
-  const subtotal = lines.reduce((s, l) => s + l.qty * l.rate, 0);
-  const totalTax = lines.reduce((s, l) => s + (l.qty * l.rate * l.taxPct) / 100, 0);
+  const lineUnits = (l: typeof lines[0]) => mode === 'purchase' ? l.qty * (l.packSize ?? 1) : l.qty;
+  const subtotal = lines.reduce((s, l) => s + lineUnits(l) * l.rate, 0);
+  const totalTax = lines.reduce((s, l) => s + (lineUnits(l) * l.rate * l.taxPct) / 100, 0);
   const extraTotal = extraCharges.reduce((s, c) => s + c.amount, 0);
   const grandTotal = subtotal + totalTax + extraTotal;
   const blackMarkup = saleType === "black" ? lines.reduce((s, l) => s + (l.rate - l.officialRate) * l.qty, 0) : 0;
@@ -707,6 +722,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
       qty: l.qty,
       unitPrice: l.rate,
       taxPct: l.taxPct,
+      packSize: mode === 'purchase' ? l.packSize : undefined,
     }));
 
   const generateBill = async () => {
@@ -773,6 +789,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           receipt: result.receipt,
           steps: result.steps,
           pendingCreditApproval: result.pendingCreditApproval,
+          billId: result.billId,
         });
         if (saleType === "credit" && customerId) {
           void refetchSelectedCustomer();
@@ -1231,6 +1248,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           pendingCreditApproval={success.pendingCreditApproval}
           creditBalanceAfter={success.receipt.saleType === 'credit' ? selectedCustomer?.creditBalance : undefined}
           creditLimit={success.receipt.saleType === 'credit' ? selectedCustomer?.creditLimit ?? undefined : undefined}
+          billId={success.billId}
         />
       )}
 
