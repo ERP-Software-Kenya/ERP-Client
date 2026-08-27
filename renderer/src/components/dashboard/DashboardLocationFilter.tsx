@@ -37,12 +37,17 @@ export default function DashboardLocationFilter({
 
   if (!canPickLocation) return null;
 
+  const selectedLabel =
+    selectedLocationId === 'all'
+      ? 'All locations'
+      : locations.find((l) => l.id === selectedLocationId)?.name;
+
   return (
     <Select
       value={selectedLocationId}
       onValueChange={(v) => onChange(v as string | 'all')}
     >
-      <SelectTrigger className="h-8 w-[180px] text-xs">
+      <SelectTrigger className="h-8 w-[180px] text-xs" title={selectedLabel}>
         <SelectValue placeholder="All locations" />
       </SelectTrigger>
       <SelectContent>

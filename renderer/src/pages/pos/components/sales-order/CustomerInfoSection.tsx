@@ -1,6 +1,7 @@
 import { UserCircle } from "lucide-react";
 import type { Customer, CustomerType, Location, SaleType } from "../../../../types";
 import { CustomerPicker } from "../../../../components/CustomerPicker";
+import { FormSelect } from "../../../../components/FormSelect";
 
 const CUSTOMER_TYPES: Array<{ value: CustomerType; label: string }> = [
   { value: "regular", label: "Regular" },
@@ -131,17 +132,13 @@ export function CustomerInfoSection({
             </Field>
 
             <Field label="Store">
-              <select
+              <FormSelect
                 value={locationId}
-                onChange={(e) => onLocationChange(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-              >
-                {locations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
+                onChange={onLocationChange}
+                placeholder="Select store…"
+                options={locations.map((l) => ({ value: l.id, label: l.name }))}
+                className="h-9 py-1.5"
+              />
             </Field>
 
             <Field label="Invoice Number">

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Eye } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { DataTable, type Column } from '../../components/DataTable';
 import { Button } from '../../components/ui/button';
+import { FormSelect } from '../../components/FormSelect';
 import { Bills, Customers, Locations } from '../../api';
 import { BillViewDrawer } from '../Bills/BillViewDrawer';
 import { formatEntityLabel, truncateId } from '../../lib/entityLabel';
@@ -193,30 +194,41 @@ export default function SalesListPage() {
         toolbar={
           <>
             <span className="text-xs text-muted-foreground">Status:</span>
-            {STATUS_FILTERS.map((s) => (
-              <Button key={s} size="sm" variant={statusFilter === s ? 'default' : 'outline'} onClick={() => setStatusFilter(s)}>
-                {s === 'ALL' ? 'All' : s}
-              </Button>
-            ))}
+            <FormSelect
+              className="h-8 w-[140px] py-1.5"
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v as BillStatus | 'ALL')}
+              options={STATUS_FILTERS.map((s) => ({
+                value: s,
+                label: s === 'ALL' ? 'All' : s,
+              }))}
+            />
             <div className="h-5 w-px bg-border" />
             <span className="text-xs text-muted-foreground">Type:</span>
-            {SALE_TYPE_FILTERS.map((t) => (
-              <Button key={t} size="sm" variant={saleTypeFilter === t ? 'default' : 'outline'} onClick={() => setSaleTypeFilter(t)}>
-                {t === 'ALL' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}
-              </Button>
-            ))}
+            <FormSelect
+              className="h-8 w-[120px] py-1.5"
+              value={saleTypeFilter}
+              onChange={(v) => setSaleTypeFilter(v as SaleType | 'ALL')}
+              options={SALE_TYPE_FILTERS.map((t) => ({
+                value: t,
+                label: t === 'ALL' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1),
+              }))}
+            />
             <div className="h-5 w-px bg-border" />
             <span className="text-xs text-muted-foreground">Store:</span>
-            <select
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+            <FormSelect
+              className="h-8 w-[200px] py-1.5"
               value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-            >
-              <option value="">All</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>{l.type ? `${l.name} (${l.type})` : l.name}</option>
-              ))}
-            </select>
+              onChange={setLocationFilter}
+              placeholder="All"
+              options={[
+                { value: '', label: 'All' },
+                ...locations.map((l) => ({
+                  value: l.id,
+                  label: l.type ? `${l.name} (${l.type})` : l.name,
+                })),
+              ]}
+            />
             <div className="h-5 w-px bg-border" />
             <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="rounded-md border border-border bg-background px-2 py-1 text-sm outline-none" />
             <span className="text-xs text-muted-foreground">to</span>

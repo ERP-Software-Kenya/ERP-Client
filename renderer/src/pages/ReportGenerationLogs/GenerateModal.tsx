@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/button';
+import { FormSelect } from '../../components/FormSelect';
 import { Locations } from '../../api';
 import type { EReportType, EReportPeriod, GenerateReportInput } from '../../types';
 import { REPORT_TYPE_GROUPS } from './constants';
@@ -97,20 +98,17 @@ export function GenerateModal({ open, onClose, onGenerate, isPending }: Props): 
               Report Type{' '}
               <span className="ml-1 rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">Required</span>
             </label>
-            <select
+            <FormSelect
               value={reportType}
-              onChange={(e) => setReportType(e.target.value as EReportType | '')}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">— Select report type —</option>
-              {REPORT_TYPE_GROUPS.map((grp) => (
-                <optgroup key={grp.label} label={grp.label}>
-                  {grp.options.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+              onChange={(v) => setReportType(v as EReportType | '')}
+              placeholder="— Select report type —"
+              options={REPORT_TYPE_GROUPS.flatMap((grp) =>
+                grp.options.map((o) => ({
+                  value: o.value,
+                  label: `${grp.label}: ${o.label}`,
+                })),
+              )}
+            />
             <p className="mt-1 text-[11px] text-muted-foreground">Select a report to see what data it includes</p>
           </div>
 
@@ -189,16 +187,15 @@ export function GenerateModal({ open, onClose, onGenerate, isPending }: Props): 
               Location{' '}
               <span className="ml-1 text-[11px] font-normal text-muted-foreground">(optional — blank = all locations)</span>
             </label>
-            <select
+            <FormSelect
               value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">All Locations</option>
-              {(locations ?? []).map((loc) => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
-              ))}
-            </select>
+              onChange={setLocationId}
+              placeholder="All Locations"
+              options={[
+                { value: '', label: 'All Locations' },
+                ...(locations ?? []).map((loc) => ({ value: loc.id, label: loc.name })),
+              ]}
+            />
           </div>
         </div>
 

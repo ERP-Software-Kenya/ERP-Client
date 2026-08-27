@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Locations, Products, PurchaseOrders, Suppliers } from '../../api';
 import { getErrorMessage } from '../../lib/api-error';
+import { FormSelect } from '../../components/FormSelect';
 import type { PurchaseItem, PurchaseOrderStatus } from '../../types';
 
 const STATUS_CONFIG: Record<PurchaseOrderStatus, { label: string; cls: string }> = {
@@ -498,18 +499,18 @@ export default function PurchaseOrderReceive() {
                         <div className="space-y-2">
                           {rows.map((row, rowIdx) => (
                             <div key={rowIdx} className="flex items-center gap-2 flex-wrap">
-                              <select
+                              <FormSelect
                                 value={row.locationId}
-                                onChange={(e) => updateRow(item.id, rowIdx, { locationId: e.target.value }, unallocated)}
-                                className="flex-1 min-w-[160px] rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20"
-                              >
-                                <option value="">Select location…</option>
-                                {locations.map((loc) => (
-                                  <option key={loc.id} value={loc.id}>
-                                    {loc.name}{loc.type ? ` (${loc.type.charAt(0).toUpperCase() + loc.type.slice(1)})` : ''}
-                                  </option>
-                                ))}
-                              </select>
+                                onChange={(locationId) => updateRow(item.id, rowIdx, { locationId }, unallocated)}
+                                placeholder="Select location…"
+                                className="flex-1 min-w-[160px] py-2"
+                                options={locations.map((loc) => ({
+                                  value: loc.id,
+                                  label: loc.type
+                                    ? `${loc.name} (${loc.type.charAt(0).toUpperCase() + loc.type.slice(1)})`
+                                    : loc.name,
+                                }))}
+                              />
                               <input
                                 type="number"
                                 min={0}

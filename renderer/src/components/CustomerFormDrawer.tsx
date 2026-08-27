@@ -26,7 +26,7 @@ interface FormState {
   skipOverLimitApproval: '' | 'true' | 'false';
 }
 
-function emptyForm(initialName?: string): FormState {
+function emptyForm(initialName?: string, defaultCustomerType: CustomerType = 'new'): FormState {
   return {
     name: initialName ?? '',
     email: '',
@@ -36,7 +36,7 @@ function emptyForm(initialName?: string): FormState {
     address: '',
     pinCode: '',
     creditLimit: '',
-    customerType: 'new',
+    customerType: defaultCustomerType,
     discountPercent: '',
     skipOverLimitApproval: '',
   };
@@ -76,7 +76,10 @@ export function CustomerFormDrawer({
   requireCreditLimit,
   onSaved,
 }: CustomerFormDrawerProps) {
-  const [form, setForm] = useState<FormState>(() => (editing ? formFromCustomer(editing) : emptyForm(initialName)));
+  const createDefaultType: CustomerType = requireCreditLimit ? 'regular' : 'new';
+  const [form, setForm] = useState<FormState>(() =>
+    editing ? formFromCustomer(editing) : emptyForm(initialName, createDefaultType),
+  );
   const createMutation = Customers.useCreate();
   const updateMutation = Customers.useUpdate();
   const { data: typeRules = [] } = BillingSettings.useCustomerTypeRules();
@@ -84,8 +87,8 @@ export function CustomerFormDrawer({
 
   useEffect(() => {
     if (!open) return;
-    setForm(editing ? formFromCustomer(editing) : emptyForm(initialName));
-  }, [open, editing, initialName]);
+    setForm(editing ? formFromCustomer(editing) : emptyForm(initialName, createDefaultType));
+  }, [open, editing, initialName, createDefaultType]);
 
   const creditLimitValue = Number(form.creditLimit.trim());
   const creditLimitOk = !requireCreditLimit || (form.creditLimit.trim() !== '' && creditLimitValue > 0);

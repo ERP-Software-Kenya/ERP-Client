@@ -1,6 +1,7 @@
 import { Building2, Mail, Phone, ShieldCheck } from "lucide-react";
 import type { Supplier } from "../../../../types";
 import { SupplierFormDrawer } from "../../../../components/SupplierFormDrawer";
+import { FormSelect } from "../../../../components/FormSelect";
 import { useState } from "react";
 
 export interface PurchaseSupplierInfoProps {
@@ -34,16 +35,16 @@ export function PurchaseSupplierInfo({
           <>
             {/* Company Name — searchable dropdown */}
             <InfoField label="Company Name" icon={<Building2 size={14} />}>
-              <select
+              <FormSelect
                 value={supplierId}
-                onChange={(e) => onSupplierChange(e.target.value)}
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-              >
-                <option value="">— Select Supplier —</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
+                onChange={onSupplierChange}
+                placeholder="— Select Supplier —"
+                className="h-9 py-1.5"
+                options={[
+                  { value: '', label: '— Select Supplier —' },
+                  ...suppliers.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
             </InfoField>
 
             {/* Contact Details / Phone */}

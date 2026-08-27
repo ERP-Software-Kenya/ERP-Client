@@ -9,7 +9,33 @@ import { useSession } from '../../context/SessionContext';
 import { usePagination } from '../../hooks/usePagination';
 import { formatEntityLabel } from '../../lib/entityLabel';
 import { loadErrorMessage } from '../../lib/api-error';
-import type { CreditStatus, Customer } from '../../types';
+import type { CreditStatus, Customer, CustomerType } from '../../types';
+
+const CUSTOMER_TYPE_STYLES: Record<CustomerType, string> = {
+  regular: 'bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300',
+  new: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300',
+  shop: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+  big_customer: 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-400',
+};
+
+const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
+  regular: 'Regular',
+  new: 'New',
+  shop: 'Shop',
+  big_customer: 'Big Customer',
+};
+
+function CustomerTypeBadge({ type }: { type: CustomerType | string | undefined | null }) {
+  if (!type) return <span className="text-muted-foreground">—</span>;
+  const key = type as CustomerType;
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${CUSTOMER_TYPE_STYLES[key] ?? 'bg-muted text-foreground'}`}
+    >
+      {CUSTOMER_TYPE_LABELS[key] ?? String(type).replace(/_/g, ' ')}
+    </span>
+  );
+}
 
 function CreditStatusDot({ status }: { status?: CreditStatus }) {
   const cls: Record<string, string> = {
@@ -114,7 +140,7 @@ export default function CustomersPage() {
     {
       key: 'customerType',
       label: 'Type',
-      render: (row) => row.customerType || '—',
+      render: (row) => <CustomerTypeBadge type={row.customerType} />,
     },
   ];
 

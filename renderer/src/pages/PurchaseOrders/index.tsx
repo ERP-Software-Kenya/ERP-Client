@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ClipboardCheck, ShoppingCart } from "lucide-react";
 import { DataTable, Column } from "../../components/DataTable";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { FormSelect } from "../../components/FormSelect";
 import { PurchaseOrders, Suppliers } from "../../api";
 import { usePagination } from "../../hooks/usePagination";
 import { truncateId } from "../../lib/entityLabel";
@@ -122,16 +123,16 @@ export default function PurchaseOrdersPage() {
         toolbar={
           <>
             <span className="text-xs text-muted-foreground">Supplier:</span>
-            <select
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+            <FormSelect
+              className="h-8 w-[200px] py-1.5"
               value={supplierFilter}
-              onChange={(e) => { setSupplierFilter(e.target.value); setPage(1); }}
-            >
-              <option value="">All suppliers</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+              onChange={(v) => { setSupplierFilter(v); setPage(1); }}
+              placeholder="All suppliers"
+              options={[
+                { value: '', label: 'All suppliers' },
+                ...suppliers.map((s) => ({ value: s.id, label: s.name })),
+              ]}
+            />
           </>
         }
         onRefetch={() => void refetch()}
