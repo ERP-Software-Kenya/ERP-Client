@@ -1,7 +1,7 @@
 {
   "name": "core-erp-client",
   "version": "0.1.5",
-  "description": "Core ERP Client — Electron desktop app for Core ERP APIs",
+  "description": "Pramukh Digital — Electron desktop ERP client",
   "type": "module",
   "main": "dist/main/index.cjs",
   "scripts": {
@@ -14,8 +14,8 @@
     "build:main": "npx tsx scripts/build-main.ts",
     "build:renderer": "vite build --config vite.config.ts",
     "start": "electron dist/main/index.cjs",
-    "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder",
+    "pack": "npm run build && npx tsx scripts/run-electron-builder.ts --dir",
+    "dist": "npm run build && npx tsx scripts/run-electron-builder.ts",
     "publish-release": "npx tsx scripts/publish-release.ts",
     "postinstall": "electron-builder install-app-deps"
   },
@@ -59,12 +59,13 @@
   },
   "build": {
     "appId": "com.byteb.core-erp-client",
-    "productName": "Core ERP Client",
+    "productName": "Pramukh Digital",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
+      "assets/**/*",
       "package.json",
       "!node_modules/**/*"
     ],
