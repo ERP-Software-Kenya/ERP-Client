@@ -117,7 +117,7 @@ function BillSuccessModal({
       <div
         role="dialog"
         aria-labelledby="pos-success-title"
-        className="relative flex w-full max-w-md max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        className="relative flex max-h-[90vh] w-full max-w-[880px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
       >
         <div className="flex-shrink-0 border-b border-border px-5 pt-5 pb-4">
           <div className="flex items-start gap-3">
@@ -354,6 +354,11 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const [showFacilitatorSuggestions, setShowFacilitatorSuggestions] = useState(false);
 
   const { user } = useAuth();
+  const orgBrand = {
+    orgName: user?.organization?.name,
+    logoUrl: user?.organization?.logoUrl,
+    orgMeta: [user?.organization?.slug].filter(Boolean).join(" · ") || undefined,
+  };
   const userRoles = user?.roles ?? [];
   const canCreateBlackSale = userRoles.some((r) =>
     ["super_admin", "org_admin", "org_manager"].includes(r),
@@ -783,10 +788,11 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
 
       setCheckoutResult(result);
       if (result.primaryOk) {
+        const brandedReceipt = { ...result.receipt, ...orgBrand };
         setPrintDoc("receipt");
-        setLastReceipt(result.receipt);
+        setLastReceipt(brandedReceipt);
         setSuccess({
-          receipt: result.receipt,
+          receipt: brandedReceipt,
           steps: result.steps,
           pendingCreditApproval: result.pendingCreditApproval,
           billId: result.billId,
