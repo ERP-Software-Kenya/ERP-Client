@@ -3,8 +3,9 @@ import { User, X } from "lucide-react";
 import { Customers } from "../api";
 import { useDebounce } from "../hooks/useDebounce";
 import { formatEntityLabel } from "../lib/entityLabel";
-import type { Customer, CustomerType, SaleType } from "../types";
+import type { Customer, CustomerType } from "../types";
 import { CustomerFormDrawer } from "./CustomerFormDrawer";
+import { TruncatedLabel } from "./TruncatedLabel";
 
 export interface CustomerPickerProps {
   /** Currently selected customer id (empty = none). */
@@ -159,18 +160,21 @@ export function CustomerPicker({
               <button
                 key={c.id}
                 type="button"
-                className="block w-full border-b border-border px-3 py-2 text-left text-sm last:border-0 hover:bg-muted"
+                className="flex w-full min-w-0 items-baseline border-b border-border px-3 py-2 text-left text-sm last:border-0 hover:bg-muted"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(c)}
               >
-                <span className="font-medium">{c.name || "Unnamed"}</span>
+                <TruncatedLabel
+                  className="min-w-0 font-medium"
+                  text={c.name || "Unnamed"}
+                />
                 {c.phone && (
-                  <span className="ml-2 text-xs text-muted-foreground">
+                  <span className="ml-2 shrink-0 text-xs text-muted-foreground">
                     {c.phone}
                   </span>
                 )}
                 {c.email && (
-                  <span className="ml-2 text-[10px] text-muted-foreground/70">
+                  <span className="ml-2 shrink-0 truncate text-[10px] text-muted-foreground/70" title={c.email}>
                     {c.email}
                   </span>
                 )}
@@ -202,16 +206,17 @@ export function CustomerPicker({
 
       {/* Selected chip */}
       {customerId && selectedCustomer && (
-        <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-          <span className="truncate">
-            {formatEntityLabel({
+        <div className="mt-1.5 flex min-w-0 items-center gap-2 text-[10px] text-muted-foreground">
+          <TruncatedLabel
+            className="min-w-0"
+            text={formatEntityLabel({
               name: selectedCustomer.name,
               phone: selectedCustomer.phone,
               id: selectedCustomer.id,
             })}
-          </span>
+          />
           {customerType && (
-            <span className="rounded bg-muted px-1.5 py-0.5 font-semibold uppercase tracking-wide text-[9px] text-foreground">
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-semibold uppercase tracking-wide text-[9px] text-foreground">
               {String(customerType).replace(/_/g, " ")}
             </span>
           )}
@@ -223,6 +228,7 @@ export function CustomerPicker({
         <CustomerFormDrawer
           open={showCreate}
           initialName={initialCreateName ?? searchText.trim()}
+          requireCreditLimit={creditOnly}
           onClose={() => setShowCreate(false)}
           onSaved={handleCreated}
         />

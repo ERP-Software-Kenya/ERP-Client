@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { FormDrawer, Field } from '../../components/FormDrawer';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { FormSelect } from '../../components/FormSelect';
 import { Bills, Customers, Locations } from '../../api';
 import { CustomerPicker } from '../../components/CustomerPicker';
 import { BillViewDrawer } from './BillViewDrawer';
@@ -394,18 +395,19 @@ export default function BillsPage() {
             ))}
             <div className="h-5 w-px bg-border" />
             <span className="text-xs text-muted-foreground">Location:</span>
-            <select
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+            <FormSelect
+              className="h-8 w-[200px] py-1.5"
               value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-            >
-              <option value="">All locations</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.type ? `${l.name} (${l.type})` : l.name}
-                </option>
-              ))}
-            </select>
+              onChange={setLocationFilter}
+              placeholder="All locations"
+              options={[
+                { value: '', label: 'All locations' },
+                ...locations.map((l) => ({
+                  value: l.id,
+                  label: l.type ? `${l.name} (${l.type})` : l.name,
+                })),
+              ]}
+            />
             <div className="h-5 w-px bg-border" />
             <span className="text-xs text-muted-foreground">From:</span>
             <input
@@ -493,19 +495,15 @@ export default function BillsPage() {
             walk-in name. Add items and complete on the detail page or via POS.
           </p>
           <Field label="Location">
-            <select
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            <FormSelect
               value={form.locationId}
-              onChange={(e) => setForm({ ...form, locationId: e.target.value })}
-              required
-            >
-              <option value="">Select location…</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.type ? `${l.name} (${l.type})` : l.name}
-                </option>
-              ))}
-            </select>
+              onChange={(locationId) => setForm({ ...form, locationId })}
+              placeholder="Select location…"
+              options={locations.map((l) => ({
+                value: l.id,
+                label: l.type ? `${l.name} (${l.type})` : l.name,
+              }))}
+            />
           </Field>
           <Field label="Customer (search)">
             {form.customerId ? (

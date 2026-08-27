@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Printer } from 'lucide-react';
+import { ArrowLeft, Download, Printer, ShoppingCart } from 'lucide-react';
 import { ErrorState } from '../../components/errors/ErrorState';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -155,6 +155,15 @@ export default function BillDetail() {
           <p className="text-muted-foreground text-xs mt-1">ID: {bill.id}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {isDraft && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => navigate(`/pos/sales?resumeBillId=${bill.id}`)}
+            >
+              <ShoppingCart size={14} className="mr-1" /> Continue on New Sale
+            </Button>
+          )}
           <Button
             type="button"
             size="sm"

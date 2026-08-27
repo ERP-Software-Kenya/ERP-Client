@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Check, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { CustomerDetailDrawer } from "../../components/CustomerDetailDrawer";
@@ -224,13 +225,8 @@ function BillSuccessModal({
                   ))}
                 </div>
               )}
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Preview
-              </p>
-              <div className="rounded-xl border border-border/80 bg-muted/40 p-3 sm:p-4">
-                <div className="overflow-hidden rounded-lg ring-1 ring-black/5">
-                  {preview}
-                </div>
+              <div className="overflow-hidden rounded-lg border border-border/70 bg-white">
+                {preview}
               </div>
             </>
           )}
@@ -294,6 +290,7 @@ function BillSuccessModal({
 }
 
 export default function POSTerminal({ mode }: { mode: Mode }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [locationId, setLocationId] = useState("");
   const [lines, setLines] = useState<BillLine[]>([]);
   const [searchVal, setSearchVal] = useState("");
@@ -339,6 +336,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
       return [];
     }
   });
+  const [rejectionsExpanded, setRejectionsExpanded] = useState(false);
   const [showDelivery, setShowDelivery] = useState(false);
   const [delivery, setDelivery] = useState<DeliveryInfo>({});
   const [orderReference, setOrderReference] = useState("");
@@ -410,6 +408,15 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
       sessionStorage.setItem("pos-dismissed-credit-rejections", JSON.stringify(next));
       return next;
     });
+  };
+
+  const dismissAllRejections = () => {
+    setDismissedRejectionIds((prev) => {
+      const next = [...new Set([...prev, ...rejectedNotices.map((r) => r.id)])];
+      sessionStorage.setItem("pos-dismissed-credit-rejections", JSON.stringify(next));
+      return next;
+    });
+    setRejectionsExpanded(false);
   };
 
   const { data: facilitatorSearch } = ClerkUsers.useSearch({
@@ -901,12 +908,38 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
     }
   };
 
+  const resumeSaleRef = useRef(resumeSale);
+  resumeSaleRef.current = resumeSale;
+  const resumeBillId = searchParams.get("resumeBillId");
+  useEffect(() => {
+    if (mode !== "sales" || !resumeBillId) return;
+    let cancelled = false;
+    void resumeSaleRef.current(resumeBillId).finally(() => {
+      if (cancelled) return;
+      setSearchParams(
+        (prev) => {
+          if (!prev.get("resumeBillId")) return prev;
+          const next = new URLSearchParams(prev);
+          next.delete("resumeBillId");
+          return next;
+        },
+        { replace: true },
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, resumeBillId, setSearchParams]);
+
   const handleCustomerSelect = (c: Customer) => {
     setCustomerId(c.id);
     setCustomerInfo(
       formatEntityLabel({ name: c.name, phone: c.phone, id: c.id }),
     );
     setCustomerType((c.customerType as CustomerType) || "regular");
+    if (c.creditLimit != null && Number(c.creditLimit) > 0) {
+      setSaleType("credit");
+    }
     setShowCustomerSuggestions(false);
   };
 
@@ -916,6 +949,9 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
       formatEntityLabel({ name: customer.name, phone: customer.phone, id: customer.id }),
     );
     setCustomerType((customer.customerType as CustomerType) || "new");
+    if (customer.creditLimit != null && Number(customer.creditLimit) > 0) {
+      setSaleType("credit");
+    }
     setShowCreateCustomer(false);
   };
 
@@ -997,39 +1033,64 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   return (
     <div className={`flex h-full min-h-0 flex-col overflow-hidden bg-muted ${modeShellCls}`}>
       {mode === "sales" && rejectedNotices.length > 0 && (
-        <div className="pos-no-print flex-shrink-0 space-y-2 border-b border-amber-300/60 bg-amber-500/15 px-4 py-2">
-          {rejectedNotices.map((req) => {
-            const billNo = req.bill?.billNumber || req.billId.slice(0, 8);
-            return (
-              <div
-                key={req.id}
-                className="flex flex-wrap items-center justify-between gap-2 text-sm text-amber-950 dark:text-amber-100"
+        <div className="pos-no-print flex-shrink-0 border-b border-amber-200/80 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/40">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
+            <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
+              {rejectedNotices.length === 1
+                ? "1 credit sale was rejected"
+                : `${rejectedNotices.length} credit sales were rejected`}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-amber-700/30 bg-white/70 px-3 py-1 text-xs font-semibold text-amber-900 hover:bg-white dark:bg-amber-900/40 dark:text-amber-100 dark:hover:bg-amber-900/70"
+                onClick={() => setRejectionsExpanded((v) => !v)}
               >
-                <p className="font-medium">
-                  Credit sale <span className="font-mono">{billNo}</span> was rejected.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="rounded-lg bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800"
-                    onClick={() => {
-                      dismissRejection(req.id);
-                      void resumeSale(req.billId);
-                    }}
+                {rejectionsExpanded ? "Hide" : "Review"}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-amber-700/30 px-3 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-500/15 dark:text-amber-200"
+                onClick={dismissAllRejections}
+              >
+                Dismiss all
+              </button>
+            </div>
+          </div>
+          {rejectionsExpanded && (
+            <div className="max-h-40 space-y-1.5 overflow-y-auto border-t border-amber-200/60 px-4 py-2 dark:border-amber-800/40">
+              {rejectedNotices.map((req) => {
+                const billNo = req.bill?.billNumber || req.billId.slice(0, 8);
+                return (
+                  <div
+                    key={req.id}
+                    className="flex flex-wrap items-center justify-between gap-2 text-sm text-amber-950 dark:text-amber-100"
                   >
-                    Resume
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-lg border border-amber-700/40 px-3 py-1 text-xs font-semibold hover:bg-amber-500/20"
-                    onClick={() => dismissRejection(req.id)}
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                    <p className="font-mono text-xs font-medium">{billNo}</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="rounded-lg bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800"
+                        onClick={() => {
+                          dismissRejection(req.id);
+                          void resumeSale(req.billId);
+                        }}
+                      >
+                        Resume
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg border border-amber-700/40 px-3 py-1 text-xs font-semibold hover:bg-amber-500/20"
+                        onClick={() => dismissRejection(req.id)}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
       {mode === "sales" ? (

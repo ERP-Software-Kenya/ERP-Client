@@ -1,6 +1,7 @@
 import type { FleetDriver, PaymentTiming, SaleType } from "../../../../types";
 import type { DeliveryInfo } from "../../checkout";
 import { fmt } from "../../posHelpers";
+import { FormSelect } from "../../../../components/FormSelect";
 
 const PAYMENT_TIMING: Array<{ value: PaymentTiming; label: string }> = [
   { value: "cod", label: "COD" },
@@ -113,18 +114,19 @@ export function PaymentLogisticsSection({
         {drivers.length > 0 && (
           <div className="w-44">
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Driver</label>
-            <select
+            <FormSelect
               value={selectedDriverId}
-              onChange={(e) => onDriverSelect(e.target.value)}
-              className={inputCls + " w-full"}
-            >
-              <option value="">— Select Driver —</option>
-              {drivers.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.firstName} {d.lastName}
-                </option>
-              ))}
-            </select>
+              onChange={onDriverSelect}
+              placeholder="— Select Driver —"
+              className="h-9 py-1.5"
+              options={[
+                { value: '', label: '— Select Driver —' },
+                ...drivers.map((d) => ({
+                  value: d.id,
+                  label: `${d.firstName} ${d.lastName}`.trim(),
+                })),
+              ]}
+            />
           </div>
         )}
 

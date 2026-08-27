@@ -200,7 +200,7 @@ export const MODULES: ModuleGroup[] = [
     icon: Settings,
     items: [
       //     { key: 'settings-general', title: 'General', path: '/platform-configurations', icon: Settings },
-      { key: 'settings-app-updates', title: 'App updates', path: '/settings/app', icon: ArrowUpCircle },
+      { key: 'settings-app-updates', title: 'Software updates', path: '/settings/app', icon: ArrowUpCircle },
       { key: 'settings-billing', title: 'Billing', path: '/settings/billing', icon: Percent },
       { key: 'settings-notifications', title: 'Notifications', path: '/settings/notifications', icon: Bell },
       //     { key: 'settings-tax', title: 'Tax', path: '/settings/tax', icon: Percent, disabled: true },
