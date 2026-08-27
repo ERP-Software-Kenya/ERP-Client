@@ -30,4 +30,18 @@ describe('buildSaleDocHtml receipt formal layout', () => {
     expect(html).toContain('Acme Traders');
     expect(html).toContain('https://cdn.example/logo.png');
   });
+
+  it('includes extra charges in the formal totals', () => {
+    const html = buildSaleDocHtml(
+      {
+        ...base,
+        extraCharges: [{ label: 'Delivery', amount: 5 }],
+        totalAmount: 25,
+      },
+      'receipt',
+    );
+
+    expect(html).toContain('<span>Extras</span>');
+    expect(html).toContain('$5.00');
+  });
 });

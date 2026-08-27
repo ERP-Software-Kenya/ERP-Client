@@ -11,6 +11,11 @@ export function billToPosReceipt(
     locationName?: string;
     partyLabel?: string;
     productLabel?: (productId: string) => string;
+    orgName?: string;
+    logoUrl?: string;
+    orgMeta?: string;
+    orgPhone?: string;
+    orgAddress?: string;
   } = {},
 ): PosReceipt {
   const items = bill.items ?? [];
@@ -19,6 +24,11 @@ export function billToPosReceipt(
     mode: 'sales',
     storeName: opts.locationName,
     partyLabel: opts.partyLabel,
+    orgName: opts.orgName,
+    logoUrl: opts.logoUrl,
+    orgMeta: opts.orgMeta,
+    orgPhone: opts.orgPhone,
+    orgAddress: opts.orgAddress,
     paymentMethod: bill.paymentMethod ?? undefined,
     saleType: bill.saleType ?? undefined,
     paymentTiming: bill.paymentTiming ?? undefined,

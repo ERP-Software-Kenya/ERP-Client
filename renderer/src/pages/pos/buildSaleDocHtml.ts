@@ -90,6 +90,7 @@ function formalReceiptLinesTable(receipt: PosReceipt) {
 function buildFormalReceiptHtml(receipt: PosReceipt): string {
   const title = receiptTitle(receipt);
   const orgName = receipt.orgName || receipt.storeName || '—';
+  const extrasTotal = receipt.extraCharges.reduce((sum, charge) => sum + charge.amount, 0);
   const logo = receipt.logoUrl
     ? `<img src="${esc(receipt.logoUrl)}" alt="" />`
     : '';
@@ -207,6 +208,11 @@ function buildFormalReceiptHtml(receipt: PosReceipt): string {
     <div class="foot">
       <div class="foot-row"><span>Subtotal</span><span>${fmt(receipt.subtotal)}</span></div>
       <div class="foot-row"><span>Tax</span><span>${fmt(receipt.taxAmount)}</span></div>
+      ${
+        extrasTotal
+          ? `<div class="foot-row"><span>Extras</span><span>${fmt(extrasTotal)}</span></div>`
+          : ''
+      }
       <div class="foot-row total"><span>Total</span><span class="bal">${fmt(receipt.totalAmount)}</span></div>
     </div>
 
