@@ -62,6 +62,11 @@ export interface PosReceipt {
   totalAmount: number;
   createdAt: string;
   synced: boolean;
+  orgName?: string;
+  logoUrl?: string;
+  orgMeta?: string;
+  orgPhone?: string;
+  orgAddress?: string;
 }
 
 export interface CheckoutResult {
