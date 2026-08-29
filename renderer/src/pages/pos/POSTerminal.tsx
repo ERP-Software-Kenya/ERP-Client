@@ -1146,7 +1146,6 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
                 extraCharges={extraCharges}
                 onQtyChange={handleLineQtyChange}
                 onRateChange={handleRateChange}
-                onTierSelect={handleTierSelect}
                 onRemoveLine={removeLine}
                 onRemoveCharge={removeCharge}
                 storeCode={stockLocation?.name?.slice(0, 1).toUpperCase()}

@@ -86,7 +86,7 @@ export function CustomerInfoSection({
               </select>
             </Field>
 
-            <Field label="Customer Status">
+            <Field label="Customer Status" hint="Change customer type to adjust price">
               <select
                 value={customerType}
                 onChange={(e) => onCustomerTypeChange(e.target.value as CustomerType)}
@@ -164,14 +164,23 @@ export function CustomerInfoSection({
 
 function Field({
   label,
+  hint,
   children,
 }: {
   label: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div>
-      <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
+      <div className="mb-1 flex items-center gap-1">
+        <label className="text-xs font-medium text-muted-foreground">{label}</label>
+        {hint && (
+          <span title={hint} className="flex h-3.5 w-3.5 cursor-default items-center justify-center rounded-full bg-muted-foreground/25 text-[9px] font-bold text-muted-foreground leading-none select-none">
+            !
+          </span>
+        )}
+      </div>
       {children}
     </div>
   );

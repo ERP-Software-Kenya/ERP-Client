@@ -2,7 +2,7 @@ import type { RefObject } from "react";
 import { AlertCircle, LayoutList, Minus, Plus, Scan, Trash2 } from "lucide-react";
 import type { Product, SaleType } from "../../../../types";
 import type { CheckoutResult } from "../../checkout";
-import { fmt, lineTotal, type BillLine, type ExtraCharge, type PriceTier } from "../../posHelpers";
+import { fmt, lineTotal, type BillLine, type ExtraCharge } from "../../posHelpers";
 import type { StockInfo } from "../../posStock";
 import { StockBadge } from "../StockBadge";
 import { StepList } from "../StepList";
@@ -22,7 +22,6 @@ export interface ProductDetailsSectionProps {
   extraCharges: ExtraCharge[];
   onQtyChange: (lineId: number, qty: number) => void;
   onRateChange: (lineId: number, rate: number) => void;
-  onTierSelect: (lineId: number, tier: PriceTier) => void;
   onRemoveLine: (id: number) => void;
   onRemoveCharge: (id: number) => void;
   storeCode?: string;
@@ -45,7 +44,6 @@ export function ProductDetailsSection({
   extraCharges,
   onQtyChange,
   onRateChange,
-  onTierSelect,
   onRemoveLine,
   onRemoveCharge,
   storeCode,
@@ -134,15 +132,26 @@ export function ProductDetailsSection({
                       {line.storeCode ?? storeCode ?? "—"}
                     </td>
                     <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => onQtyChange(line.id, Math.max(1, line.qty - 1))}
+                          onClick={() => onQtyChange(line.id, Math.max(0.001, line.qty - 1))}
                           className="rounded p-0.5 text-muted-foreground hover:bg-muted"
                         >
                           <Minus size={11} />
                         </button>
-                        <span className="w-7 text-center text-sm font-semibold tabular-nums">{line.qty}</span>
+                        <input
+                          type="number"
+                          min="0.001"
+                          step="any"
+                          value={line.qty}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            if (!isNaN(v) && v > 0) onQtyChange(line.id, v);
+                          }}
+                          className="w-14 text-center text-sm font-semibold text-foreground border border-border rounded px-1 py-0.5 outline-none focus:border-primary tabular-nums"
+                        />
                         <button
                           type="button"
                           onClick={() => onQtyChange(line.id, line.qty + 1)}
@@ -150,6 +159,10 @@ export function ProductDetailsSection({
                         >
                           <Plus size={11} />
                         </button>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground leading-none">
+                          Type qty or use ±
+                        </span>
                       </div>
                     </td>
                     <td className="px-3 py-2.5">
@@ -171,26 +184,15 @@ export function ProductDetailsSection({
                           className="w-24 rounded-lg border border-border bg-background px-2 py-1 text-sm tabular-nums outline-none focus:border-primary"
                         />
                       ) : (
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {(["p1", "p2", "p3", "p4"] as PriceTier[]).map((tier) => {
-                            const price = line[tier] ?? 0;
-                            const active = line.activeTier === tier;
-                            return price > 0 ? (
-                              <button
-                                key={tier}
-                                type="button"
-                                onClick={() => onTierSelect(line.id, tier)}
-                                title={tier.toUpperCase()}
-                                className={`rounded px-1.5 py-0.5 text-xs tabular-nums transition ${
-                                  active
-                                    ? "bg-primary text-primary-foreground font-semibold"
-                                    : "border border-border text-muted-foreground hover:bg-muted"
-                                }`}
-                              >
-                                {fmt(price)}
-                              </button>
-                            ) : null;
-                          })}
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-semibold tabular-nums text-foreground">
+                            {fmt(line.rate)}
+                          </span>
+                          {line.activeTier && (
+                            <span className="text-[10px] text-muted-foreground leading-none uppercase">
+                              {line.activeTier}
+                            </span>
+                          )}
                         </div>
                       )}
                     </td>
