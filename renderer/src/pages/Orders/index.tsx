@@ -1,430 +1,233 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useState } from 'react';
+import { Check, Info, ShoppingBag, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { AdvancedIdLookup } from '../../components/AdvancedIdLookup';
-import { ResourceSelect } from '../../components/ResourceSelect';
-import { RecentRecords } from '../../components/RecentRecords';
-import { FormDrawer, Field, FormSection } from '../../components/FormDrawer';
+import { Locations, Orders } from '../../api';
+import type { Customer, Order, Product } from '../../types';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Customers, get, Locations, Orders } from '../../api';
-import { useDebounce } from '../../hooks/useDebounce';
-import { formatEntityLabel } from '../../lib/entityLabel';
-import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from '../../lib/recentIds';
-import type { Customer, Order } from '../../types';
+import { OrderProductSearch } from './OrderProductSearch';
+import { OrderItemsTable, type OrderLineItem } from './OrderItemsTable';
+import { OrderSidePanel } from './OrderSidePanel';
 
-interface FormState {
-  locationId: string;
-  customerId: string;
-  customerLabel: string;
-  status: string;
-  subtotal: string;
-  taxAmount: string;
-  totalAmount: string;
-  paymentStatus: string;
+let lineSeq = 0;
+
+function nextId(): number {
+  lineSeq += 1;
+  return lineSeq;
 }
 
-const EMPTY_FORM: FormState = {
-  locationId: '',
-  customerId: '',
-  customerLabel: '',
-  status: '',
-  subtotal: '',
-  taxAmount: '',
-  totalAmount: '',
-  paymentStatus: '',
-};
+interface SuccessBannerProps {
+  order: Order;
+  onNewOrder: () => void;
+}
 
-function copyId(id: string) {
-  void navigator.clipboard.writeText(id).then(
-    () => toast.success('ID copied'),
-    () => toast.error('Could not copy ID'),
+function SuccessBanner({ order, onNewOrder }: SuccessBannerProps): React.JSX.Element {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-6">
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
+          <Check size={32} strokeWidth={2.5} />
+        </div>
+        <h2 className="text-xl font-semibold text-foreground">Order Created</h2>
+        <p className="font-mono text-sm text-muted-foreground">
+          {order.orderNumber ?? order.id.slice(0, 12).toUpperCase()}
+        </p>
+        {order.totalAmount != null && (
+          <p className="text-lg font-bold text-primary">
+            ${Number(order.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </p>
+        )}
+      </div>
+      <Button onClick={onNewOrder} className="px-8">
+        New Order
+      </Button>
+    </div>
   );
 }
 
-export default function OrdersPage() {
-  const recent = useRecentIds(RECENT_NS.orders);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [lastCreated, setLastCreated] = useState<Order | null>(null);
-  const [lookupId, setLookupId] = useState('');
-  const [activeId, setActiveId] = useState<string | undefined>();
-  const [customerQuery, setCustomerQuery] = useState('');
-  const debouncedCustomerQuery = useDebounce(customerQuery, 300);
+function GuidanceBanner({ onDismiss }: { onDismiss: () => void }): React.JSX.Element {
+  const navigate = useNavigate();
+  return (
+    <div className="flex shrink-0 items-start gap-3 border-b border-blue-200 bg-blue-50 px-6 py-3 dark:border-blue-900/40 dark:bg-blue-950/30">
+      <Info size={16} className="mt-0.5 shrink-0 text-blue-500" />
+      <div className="flex-1 text-sm text-blue-800 dark:text-blue-300">
+        <span className="font-semibold">This screen is for delivery orders only.</span>{' '}
+        Orders created here go through warehouse packing and driver dispatch before reaching the customer.{' '}
+        For an immediate walk-in or counter sale,{' '}
+        <button
+          type="button"
+          onClick={() => navigate('/pos/sales')}
+          className="inline-flex items-center gap-1 font-semibold underline underline-offset-2 hover:text-blue-600"
+        >
+          <ShoppingBag size={13} />
+          use New Sale instead
+        </button>
+        .
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="shrink-0 rounded p-0.5 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/40"
+        aria-label="Dismiss"
+      >
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
 
-  const closeDrawer = () => setDrawerOpen(false);
+export default function OrdersPage(): React.JSX.Element {
+  const [items, setItems] = useState<OrderLineItem[]>([]);
+  const [locationId, setLocationId] = useState('');
+  const [customerId, setCustomerId] = useState('');
+  const [customerInfo, setCustomerInfo] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
+  const { data: locations = [] } = Locations.useList();
   const createMutation = Orders.useCreate();
-  const { data: lookedUp, isLoading, error } = Orders.useGet(activeId);
-  const { data: stores } = Locations.useList();
-  const customerIdForLabel = lookedUp?.customerId ?? lastCreated?.customerId;
-  const { data: linkedCustomer } = Customers.useGet(customerIdForLabel);
-  const { data: customerSearch } = Customers.useSearch({
-    page: 1,
-    limit: 8,
-    search:
-      drawerOpen && !form.customerId && debouncedCustomerQuery.trim().length >= 2
-        ? debouncedCustomerQuery.trim()
-        : undefined,
-    enabled: drawerOpen && !form.customerId && debouncedCustomerQuery.trim().length >= 2,
-  });
 
-  const storeName = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const s of stores ?? []) {
-      m.set(s.id, formatEntityLabel({ name: s.name, code: s.code, id: s.id }));
+  const subtotal = items.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
+  const taxAmount = 0;
+  const totalAmount = subtotal + taxAmount;
+
+  const handleAddProduct = (p: Product) => {
+    const price = Number(p.retailPrice ?? 0);
+    const existing = items.find((it) => it.productId === p.id);
+    if (existing) {
+      setItems((prev) => prev.map((it) => it.productId === p.id ? { ...it, qty: it.qty + 1 } : it));
+    } else {
+      setItems((prev) => [
+        ...prev,
+        { id: nextId(), productId: p.id, name: p.name ?? 'Unnamed product', unitPrice: price, qty: 1 },
+      ]);
     }
-    return m;
-  }, [stores]);
-
-  const customerLabelFor = useCallback(
-    (customerId: string | undefined) => {
-      if (!customerId) return '—';
-      if (linkedCustomer?.id === customerId) {
-        return formatEntityLabel({
-          name: linkedCustomer.name,
-          phone: linkedCustomer.phone,
-          id: linkedCustomer.id,
-        });
-      }
-      return formatEntityLabel({ id: customerId });
-    },
-    [linkedCustomer],
-  );
-
-  const recentQueries = useQueries({
-    queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
-      queryKey: ['orders', e.id] as const,
-      queryFn: () => get<Order>(`/api/v1/orders/${e.id}`),
-      staleTime: 60_000,
-      retry: false,
-    })),
-  });
-
-  const listRows = useMemo(
-    () =>
-      recent.entries.map((e, i) => {
-        const q = i < HYDRATE_LIMIT ? recentQueries[i] : undefined;
-        const data = q?.data;
-        return {
-          id: e.id,
-          label: e.label,
-          savedAt: e.savedAt,
-          orderNumber: data?.orderNumber,
-          status: data?.status,
-          paymentStatus: data?.paymentStatus,
-          loading: q?.isLoading ?? false,
-          failed: !!q?.isError,
-        };
-      }),
-    [recent.entries, recentQueries],
-  );
-
-  useEffect(() => {
-    const loadedOrder = lookedUp;
-    if (!loadedOrder || loadedOrder.id !== activeId) return;
-    recent.push(
-      loadedOrder.id,
-      loadedOrder.orderNumber ?? customerLabelFor(loadedOrder.customerId),
-    );
-  }, [activeId, customerLabelFor, lookedUp, recent.push]);
-
-  const loadById = (id: string) => {
-    const trimmed = id.trim();
-    if (!trimmed) {
-      toast.error('Enter an order ID');
-      return;
-    }
-    setActiveId(trimmed);
-    setLookupId(trimmed);
-    recent.push(trimmed);
   };
 
-  const loadOrder = () => loadById(lookupId);
+  const handleQtyChange = (id: number, qty: number) => {
+    setItems((prev) => prev.map((it) => it.id === id ? { ...it, qty } : it));
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRemove = (id: number) => {
+    setItems((prev) => prev.filter((it) => it.id !== id));
+  };
+
+  const handleCustomerSelect = (c: Customer) => {
+    setCustomerId(c.id);
+    setCustomerInfo([c.name, c.phone].filter(Boolean).join(' · '));
+  };
+
+  const handleClearCustomer = () => {
+    setCustomerId('');
+    setCustomerInfo('');
+  };
+
+  const handleSubmit = () => {
+    if (!locationId) { toast.error('Select a location'); return; }
+    if (!customerId) { toast.error('Select a customer'); return; }
+    if (items.length === 0) { toast.error('Add at least one product'); return; }
+
     createMutation.mutate(
       {
-        locationId: form.locationId || undefined,
-        customerId: form.customerId || undefined,
-        status: form.status || undefined,
-        subtotal: form.subtotal ? Number(form.subtotal) : undefined,
-        taxAmount: form.taxAmount ? Number(form.taxAmount) : undefined,
-        totalAmount: form.totalAmount ? Number(form.totalAmount) : undefined,
-        paymentStatus: form.paymentStatus || undefined,
-      },
+        locationId,
+        customerId,
+        status: 'confirmed',
+        subtotal,
+        taxAmount,
+        totalAmount,
+        paymentStatus: 'UNPAID',
+      } as Partial<Order>,
       {
         onSuccess: (created) => {
-          setLastCreated(created);
-          setActiveId(created.id);
-          setLookupId(created.id);
-          recent.push(
-            created.id,
-            created.orderNumber ?? form.customerLabel ?? customerLabelFor(created.customerId),
-          );
-          closeDrawer();
-          setForm(EMPTY_FORM);
+          setCreatedOrder(created);
         },
       },
     );
   };
 
+  const handleNewOrder = () => {
+    setItems([]);
+    setLocationId('');
+    setCustomerId('');
+    setCustomerInfo('');
+    setDeliveryAddress('');
+    setCreatedOrder(null);
+    setBannerDismissed(false);
+  };
+
+  const canSubmit = !!locationId && !!customerId && items.length > 0 && !createMutation.isPending;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Sales Orders</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Create orders and reopen recent orders saved in this browser.
-          </p>
-        </div>
-        <Button
-          onClick={() => {
-            setForm(EMPTY_FORM);
-            setCustomerQuery('');
-            setDrawerOpen(true);
-          }}
-        >
-          New Sales Order
-        </Button>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-muted">
+      {/* Header */}
+      <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-6 py-3">
+        <h1 className="text-base font-semibold text-foreground">Sales Orders</h1>
+        {createdOrder && (
+          <Button variant="outline" size="sm" onClick={handleNewOrder}>
+            New Order
+          </Button>
+        )}
       </div>
 
-      <RecentRecords
-        title="Recent orders"
-        emptyHint="No recent orders yet. Create one or use Advanced load by ID — it will appear here."
-        rows={listRows}
-        columns={[
-          {
-            key: 'number',
-            header: 'Number',
-            render: (r) => r.orderNumber || r.label || '—',
-          },
-          {
-            key: 'status',
-            header: 'Status',
-            render: (r) => (r.loading ? '…' : r.failed ? 'unavailable' : r.status ?? '—'),
-          },
-          {
-            key: 'payment',
-            header: 'Payment',
-            render: (r) => (r.loading ? '…' : r.failed ? 'unavailable' : r.paymentStatus ?? '—'),
-          },
-          {
-            key: 'saved',
-            header: 'Saved',
-            render: (r) => new Date(r.savedAt).toLocaleString(),
-          },
-          {
-            key: 'actions',
-            header: '',
-            render: (r) => (
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant="outline" onClick={() => loadById(r.id)}>
-                  Open
-                </Button>
-                <Button type="button" size="sm" variant="ghost" onClick={() => recent.remove(r.id)}>
-                  Remove
-                </Button>
-              </div>
-            ),
-          },
-        ]}
-        rowKey={(r) => r.id}
-        onClear={recent.clear}
-      />
-
-      <AdvancedIdLookup
-        entityLabel="order"
-        value={lookupId}
-        onChange={setLookupId}
-        onLoad={loadOrder}
-      />
-
-      {activeId && (
-        <FormSection title="Order">
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : error || !lookedUp ? (
-            <p className="text-sm text-destructive">
-              {error instanceof Error ? error.message : 'Order not found.'}
-            </p>
-          ) : (
-            <div className="grid gap-2 text-sm sm:grid-cols-2">
-              <p className="flex flex-wrap items-center gap-2">
-                <span className="text-muted-foreground">ID:</span> {lookedUp.id}
-                <Button type="button" variant="outline" size="sm" onClick={() => copyId(lookedUp.id)}>
-                  Copy
-                </Button>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Order #:</span> {lookedUp.orderNumber ?? '—'}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Location:</span>{' '}
-                {lookedUp.locationId
-                  ? storeName.get(lookedUp.locationId) ?? formatEntityLabel({ id: lookedUp.locationId })
-                  : '—'}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Customer:</span>{' '}
-                {customerLabelFor(lookedUp.customerId)}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Status:</span> {lookedUp.status ?? '—'}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Total:</span>{' '}
-                {lookedUp.totalAmount != null ? lookedUp.totalAmount : '—'}
-              </p>
-              <p>
-                <span className="text-muted-foreground">Payment:</span> {lookedUp.paymentStatus ?? '—'}
-              </p>
-            </div>
-          )}
-        </FormSection>
+      {/* Guidance banner */}
+      {!bannerDismissed && !createdOrder && (
+        <GuidanceBanner onDismiss={() => setBannerDismissed(true)} />
       )}
 
-      {lastCreated && (
-        <div className="rounded-lg border border-border bg-card p-4 text-sm space-y-2">
-          <div className="font-medium">Last created order</div>
-          <div>Order #: {lastCreated.orderNumber}</div>
-          <div className="flex flex-wrap items-center gap-2">
-            ID: {lastCreated.id}
-            <Button type="button" variant="outline" size="sm" onClick={() => copyId(lastCreated.id)}>
-              Copy
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <FormDrawer
-        open={drawerOpen}
-        onClose={closeDrawer}
-        title="New Sales Order"
-        footer={
+      {/* Body */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {createdOrder ? (
+          <SuccessBanner order={createdOrder} onNewOrder={handleNewOrder} />
+        ) : (
           <>
-            <Button
-              type="submit"
-              form="order-form"
-              disabled={createMutation.isPending || !form.locationId || !form.customerId}
-            >
-              {createMutation.isPending ? 'Creating…' : 'Create'}
-            </Button>
-            <Button type="button" variant="outline" onClick={closeDrawer}>
-              Cancel
-            </Button>
-          </>
-        }
-      >
-        <form id="order-form" onSubmit={handleSubmit} className="space-y-4">
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
-            Live Swagger requires <code className="text-[10px]">locationId</code> +{' '}
-            <code className="text-[10px]">customerId</code>.
-          </div>
-          <Field label="Location" required>
-            <ResourceSelect
-              resource={Locations}
-              getLabel={(s) => formatEntityLabel({ name: s.name, id: s.id })}
-              value={form.locationId}
-              onValueChange={(v) => setForm({ ...form, locationId: v })}
-              placeholder="Select location…"
-            />
-          </Field>
-          <Field label="Customer (search)" required>
-            {form.customerId ? (
-              <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                <span>{form.customerLabel || formatEntityLabel({ id: form.customerId })}</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setForm({ ...form, customerId: '', customerLabel: '' })}
-                >
-                  Clear
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <Input
-                  value={customerQuery}
-                  onChange={(e) => setCustomerQuery(e.target.value)}
-                  placeholder="Type name to search…"
-                />
-                {(customerSearch?.items?.length ?? 0) > 0 && (
-                  <div className="max-h-36 overflow-y-auto rounded-md border border-border custom-scrollbar">
-                    {(customerSearch?.items ?? []).map((c: Customer) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
-                        onClick={() => {
-                          setForm({
-                            ...form,
-                            customerId: c.id,
-                            customerLabel: formatEntityLabel({
-                              name: c.name,
-                              phone: c.phone,
-                              id: c.id,
-                            }),
-                          });
-                          setCustomerQuery('');
-                        }}
-                      >
-                        {c.name || 'Unnamed'}
-                        {c.phone ? (
-                          <span className="ml-2 text-xs text-muted-foreground">{c.phone}</span>
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
+            {/* Left: product search */}
+            <OrderProductSearch onAddProduct={handleAddProduct} />
+
+            {/* Center: order items */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <div className="flex shrink-0 items-center border-b border-border bg-card px-5 py-3">
+                <span className="font-semibold text-foreground">Order Items</span>
+                {items.length > 0 && (
+                  <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
+                    {items.length} item{items.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {items.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setItems([])}
+                    className="ml-auto rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                  >
+                    Clear
+                  </button>
                 )}
               </div>
-            )}
-          </Field>
-          <Field label="Status">
-            <Input
-              placeholder="e.g. PENDING"
-              value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
+              <OrderItemsTable items={items} onQtyChange={handleQtyChange} onRemove={handleRemove} />
+            </div>
+
+            {/* Right: sidebar */}
+            <OrderSidePanel
+              locations={locations}
+              locationId={locationId}
+              onLocationChange={setLocationId}
+              customerId={customerId}
+              customerInfo={customerInfo}
+              onCustomerInfoChange={(v) => { setCustomerInfo(v); setCustomerId(''); }}
+              onCustomerSelect={handleCustomerSelect}
+              onClearCustomer={handleClearCustomer}
+              deliveryAddress={deliveryAddress}
+              onDeliveryAddressChange={setDeliveryAddress}
+              subtotal={subtotal}
+              taxAmount={taxAmount}
+              totalAmount={totalAmount}
+              canSubmit={canSubmit}
+              isSubmitting={createMutation.isPending}
+              onSubmit={handleSubmit}
             />
-          </Field>
-          <Field label="Subtotal">
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.subtotal}
-              onChange={(e) => setForm({ ...form, subtotal: e.target.value })}
-            />
-          </Field>
-          <Field label="Tax Amount">
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.taxAmount}
-              onChange={(e) => setForm({ ...form, taxAmount: e.target.value })}
-            />
-          </Field>
-          <Field label="Total Amount">
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.totalAmount}
-              onChange={(e) => setForm({ ...form, totalAmount: e.target.value })}
-            />
-          </Field>
-          <Field label="Payment Status">
-            <Input
-              placeholder="e.g. UNPAID"
-              value={form.paymentStatus}
-              onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}
-            />
-          </Field>
-        </form>
-      </FormDrawer>
+          </>
+        )}
+      </div>
     </div>
   );
 }
