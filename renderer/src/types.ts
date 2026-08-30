@@ -1150,3 +1150,45 @@ export interface DashboardAnalyticsParams {
   locationId?: string;
 }
 
+// ── Field Operations / Dispatch ───────────────────────────────────────────────
+
+export interface PackedOrder {
+  id: string;
+  orderNumber: string;
+  customerId: string;
+  customerName: string;
+  deliveryAddress: string;
+  pickerName: string;
+  packedAt: string;
+  itemCount: number;
+  locationId: string;
+  organizationId: string;
+}
+
+export interface TripStop {
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  deliveryAddress: string;
+  sequence: number;
+}
+
+export interface CreateTripPayload {
+  driverId: string;
+  vehicleId: string;
+  stops: Array<{ orderId: string; sequence: number }>;
+}
+
+export interface LiveDriverLocation {
+  driverId: string;
+  driverName: string;
+  vehicleId: string;
+  vehiclePlate: string;
+  latitude: number;
+  longitude: number;
+  tripId: string;
+  stopsRemaining: number;
+  status: 'in_transit' | 'delayed' | 'completed';
+  lastUpdated: string;
+}
+

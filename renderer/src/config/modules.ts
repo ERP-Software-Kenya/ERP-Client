@@ -164,6 +164,8 @@ export const MODULES: ModuleGroup[] = [
       { key: 'fleet-trips', title: 'Trips', path: '/fleet/trips', icon: Route },
       { key: 'fleet-maintenance', title: 'Maintenance', path: '/fleet/maintenance', icon: Wrench },
       { key: 'fleet-expenses', title: 'Vehicle Expenses', path: '/fleet/expenses', icon: Fuel },
+      { key: 'fleet-dispatch', title: 'Dispatch Center', path: '/fleet/dispatch', icon: PackageCheck },
+      { key: 'fleet-live-map', title: 'Live Fleet Map', path: '/fleet/live-map', icon: MapPin },
     ],
   },
   {
