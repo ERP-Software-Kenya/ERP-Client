@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Check, Info, ShoppingBag, X } from 'lucide-react';
+import { Check, Info, ShoppingBag, Store, Truck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Locations, Orders } from '../../api';
+import { patch } from '../../lib/http';
+import { useAuth } from '../../context/AuthContext';
 import type { Customer, Order, Product } from '../../types';
 import { Button } from '../../components/ui/button';
 import { OrderProductSearch } from './OrderProductSearch';
@@ -22,6 +24,23 @@ interface SuccessBannerProps {
 }
 
 function SuccessBanner({ order, onNewOrder }: SuccessBannerProps): React.JSX.Element {
+  const [fulfilling, setFulfilling] = useState(false);
+  const [fulfilled, setFulfilled] = useState(false);
+  const { user } = useAuth();
+
+  const handleFulfillFromStore = async (): Promise<void> => {
+    setFulfilling(true);
+    try {
+      await patch(`/api/v1/warehouse/orders/${order.id}/fulfill-from-store`, { userId: user?.id ?? '' });
+      setFulfilled(true);
+      toast.success('Order marked as packed — ready for dispatch');
+    } catch {
+      toast.error('Failed to fulfill from store');
+    } finally {
+      setFulfilling(false);
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6">
       <div className="flex flex-col items-center gap-3">
@@ -38,9 +57,39 @@ function SuccessBanner({ order, onNewOrder }: SuccessBannerProps): React.JSX.Ele
           </p>
         )}
       </div>
-      <Button onClick={onNewOrder} className="px-8">
-        New Order
-      </Button>
+
+      {!fulfilled ? (
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-sm text-muted-foreground">How should this order be fulfilled?</p>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={handleFulfillFromStore}
+              disabled={fulfilling}
+              className="flex items-center gap-2"
+            >
+              <Store size={15} />
+              {fulfilling ? 'Marking…' : 'Fulfill from Store'}
+            </Button>
+            <Button onClick={onNewOrder} variant="outline" className="flex items-center gap-2">
+              <Truck size={15} />
+              Send to Warehouse
+            </Button>
+          </div>
+          <button
+            type="button"
+            onClick={onNewOrder}
+            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            New Order
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3">
+          <p className="text-sm font-medium text-emerald-600">Packed — ready for dispatch</p>
+          <Button onClick={onNewOrder} className="px-8">New Order</Button>
+        </div>
+      )}
     </div>
   );
 }
