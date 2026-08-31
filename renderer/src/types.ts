@@ -62,11 +62,28 @@ export interface City {
 
 // ── Addresses ─────────────────────────────────────────────────────────────────
 
+export interface Branch {
+  id: string;
+  organizationId: string;
+  name: string;
+  code?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  phone?: string;
+  isActive: boolean;
+  locationIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type LocationType = 'store' | 'warehouse';
 
 export interface Location {
   id: string;
   organizationId?: string;
+  branchId?: string;
   name: string;
   type: LocationType;
   imageKey?: string;
@@ -620,11 +637,9 @@ export interface ActivityLog {
   createdAt?: string;
 }
 
-// Verified 2026-07-28 against role.entity.ts: `name` is a Postgres enum (4 fixed
-// values, unique) — free text will fail. organizationId/permissions are required by
-// CreateRoleRequest validation but RoleEntity has no matching columns, so the backend
-// silently discards them after accepting the request.
-export const ROLE_NAMES = ['super_admin', 'org_admin', 'store_manager', 'store_staff'] as const;
+// Verified against role.entity.ts: `name` is a Postgres enum (6 fixed values, unique).
+// CreateRoleRequest validation requires organizationId/permissions but RoleEntity has no matching columns.
+export const ROLE_NAMES = ['super_admin', 'org_admin', 'org_manager', 'branch_manager', 'store_manager', 'store_staff'] as const;
 
 export interface Role {
   id: string;
@@ -640,6 +655,7 @@ export interface UserRole {
   userId?: string;
   roleId?: string;
   locationId?: string;
+  branchId?: string;
   createdAt?: string;
 }
 

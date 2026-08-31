@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import type {
   Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
   Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, Expense, PurchaseItem,
-  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
+  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location, Branch,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
@@ -430,6 +430,7 @@ export function useListUserDirectory(organizationId?: string) {
   });
 }
 export const Locations = createResource<Location>('/api/v1/locations', 'locations', 'Location');
+export const Branches = createResource<Branch>('/api/v1/branches', 'branches', 'Branch');
 // ── Inventory cluster (hook-based) ─────────────────────────────────────────────
 
 export function useCategoryParents(enabled = true) {
