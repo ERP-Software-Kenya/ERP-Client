@@ -3,7 +3,7 @@ import { FormDrawer, Field } from '../../components/FormDrawer';
 import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { UserRoles, Branches, Locations, useListUserRoles, useListRoles, useListUserDirectory } from '../../api';
+import { UserRoles, Branches, Locations, useListUserRoles, useListRoles, useListUserDirectory, useUpdateUserRole } from '../../api';
 import { loadErrorMessage } from '../../lib/api-error';
 import type { UserRole } from '../../types';
 
@@ -14,10 +14,12 @@ interface FormState {
   branchId: string;
 }
 
-const EMPTY: FormState = { userId: '', roleId: '', locationId: '', branchId: '' };
+const ORG_WIDE = '__org_wide__';
+const EMPTY: FormState = { userId: '', roleId: '', locationId: ORG_WIDE, branchId: '' };
 
 export default function UserRolesPage(): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editing, setEditing] = useState<UserRole | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [page, setPage] = useState(1);
 
@@ -27,6 +29,7 @@ export default function UserRolesPage(): React.JSX.Element {
   const { data: locations = [] } = Locations.useList();
   const { data: branches = [] } = Branches.useList();
   const createMutation = UserRoles.useCreate();
+  const updateMutation = useUpdateUserRole();
 
   const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r.name ?? r.id])), [roles]);
   const branchById = useMemo(() => new Map(branches.map((b) => [b.id, b.name])), [branches]);
@@ -34,29 +37,66 @@ export default function UserRolesPage(): React.JSX.Element {
     () => new Map(users.map((u) => [u.id, [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id])),
     [users],
   );
+  const locationById = useMemo(() => new Map(locations.map((l) => [l.id, l.name])), [locations]);
 
   const selectedRoleName = form.roleId ? roleById.get(form.roleId) : undefined;
   const isBranchManagerRole = selectedRoleName === 'branch_manager';
 
-  const closeDrawer = (): void => setDrawerOpen(false);
+  const closeDrawer = (): void => {
+    setDrawerOpen(false);
+    setEditing(null);
+    setForm(EMPTY);
+  };
+
+  const openCreate = (): void => {
+    setEditing(null);
+    setForm(EMPTY);
+    setDrawerOpen(true);
+  };
+
+  const openEdit = (row: UserRole): void => {
+    setEditing(row);
+    setForm({
+      userId: row.userId ?? '',
+      roleId: row.roleId ?? '',
+      locationId: row.locationId || ORG_WIDE,
+      branchId: row.branchId ?? '',
+    });
+    setDrawerOpen(true);
+  };
+
+  const saving = createMutation.isPending || updateMutation.isPending;
 
   const handleSubmit = (ev: React.FormEvent): void => {
     ev.preventDefault();
     if (!form.userId || !form.roleId) return;
+    const locationId = form.locationId === ORG_WIDE ? undefined : form.locationId;
+    const onSuccess = () => {
+      void refetch();
+      closeDrawer();
+    };
+    if (editing) {
+      updateMutation.mutate(
+        {
+          id: editing.id,
+          body: {
+            roleId: form.roleId,
+            locationId: isBranchManagerRole ? null : (locationId ?? null),
+            branchId: isBranchManagerRole ? (form.branchId || null) : null,
+          } as Partial<UserRole>,
+        },
+        { onSuccess },
+      );
+      return;
+    }
     createMutation.mutate(
       {
         userId: form.userId,
         roleId: form.roleId,
-        locationId: isBranchManagerRole ? undefined : (form.locationId || undefined),
+        locationId: isBranchManagerRole ? undefined : locationId,
         branchId: isBranchManagerRole ? (form.branchId || undefined) : undefined,
       } as Partial<UserRole>,
-      {
-        onSuccess: () => {
-          void refetch();
-          closeDrawer();
-          setForm(EMPTY);
-        },
-      },
+      { onSuccess },
     );
   };
 
@@ -88,10 +128,7 @@ export default function UserRolesPage(): React.JSX.Element {
             label: 'Scope',
             render: (r) => {
               if (r.branchId) return branchById.get(r.branchId) ?? r.branchId;
-              if (r.locationId) {
-                const loc = locations.find((l) => l.id === r.locationId);
-                return loc?.name ?? r.locationId;
-              }
+              if (r.locationId) return locationById.get(r.locationId) ?? r.locationId;
               return 'Org-wide';
             },
           },
@@ -109,27 +146,24 @@ export default function UserRolesPage(): React.JSX.Element {
         onPageChange={setPage}
         hideSearch
         onRefetch={() => void refetch()}
-        onAdd={() => setDrawerOpen(true)}
+        onAdd={openCreate}
         addLabel="New Assignment"
+        isAdmin
+        onEdit={openEdit}
       />
 
       <FormDrawer
         open={drawerOpen}
         onClose={closeDrawer}
-        title="New User Role Assignment"
+        title={editing ? 'Edit User Role Assignment' : 'New User Role Assignment'}
         footer={
           <>
             <Button
               type="submit"
               form="user-role-form"
-              disabled={
-                createMutation.isPending
-                || !form.userId
-                || !form.roleId
-                || (isBranchManagerRole && !form.branchId)
-              }
+              disabled={saving || !form.userId || !form.roleId || (isBranchManagerRole && !form.branchId)}
             >
-              {createMutation.isPending ? 'Creating…' : 'Assign'}
+              {saving ? 'Saving…' : editing ? 'Save' : 'Assign'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer}>Cancel</Button>
           </>
@@ -137,7 +171,11 @@ export default function UserRolesPage(): React.JSX.Element {
       >
         <form id="user-role-form" onSubmit={handleSubmit} className="space-y-4">
           <Field label="User" required>
-            <Select value={form.userId || undefined} onValueChange={(v) => setForm((f) => ({ ...f, userId: v }))}>
+            <Select
+              value={form.userId || undefined}
+              onValueChange={(v) => setForm((f) => ({ ...f, userId: v }))}
+              disabled={!!editing}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select user…" />
               </SelectTrigger>
@@ -153,13 +191,13 @@ export default function UserRolesPage(): React.JSX.Element {
           <Field label="Role" required>
             <Select
               value={form.roleId || undefined}
-              onValueChange={(v) => setForm((f) => ({ ...f, roleId: v, locationId: '', branchId: '' }))}
+              onValueChange={(v) => setForm((f) => ({ ...f, roleId: v, locationId: ORG_WIDE, branchId: '' }))}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select role…" />
               </SelectTrigger>
               <SelectContent>
-                {roles.map((r) => (
+                {roles.filter((r) => r.name !== 'super_admin').map((r) => (
                   <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -182,15 +220,16 @@ export default function UserRolesPage(): React.JSX.Element {
               </Select>
             </Field>
           ) : (
-            <Field label="Scope to store" hint="Leave blank for an org-wide role.">
+            <Field label="Scope to store" hint="Org-wide means every store in the organisation.">
               <Select
-                value={form.locationId || undefined}
+                value={form.locationId || ORG_WIDE}
                 onValueChange={(v) => setForm((f) => ({ ...f, locationId: v }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Org-wide (all stores)" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={ORG_WIDE}>Org-wide (all stores)</SelectItem>
                   {locations.map((l) => (
                     <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
                   ))}
