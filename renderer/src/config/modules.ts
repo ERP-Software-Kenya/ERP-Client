@@ -98,7 +98,7 @@ export const MODULES: ModuleGroup[] = [
       { key: 'customers', title: 'Customers', path: '/customers', icon: Users2 },
       { key: 'creditors', title: 'Creditors', path: '/sales/creditors', icon: CreditCard },
       // { key: 'quotations', title: 'Quotations', path: '/sales/quotations', icon: FileText, disabled: true },
-      // { key: 'orders', title: 'Sales Orders', path: '/orders', icon: ClipboardList },
+      { key: 'orders', title: 'Sales Orders', path: '/orders', icon: ClipboardList },
       // { key: 'dispatch', title: 'Dispatch', path: '/sales/dispatch', icon: Truck, disabled: true },
       // { key: 'invoices', title: 'Invoices', path: '/invoices', icon: Receipt },
       // { key: 'sales-returns', title: 'Returns', path: '/item-returns', icon: RotateCcw },
@@ -165,6 +165,8 @@ export const MODULES: ModuleGroup[] = [
       { key: 'fleet-trips', title: 'Trips', path: '/fleet/trips', icon: Route },
       { key: 'fleet-maintenance', title: 'Maintenance', path: '/fleet/maintenance', icon: Wrench },
       { key: 'fleet-expenses', title: 'Vehicle Expenses', path: '/fleet/expenses', icon: Fuel },
+      { key: 'fleet-dispatch', title: 'Dispatch Center', path: '/fleet/dispatch', icon: PackageCheck },
+      { key: 'fleet-live-map', title: 'Live Fleet Map', path: '/fleet/live-map', icon: MapPin },
     ],
   },
   {

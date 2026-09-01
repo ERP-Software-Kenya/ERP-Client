@@ -70,6 +70,9 @@ const FleetDriversPage = lazy(() => import('./pages/Fleet/Drivers'));
 const FleetTripsPage = lazy(() => import('./pages/Fleet/Trips'));
 const FleetMaintenancePage = lazy(() => import('./pages/Fleet/Maintenance'));
 const FleetExpensesPage = lazy(() => import('./pages/Fleet/Expenses'));
+const DispatchCenter = lazy(() => import('./pages/Fleet/DispatchCenter'));
+const PlanTrip = lazy(() => import('./pages/Fleet/PlanTrip'));
+const LiveFleetMap = lazy(() => import('./pages/Fleet/LiveFleetMap'));
 const SalesList = lazy(() => import('./pages/SalesList'));
 const SalesBilling = lazy(() => import('./pages/pos/SalesBilling'));
 const PurchaseBilling = lazy(() => import('./pages/pos/PurchaseBilling'));
@@ -166,6 +169,9 @@ function App() {
             <Route path="fleet/trips" element={<FleetTripsPage />} />
             <Route path="fleet/maintenance" element={<FleetMaintenancePage />} />
             <Route path="fleet/expenses" element={<FleetExpensesPage />} />
+            <Route path="fleet/dispatch" element={<DispatchCenter />} />
+            <Route path="fleet/plan-trip" element={<PlanTrip />} />
+            <Route path="fleet/live-map" element={<LiveFleetMap />} />
             <Route path="activity-logs" element={<ActivityLogs />} />
             <Route path="audit-log" element={<AuditLog />} />
             <Route path="expenses" element={<Expenses />} />

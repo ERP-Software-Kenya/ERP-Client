@@ -64,6 +64,7 @@ export function useCentrifugo(user: MeResponse | null): void {
       const title = payload.title ?? 'New notification';
       toast(title, { description: payload.body });
       showOsNotification(title, payload.body);
+      window.dispatchEvent(new CustomEvent('centrifugo:publication', { detail: payload }));
     };
 
     const userSub = attachSub(cf, `user_${userId}`, onPublication);
