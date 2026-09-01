@@ -3,7 +3,7 @@ import { FormDrawer, Field } from '../../components/FormDrawer';
 import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { UserRoles, Locations, useListUserRoles, useListRoles, useListUserDirectory, useUpdateUserRole } from '../../api';
+import { UserRoles, Branches, Locations, useListUserRoles, useListRoles, useListUserDirectory, useUpdateUserRole } from '../../api';
 import { loadErrorMessage } from '../../lib/api-error';
 import type { UserRole } from '../../types';
 
@@ -11,10 +11,11 @@ interface FormState {
   userId: string;
   roleId: string;
   locationId: string;
+  branchId: string;
 }
 
 const ORG_WIDE = '__org_wide__';
-const EMPTY: FormState = { userId: '', roleId: '', locationId: ORG_WIDE };
+const EMPTY: FormState = { userId: '', roleId: '', locationId: ORG_WIDE, branchId: '' };
 
 export default function UserRolesPage(): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -26,15 +27,20 @@ export default function UserRolesPage(): React.JSX.Element {
   const { data: roles = [] } = useListRoles();
   const { data: users = [] } = useListUserDirectory();
   const { data: locations = [] } = Locations.useList();
+  const { data: branches = [] } = Branches.useList();
   const createMutation = UserRoles.useCreate();
   const updateMutation = useUpdateUserRole();
 
   const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r.name ?? r.id])), [roles]);
+  const branchById = useMemo(() => new Map(branches.map((b) => [b.id, b.name])), [branches]);
   const userById = useMemo(
     () => new Map(users.map((u) => [u.id, [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email || u.id])),
     [users],
   );
   const locationById = useMemo(() => new Map(locations.map((l) => [l.id, l.name])), [locations]);
+
+  const selectedRoleName = form.roleId ? roleById.get(form.roleId) : undefined;
+  const isBranchManagerRole = selectedRoleName === 'branch_manager';
 
   const closeDrawer = (): void => {
     setDrawerOpen(false);
@@ -54,6 +60,7 @@ export default function UserRolesPage(): React.JSX.Element {
       userId: row.userId ?? '',
       roleId: row.roleId ?? '',
       locationId: row.locationId || ORG_WIDE,
+      branchId: row.branchId ?? '',
     });
     setDrawerOpen(true);
   };
@@ -70,13 +77,25 @@ export default function UserRolesPage(): React.JSX.Element {
     };
     if (editing) {
       updateMutation.mutate(
-        { id: editing.id, body: { roleId: form.roleId, locationId: locationId ?? null } as Partial<UserRole> },
+        {
+          id: editing.id,
+          body: {
+            roleId: form.roleId,
+            locationId: isBranchManagerRole ? null : (locationId ?? null),
+            branchId: isBranchManagerRole ? (form.branchId || null) : null,
+          } as Partial<UserRole>,
+        },
         { onSuccess },
       );
       return;
     }
     createMutation.mutate(
-      { userId: form.userId, roleId: form.roleId, locationId } as Partial<UserRole>,
+      {
+        userId: form.userId,
+        roleId: form.roleId,
+        locationId: isBranchManagerRole ? undefined : locationId,
+        branchId: isBranchManagerRole ? (form.branchId || undefined) : undefined,
+      } as Partial<UserRole>,
       { onSuccess },
     );
   };
@@ -105,13 +124,13 @@ export default function UserRolesPage(): React.JSX.Element {
             },
           },
           {
-            key: 'locationId',
-            label: 'Store',
-            render: (r) => (
-              <span className="text-sm">
-                {r.locationId ? (locationById.get(r.locationId) ?? r.locationId) : 'Org-wide'}
-              </span>
-            ),
+            key: 'scope',
+            label: 'Scope',
+            render: (r) => {
+              if (r.branchId) return branchById.get(r.branchId) ?? r.branchId;
+              if (r.locationId) return locationById.get(r.locationId) ?? r.locationId;
+              return 'Org-wide';
+            },
           },
           {
             key: 'createdAt',
@@ -142,7 +161,7 @@ export default function UserRolesPage(): React.JSX.Element {
             <Button
               type="submit"
               form="user-role-form"
-              disabled={saving || !form.userId || !form.roleId}
+              disabled={saving || !form.userId || !form.roleId || (isBranchManagerRole && !form.branchId)}
             >
               {saving ? 'Saving…' : editing ? 'Save' : 'Assign'}
             </Button>
@@ -170,7 +189,10 @@ export default function UserRolesPage(): React.JSX.Element {
             </Select>
           </Field>
           <Field label="Role" required>
-            <Select value={form.roleId || undefined} onValueChange={(v) => setForm((f) => ({ ...f, roleId: v }))}>
+            <Select
+              value={form.roleId || undefined}
+              onValueChange={(v) => setForm((f) => ({ ...f, roleId: v, locationId: ORG_WIDE, branchId: '' }))}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select role…" />
               </SelectTrigger>
@@ -181,22 +203,40 @@ export default function UserRolesPage(): React.JSX.Element {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Scope to store" hint="Org-wide means every store in the organisation.">
-            <Select
-              value={form.locationId || ORG_WIDE}
-              onValueChange={(v) => setForm((f) => ({ ...f, locationId: v }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Org-wide (all stores)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ORG_WIDE}>Org-wide (all stores)</SelectItem>
-                {locations.map((l) => (
-                  <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+          {isBranchManagerRole ? (
+            <Field label="Scope to branch" required hint="Branch managers can access all stores and warehouses in the branch.">
+              <Select
+                value={form.branchId || undefined}
+                onValueChange={(v) => setForm((f) => ({ ...f, branchId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select branch…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          ) : (
+            <Field label="Scope to store" hint="Org-wide means every store in the organisation.">
+              <Select
+                value={form.locationId || ORG_WIDE}
+                onValueChange={(v) => setForm((f) => ({ ...f, locationId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Org-wide (all stores)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ORG_WIDE}>Org-wide (all stores)</SelectItem>
+                  {locations.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
         </form>
       </FormDrawer>
     </div>

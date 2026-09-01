@@ -12,6 +12,7 @@ import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import {
   Locations,
+  Branches,
   Organizations,
   useUploadLocationImage,
   useRemoveLocationImage,
@@ -28,6 +29,7 @@ const TYPE_OPTIONS: LocationType[] = ['store', 'warehouse'];
 interface FormState {
   name: string;
   type: LocationType | '';
+  branchId: string;
   address: string;
   countryName: string;
   countryId: number | null;
@@ -41,7 +43,7 @@ interface FormState {
 interface PendingImage { file: File; previewUrl: string }
 
 const EMPTY_FORM: FormState = {
-  name: '', type: '',
+  name: '', type: '', branchId: '',
   address: '',
   countryName: '', countryId: null,
   stateName: '', stateId: null,
@@ -51,6 +53,7 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function LocationsPage() {
+  const { isAdmin } = useSession();
   const { pathname } = useLocation();
   const { isSuperAdmin } = useSession();
   const warehouseOnly = pathname.startsWith('/warehouse');
@@ -97,6 +100,7 @@ export default function LocationsPage() {
   const { data, isLoading, error, refetch } = Locations.useSearch({ page, search: debouncedSearch, filters });
 
   const { data: countries = [] } = useListCountries();
+  const { data: branches = [] } = Branches.useList();
   const { data: states = [] }    = useListStates(form.countryId);
   const { data: cities = [] }    = useListCities(form.stateId);
 
@@ -118,6 +122,7 @@ export default function LocationsPage() {
     setForm({
       name:        row.name        ?? '',
       type:        row.type        ?? '',
+      branchId:    row.branchId    ?? '',
       address:     row.address     ?? '',
       countryName: row.country     ?? '',
       countryId:   country?.id     ?? null,
@@ -164,6 +169,10 @@ export default function LocationsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editing && !form.branchId) {
+      toast.error('Select a branch for this location');
+      return;
+    }
     const body: Partial<Location> = {
       name:    form.name,
       type:    form.type   || undefined,
@@ -182,7 +191,7 @@ export default function LocationsPage() {
         return;
       }
       const queued = pendingImage?.file;
-      createMutation.mutate(body, {
+      createMutation.mutate({ ...body, branchId: form.branchId || undefined }, {
         onSuccess: async (created) => {
           try { if (queued) await uploadFor(created.id, queued); } catch { /* toasted */ }
           clearPending();
@@ -245,8 +254,8 @@ export default function LocationsPage() {
           />
         }
         searchPlaceholder={warehouseOnly ? 'Search warehouses…' : storeOnly ? 'Search stores…' : 'Search locations…'}
-        isAdmin={true}
-        onAdd={openCreate}
+        isAdmin={isAdmin}
+        onAdd={isAdmin ? openCreate : undefined}
         addLabel={warehouseOnly ? 'Configure Warehouse' : 'Configure Location'}
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
@@ -266,7 +275,7 @@ export default function LocationsPage() {
         title={editing ? `Edit ${entityLabel}` : `Add ${entityLabel}`}
         footer={
           <>
-            <Button type="submit" form="location-form" disabled={isSaving}>
+            <Button type="submit" form="location-form" disabled={isSaving || (!editing && !form.branchId)}>
               {isSaving ? 'Saving…' : 'Save'}
             </Button>
             <Button type="button" variant="outline" onClick={closeDrawer} disabled={uploading}>
@@ -293,6 +302,17 @@ export default function LocationsPage() {
           <Field label="Name" required>
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus />
           </Field>
+
+          {!editing && (
+            <Field label="Branch" required>
+              <Select value={form.branchId || undefined} onValueChange={(v) => setForm({ ...form, branchId: v })}>
+                <SelectTrigger><SelectValue placeholder="Select branch…" /></SelectTrigger>
+                <SelectContent>
+                  {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
 
           {!warehouseOnly && !storeOnly && (
             <Field label="Type" required>

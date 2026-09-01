@@ -148,6 +148,7 @@ export const MODULES: ModuleGroup[] = [
     label: 'Locations',
     icon: Warehouse,
     items: [
+      { key: 'branches', title: 'Branches', path: '/branches', icon: Building },
       { key: 'stores', title: 'Stores', path: '/stores', icon: Store },
       { key: 'warehouses', title: 'Warehouses', path: '/warehouse', icon: Building },
       // { key: 'warehouse-grn', title: 'GRN', path: '/warehouse/grn', icon: PackagePlus, disabled: true },
