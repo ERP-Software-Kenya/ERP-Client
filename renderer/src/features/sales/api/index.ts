@@ -24,7 +24,7 @@ import type {
 } from '../../../types';
 
 
-export const Orders = createCreateOnlyResource<Order>('/api/v1/orders', 'orders', 'Order');
+export const Orders = createResource<Order>('/api/v1/orders', 'orders', 'Order');
 
 export const Invoices = createCreateOnlyResource<Invoice>('/api/v1/invoices', 'invoices', 'Invoice');
 

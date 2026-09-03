@@ -573,16 +573,44 @@ export interface StockTransferRequest {
 // column (tenancy flows through locationId -> location -> org). The real blocker for
 // create is that customerId (required) has no valid value to test with, because
 // Customers create is broken separately (see Customer below). See Orders.tsx.
+export type FulfillmentMode = 'delivery' | 'pickup';
+
+export interface OrderItem {
+  id?: string;
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  taxAmount?: number;
+  lineTotal?: number;
+  packQuantity?: number;
+  packSizeSnapshot?: number;
+}
+
 export interface Order {
   id: string;
   orderNumber?: string;
   locationId?: string;
+  fulfillmentLocationId?: string;
+  fulfillmentMode?: FulfillmentMode | string;
   customerId?: string;
   status?: string;
   subtotal?: number;
   taxAmount?: number;
   totalAmount?: number;
   paymentStatus?: string;
+  createdAt?: string;
+  items?: OrderItem[];
+}
+
+export interface OrderQueueItem {
+  id: string;
+  orderNumber: string;
+  customerId: string;
+  locationId: string;
+  status: string;
+  totalAmount: number;
+  createdAt: string;
+  fulfillmentMode?: FulfillmentMode | string;
 }
 
 // Verified 2026-07-26 against core-apis's InvoiceResponse/CreateInvoiceRequest
@@ -1179,6 +1207,12 @@ export interface PackedOrder {
   itemCount: number;
   locationId: string;
   organizationId: string;
+  paymentLabel?: string;
+  canDispatch?: boolean;
+  blockReason?: string;
+  amountPaid?: number;
+  amountRequired?: number;
+  creditApprovalPending?: boolean;
 }
 
 export interface TripStop {

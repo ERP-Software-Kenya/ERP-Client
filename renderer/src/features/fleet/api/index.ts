@@ -67,7 +67,7 @@ export const MaintenanceTypes = {
 
 // ── Dispatch / Field Operations ───────────────────────────────────────────────
 
-export const DispatchOrders = createResource<PackedOrder>('/api/v1/warehouse/orders/queue', 'dispatch-orders', 'Dispatch Order');
+export const DispatchOrders = createResource<PackedOrder>('/api/v1/warehouse/orders/packed', 'dispatch-orders', 'Dispatch Order');
 export const FleetLiveLocations = createResource<LiveDriverLocation>('/api/v1/field-ops/fleet/live-locations', 'fleet-live-locations', 'Live Location');
 
 // ── Analytics ─────────────────────────────────────────────────────────────────

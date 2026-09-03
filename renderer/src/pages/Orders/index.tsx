@@ -7,7 +7,7 @@ import { patch } from '../../lib/http';
 import { useAuth } from '../../context/AuthContext';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatEntityLabel } from '../../lib/entityLabel';
-import type { Customer, CustomerType, Order, Product, SaleType } from '../../types';
+import type { Customer, CustomerType, FulfillmentMode, Order, Product, SaleType } from '../../types';
 import type { DeliveryInfo, PosPayMethod } from '../pos/checkout';
 import {
   customerTypeToTier,
@@ -28,6 +28,7 @@ import { ProductDetailsSection } from '../pos/components/sales-order/ProductDeta
 import { PaymentLogisticsSection } from '../pos/components/sales-order/PaymentLogisticsSection';
 import { OrderSummarySidebar } from '../pos/components/sales-order/OrderSummarySidebar';
 import { Button } from '../../components/ui/button';
+import { FormSelect } from '../../components/FormSelect';
 
 let lineIdSeq = 500;
 
@@ -35,25 +36,37 @@ let lineIdSeq = 500;
 
 interface SuccessBannerProps {
   order: Order;
+  fulfillmentMode: FulfillmentMode;
+  fulfillmentLocationLabel: string;
   onNewOrder: () => void;
 }
 
-function SuccessBanner({ order, onNewOrder }: SuccessBannerProps): React.JSX.Element {
+function SuccessBanner({ order, fulfillmentMode, fulfillmentLocationLabel, onNewOrder }: SuccessBannerProps): React.JSX.Element {
   const [fulfilling, setFulfilling] = useState(false);
   const [fulfilled, setFulfilled] = useState(false);
   const { user } = useAuth();
+  const isPickup = fulfillmentMode === 'pickup';
 
   const handleFulfillFromStore = async (): Promise<void> => {
     setFulfilling(true);
     try {
       await patch(`/api/v1/warehouse/orders/${order.id}/fulfill-from-store`, { userId: user?.id ?? '' });
       setFulfilled(true);
-      toast.success('Order marked as packed — ready for dispatch');
+      toast.success(isPickup ? 'Order packed — ready for customer pickup' : 'Order marked as packed — ready for dispatch');
     } catch {
       toast.error('Failed to fulfill from store');
     } finally {
       setFulfilling(false);
     }
+  };
+
+  const handleSendToWarehouse = (): void => {
+    toast.success(
+      isPickup
+        ? `Order queued at ${fulfillmentLocationLabel} for packing — customer will pick up`
+        : `Order queued at ${fulfillmentLocationLabel} for warehouse packing`,
+    );
+    onNewOrder();
   };
 
   return (
@@ -81,7 +94,7 @@ function SuccessBanner({ order, onNewOrder }: SuccessBannerProps): React.JSX.Ele
               <Store size={15} />
               {fulfilling ? 'Marking…' : 'Fulfill from Store'}
             </Button>
-            <Button onClick={onNewOrder} variant="outline" className="flex items-center gap-2">
+            <Button onClick={handleSendToWarehouse} variant="outline" className="flex items-center gap-2">
               <Truck size={15} />
               Send to Warehouse
             </Button>
@@ -92,7 +105,9 @@ function SuccessBanner({ order, onNewOrder }: SuccessBannerProps): React.JSX.Ele
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3">
-          <p className="text-sm font-medium text-emerald-600">Packed — ready for dispatch</p>
+          <p className="text-sm font-medium text-emerald-600">
+            {isPickup ? 'Packed — ready for customer pickup' : 'Packed — ready for dispatch'}
+          </p>
           <Button onClick={onNewOrder} className="px-8">New Order</Button>
         </div>
       )}
@@ -108,9 +123,9 @@ function GuidanceBanner({ onDismiss }: { onDismiss: () => void }): React.JSX.Ele
     <div className="flex shrink-0 items-start gap-3 border-b border-blue-200 bg-blue-50 px-6 py-3 dark:border-blue-900/40 dark:bg-blue-950/30">
       <Info size={16} className="mt-0.5 shrink-0 text-blue-500" />
       <div className="flex-1 text-sm text-blue-800 dark:text-blue-300">
-        <span className="font-semibold">Delivery orders only.</span>{' '}
-        Orders here go through warehouse packing and driver dispatch.{' '}
-        For walk-in or counter sales,{' '}
+        <span className="font-semibold">Scheduled fulfillment orders.</span>{' '}
+        Use this for delivery or pickup later — including walk-ins who want goods delivered another day.{' '}
+        For pay-now counter sales,{' '}
         <button type="button" onClick={() => navigate('/pos/sales')} className="inline-flex items-center gap-1 font-semibold underline underline-offset-2 hover:text-blue-600">
           <ShoppingBag size={13} />
           use New Sale instead
@@ -138,13 +153,15 @@ function OrdersHeader({
   createdOrder: Order | null;
   onNewOrder: () => void;
 }): React.JSX.Element {
+  const navigate = useNavigate();
   return (
     <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-6 py-4">
       <div>
         <h1 className="text-xl font-bold leading-tight text-foreground">Sales Order</h1>
-        <p className="mt-0.5 text-xs text-muted-foreground">Create a delivery order for warehouse dispatch.</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">Create a delivery or pickup order for warehouse fulfillment.</p>
       </div>
       <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/orders/list')}>View Orders</Button>
         {createdOrder ? (
           <Button variant="outline" size="sm" onClick={onNewOrder}>New Order</Button>
         ) : (
@@ -172,6 +189,8 @@ export default function OrdersPage(): React.JSX.Element {
 
   const [lines, setLines] = useState<BillLine[]>([]);
   const [locationId, setLocationId] = useState('');
+  const [fulfillmentLocationId, setFulfillmentLocationId] = useState('');
+  const [fulfillmentMode, setFulfillmentMode] = useState<FulfillmentMode>('delivery');
   const [customerId, setCustomerId] = useState('');
   const [customerInfo, setCustomerInfo] = useState('');
   const [customerType, setCustomerType] = useState<CustomerType>('regular');
@@ -200,8 +219,15 @@ export default function OrdersPage(): React.JSX.Element {
   const { data: selectedCustomer } = Customers.useGet(customerId || undefined);
   const createMutation = Orders.useCreate();
 
-  const stockMap = useMemo(() => buildLocationStockMap(inventory, locationId), [inventory, locationId]);
-  const stockLocation = useMemo(() => locations.find((l) => l.id === locationId), [locations, locationId]);
+  const stockMap = useMemo(
+    () => buildLocationStockMap(inventory, fulfillmentLocationId || locationId),
+    [inventory, fulfillmentLocationId, locationId],
+  );
+  const stockLocation = useMemo(
+    () => locations.find((l) => l.id === (fulfillmentLocationId || locationId)),
+    [locations, fulfillmentLocationId, locationId],
+  );
+  const fulfillmentLocationLabel = stockLocation?.name ?? 'warehouse';
 
   const suggestions = useMemo(() => {
     if (!searchVal.trim()) return [];
@@ -287,22 +313,52 @@ export default function OrdersPage(): React.JSX.Element {
   const listSubtotal = lines.reduce((s, l) => s + l.qty * (l.officialRate ?? l.rate), 0);
   const discountAmount = Math.max(0, listSubtotal - subtotal);
   const partialAmountMissing = paymentTiming === 'half' && (!partialAmount || isNaN(Number(partialAmount)) || Number(partialAmount) <= 0);
-  const submitDisabled = !locationId || !customerId || lines.length === 0 || createMutation.isPending || hasStockIssues || partialAmountMissing;
+  const submitDisabled = !locationId || !fulfillmentLocationId || !customerId || lines.length === 0 || createMutation.isPending || hasStockIssues || partialAmountMissing;
 
   const handleSubmit = (): void => {
-    if (!locationId) { toast.error('Select a location'); return; }
+    if (!locationId) { toast.error('Select a selling location'); return; }
+    if (!fulfillmentLocationId) { toast.error('Select a fulfillment location'); return; }
     if (!customerId) { toast.error('Select a customer'); return; }
     if (lines.length === 0) { toast.error('Add at least one product'); return; }
 
     createMutation.mutate(
-      { locationId, customerId, status: 'confirmed', subtotal, taxAmount: totalTax, totalAmount: grandTotal, paymentStatus: 'UNPAID' } as Partial<Order>,
+      {
+        locationId,
+        fulfillmentLocationId,
+        fulfillmentMode,
+        customerId,
+        status: 'confirmed',
+        subtotal,
+        taxAmount: totalTax,
+        totalAmount: grandTotal,
+        paymentStatus: 'UNPAID',
+        paymentTiming,
+        partialAmount: paymentTiming === 'half' ? Number(partialAmount) : undefined,
+        saleType,
+        customerType,
+        items: lines.map((l) => ({
+          productId: l.productId,
+          quantity: l.qty,
+          unitPrice: l.rate,
+          taxAmount: 0,
+          packQuantity: l.packSize ? l.qty : undefined,
+          packSizeSnapshot: l.packSize,
+        })),
+      },
       { onSuccess: (created) => setCreatedOrder(created) },
     );
+  };
+
+  const handleLocationChange = (id: string): void => {
+    setLocationId(id);
+    setFulfillmentLocationId(id);
   };
 
   const handleNewOrder = (): void => {
     setLines([]);
     setLocationId('');
+    setFulfillmentLocationId('');
+    setFulfillmentMode('delivery');
     setCustomerId('');
     setCustomerInfo('');
     setCustomerType('regular');
@@ -335,7 +391,12 @@ export default function OrdersPage(): React.JSX.Element {
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {createdOrder ? (
-          <SuccessBanner order={createdOrder} onNewOrder={handleNewOrder} />
+          <SuccessBanner
+            order={createdOrder}
+            fulfillmentMode={fulfillmentMode}
+            fulfillmentLocationLabel={fulfillmentLocationLabel}
+            onNewOrder={handleNewOrder}
+          />
         ) : (
           <>
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
@@ -364,8 +425,42 @@ export default function OrdersPage(): React.JSX.Element {
                 onTransactionDateChange={setTransactionDate}
                 locations={locations}
                 locationId={locationId}
-                onLocationChange={setLocationId}
+                onLocationChange={handleLocationChange}
               />
+
+              <section className="flex-shrink-0 border-b border-border bg-card px-6 py-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fulfillment</p>
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="min-w-[200px]">
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Fulfillment location</p>
+                    <FormSelect
+                      value={fulfillmentLocationId}
+                      onChange={setFulfillmentLocationId}
+                      options={locations.map((l) => ({ value: l.id, label: l.name ?? l.id.slice(0, 8) }))}
+                      placeholder="Select warehouse or store…"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Mode</p>
+                    <div className="flex gap-1">
+                      {(['delivery', 'pickup'] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setFulfillmentMode(mode)}
+                          className={`h-8 rounded-lg px-3 text-xs font-medium transition ${
+                            fulfillmentMode === mode
+                              ? 'border border-primary bg-primary/10 text-primary font-semibold'
+                              : 'border border-border text-muted-foreground hover:bg-muted'
+                          }`}
+                        >
+                          {mode === 'delivery' ? 'Delivery' : 'Pickup'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
 
               <ProductDetailsSection
                 saleType={saleType}
