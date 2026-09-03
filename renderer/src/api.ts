@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type {
   Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
-  Notification, ItemReturn, ReportGenerationLog, GenerateReportInput, Order, Invoice, Customer, CustomerCreditTransaction, CreditTransactionDocument, Expense, PurchaseItem,
+  Notification, ItemReturn, ReportGenerationLog, GenerateReportInput, Order, OrderQueueItem, Invoice, Customer, CustomerCreditTransaction, CreditTransactionDocument, Expense, PurchaseItem,
   ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location, Branch,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer, StockTransferRequest,
@@ -27,6 +27,7 @@ import type {
   DemandTierPoint, ProductMovementRank, ProductMarginRank,
   SupplierPricePoint, InventoryStatusData, InventoryStatusTrendPoint, StockDamageSummaryData,
   DashboardAnalyticsParams,
+  PackedOrder,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -248,7 +249,107 @@ export const ReportGenerationLogs = {
     });
   },
 };
-export const Orders = createCreateOnlyResource<Order>('/api/v1/orders', 'orders', 'Order');
+export const Orders = createResource<Order>('/api/v1/orders', 'orders', 'Order');
+
+export const WarehouseOrderOps = {
+  useQueue(locationId: string | undefined) {
+    return useQuery({
+      queryKey: ['warehouse-order-queue', locationId],
+      queryFn: () => get<OrderQueueItem[]>('/api/v1/warehouse/orders/queue', { locationId: locationId as string }),
+      enabled: !!locationId,
+      refetchInterval: 30_000,
+    });
+  },
+  useReadyForPickup(locationId: string | undefined, page = 1, search = '') {
+    return useQuery({
+      queryKey: ['warehouse-ready-for-pickup', locationId, page, search],
+      queryFn: () =>
+        get<PaginatedResponse<PackedOrder>>('/api/v1/warehouse/orders/ready-for-pickup', {
+          locationId,
+          $page: page,
+          $perPage: 15,
+          ...(search ? { name: search } : {}),
+        }),
+      enabled: !!locationId,
+      select: (raw) => ({ items: raw.items ?? [], total: raw.totalCount ?? 0 }),
+    });
+  },
+  useGetWarehouseOrder(id: string | undefined) {
+    return useQuery({
+      queryKey: ['warehouse-order', id],
+      queryFn: () => get<Order>(`/api/v1/warehouse/orders/${id as string}`),
+      enabled: !!id,
+    });
+  },
+  useClaim() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ orderId, pickerUserId }: { orderId: string; pickerUserId: string }) =>
+        post<boolean>(`/api/v1/warehouse/orders/${orderId}/claim`, { pickerUserId }),
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['warehouse-order-queue'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to claim order'),
+    });
+  },
+  usePack() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({
+        orderId,
+        packerUserId,
+        items,
+      }: {
+        orderId: string;
+        packerUserId: string;
+        items: Array<{ orderItemId: string; packedQty: number }>;
+      }) => post<boolean>(`/api/v1/warehouse/orders/${orderId}/pack`, { packerUserId, items }),
+      onSuccess: () => {
+        toast.success('Order packed');
+        queryClient.invalidateQueries({ queryKey: ['warehouse-order-queue'] });
+        queryClient.invalidateQueries({ queryKey: ['warehouse-ready-for-pickup'] });
+        queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to pack order'),
+    });
+  },
+  usePickupComplete() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (orderId: string) => patch<boolean>(`/api/v1/warehouse/orders/${orderId}/pickup-complete`, {}),
+      onSuccess: () => {
+        toast.success('Customer collection recorded');
+        queryClient.invalidateQueries({ queryKey: ['warehouse-ready-for-pickup'] });
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to mark collected'),
+    });
+  },
+  useRecordPayment() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({
+        orderId,
+        amount,
+        method,
+      }: {
+        orderId: string;
+        amount: number;
+        method: 'CASH' | 'CARD' | 'UPI' | 'NET_BANKING' | 'CHEQUE' | 'CREDIT';
+      }) =>
+        post<{ amountPaid: number; paymentStatus: string }>(
+          `/api/v1/warehouse/orders/${orderId}/record-payment`,
+          { amount, method },
+        ),
+      onSuccess: () => {
+        toast.success('Payment recorded');
+        queryClient.invalidateQueries({ queryKey: ['dispatch-orders'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to record payment'),
+    });
+  },
+};
+
 export const Invoices = createCreateOnlyResource<Invoice>('/api/v1/invoices', 'invoices', 'Invoice');
 
 const customersBase = createResource<Customer>('/api/v1/customers', 'customers', 'Customer');
@@ -544,14 +645,23 @@ export function useListUserRoles() {
 }
 export const PlatformConfigurations = createCreateOnlyResource<PlatformConfiguration>('/api/v1/platform-configurations', 'platform-configurations', 'Configuration');
 /**
- * Internal user directory (local DB, distinct from the Clerk-backed `ClerkUsers` resource
- * used on the Users page). GET /api/v1/users/directory.
+ * Internal user directory (local DB). GET /api/v1/users/directory.
+ * Fails silently when the API route is not deployed yet (legacy servers treat "directory" as :id).
  */
-export function useListUserDirectory(organizationId?: string) {
+export function useListUserDirectory(organizationId?: string, enabled = true) {
   return useQuery<PlatformUser[]>({
     queryKey: ['users', 'directory', organizationId],
-    queryFn: () => get<PlatformUser[]>('/api/v1/users/directory', organizationId ? { organizationId } : undefined),
+    queryFn: async () => {
+      try {
+        return await get<PlatformUser[]>('/api/v1/users/directory', organizationId ? { organizationId } : undefined);
+      } catch {
+        return [];
+      }
+    },
+    enabled,
     staleTime: 5 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }
 export const Locations = createResource<Location>('/api/v1/locations', 'locations', 'Location');
