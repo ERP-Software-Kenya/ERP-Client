@@ -1,40 +1,40 @@
 import { useMemo, useState } from 'react';
 import { useSession } from '../context/SessionContext';
-import { Locations } from '../api';
+import { Branches } from '../api';
 import { canViewAllBranches } from '../config/dashboard-permissions';
 
 export function useDashboardScope() {
   const { raw, isOrgAdmin } = useSession();
   const hasOrgWideAccess = raw?.hasOrgWideAccess ?? isOrgAdmin;
-  const assignedLocationId = raw?.locationIds?.[0];
+  const assignedBranchId = raw?.branchIds?.[0];
   const currencyCode = raw?.currencyCode ?? 'KES';
 
-  const { data: locations } = Locations.useList();
+  const { data: branches } = Branches.useList();
   const canPickLocation = canViewAllBranches(hasOrgWideAccess);
 
-  const [selectedLocationId, setSelectedLocationId] = useState<string | 'all'>('all');
+  const [selectedBranchId, setSelectedBranchId] = useState<string | 'all'>('all');
 
-  const effectiveLocationId = useMemo(() => {
-    if (!canPickLocation) return assignedLocationId;
-    return selectedLocationId === 'all' ? undefined : selectedLocationId;
-  }, [canPickLocation, assignedLocationId, selectedLocationId]);
+  const effectiveBranchId = useMemo(() => {
+    if (!canPickLocation) return assignedBranchId;
+    return selectedBranchId === 'all' ? undefined : selectedBranchId;
+  }, [canPickLocation, assignedBranchId, selectedBranchId]);
 
-  const locationOptions = useMemo(() => {
-    if (!canPickLocation && assignedLocationId) {
-      const loc = locations?.find((l) => l.id === assignedLocationId);
-      return loc ? [{ id: loc.id, name: loc.name }] : [];
+  const branchOptions = useMemo(() => {
+    if (!canPickLocation && assignedBranchId) {
+      const branch = branches?.find((b) => b.id === assignedBranchId);
+      return branch ? [{ id: branch.id, name: branch.name }] : [];
     }
-    return locations ?? [];
-  }, [canPickLocation, assignedLocationId, locations]);
+    return branches ?? [];
+  }, [canPickLocation, assignedBranchId, branches]);
 
   return {
     currencyCode,
     hasOrgWideAccess,
     canPickLocation,
-    assignedLocationId,
-    selectedLocationId,
-    setSelectedLocationId,
-    effectiveLocationId,
-    locationOptions,
+    assignedBranchId,
+    selectedBranchId,
+    setSelectedBranchId,
+    effectiveBranchId,
+    branchOptions,
   };
 }

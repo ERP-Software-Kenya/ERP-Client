@@ -14,30 +14,37 @@ export default function VerifySecondFactor() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [bootError, setBootError] = useState<string | null>(null);
   const preparedCode = useRef(false);
 
   useEffect(() => {
     (async () => {
-      if (!clerk.loaded) await clerk.load();
-      const signIn = clerk.client?.signIn;
-      if (!signIn || (signIn.status !== 'needs_second_factor' && signIn.status !== 'needs_client_trust')) {
-        toast.error('Verification session expired — sign in again');
-        navigate('/login', { replace: true });
-        return;
-      }
-      const KEY = 'erp.verify-second-factor.prepared';
-      const hasStorage = typeof window !== 'undefined' && window.sessionStorage;
-      const skipPrepareOnce = hasStorage ? window.sessionStorage.getItem(KEY) === '1' : false;
-      if (hasStorage) window.sessionStorage.removeItem(KEY);
+      try {
+        if (!clerk.loaded) await clerk.load();
+        const signIn = clerk.client?.signIn;
+        if (!signIn || (signIn.status !== 'needs_second_factor' && signIn.status !== 'needs_client_trust')) {
+          toast.error('Verification session expired — sign in again');
+          navigate('/login', { replace: true });
+          return;
+        }
+        const KEY = 'erp.verify-second-factor.prepared';
+        const hasStorage = typeof window !== 'undefined' && window.sessionStorage;
+        const skipPrepareOnce = hasStorage ? window.sessionStorage.getItem(KEY) === '1' : false;
+        if (hasStorage) window.sessionStorage.removeItem(KEY);
 
-      // If we just arrived right after resolveSignInStatus, the code has
-      // already been prepared. Only prepare again when the user refreshes
-      // or deep-links into this page.
-      if (!skipPrepareOnce && !preparedCode.current) {
-        await prepareEmailSecondFactor(signIn).catch(() => undefined);
+        // If we just arrived right after resolveSignInStatus, the code has
+        // already been prepared. Only prepare again when the user refreshes
+        // or deep-links into this page.
+        if (!skipPrepareOnce && !preparedCode.current) {
+          await prepareEmailSecondFactor(signIn);
+        }
+        preparedCode.current = true;
+        setReady(true);
+      } catch (error: any) {
+        const message = clerkErrorMessage(error, 'Two-step verification could not start');
+        setBootError(message);
+        toast.error(message);
       }
-      preparedCode.current = true;
-      setReady(true);
     })();
   }, [navigate]);
 
@@ -73,10 +80,19 @@ export default function VerifySecondFactor() {
     }
   };
 
-  if (!ready) {
+  const handleBackToSignIn = () => navigate('/login', { replace: true });
+
+  if (!ready || bootError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-muted-foreground">Preparing verification…</p>
+        <div className="w-full max-w-md p-8 bg-card border border-border rounded-xl shadow-lg space-y-4 text-center">
+          <p className="text-muted-foreground">{bootError ?? 'Preparing verification...'}</p>
+          {bootError && (
+            <Button type="button" variant="outline" className="w-full" onClick={handleBackToSignIn}>
+              Back to sign in
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
@@ -109,7 +125,7 @@ export default function VerifySecondFactor() {
               Resend code
             </button>
             {' · '}
-            <button type="button" className="text-primary underline underline-offset-2" onClick={() => navigate('/login')}>
+            <button type="button" className="text-primary underline underline-offset-2" onClick={handleBackToSignIn}>
               Back to sign in
             </button>
           </p>

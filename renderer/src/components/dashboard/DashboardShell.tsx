@@ -12,6 +12,7 @@ interface DashboardShellProps {
   actions?: ReactNode;
   children: (ctx: {
     period: DashboardPeriodRange;
+    branchId?: string;
     locationId?: string;
     currencyCode: string;
   }) => ReactNode;
@@ -32,16 +33,16 @@ export default function DashboardShell({ title, actions, children }: DashboardSh
           <DashboardPeriodFilter value={period} onChange={setPeriod} />
           <DashboardLocationFilter
             canPickLocation={scope.canPickLocation}
-            selectedLocationId={scope.selectedLocationId}
-            onChange={scope.setSelectedLocationId}
-            locations={scope.locationOptions}
-            assignedLocationId={scope.assignedLocationId}
+            selectedLocationId={scope.selectedBranchId}
+            onChange={scope.setSelectedBranchId}
+            locations={scope.branchOptions}
+            assignedLocationId={scope.assignedBranchId}
           />
         </div>
       </div>
       {children({
         period,
-        locationId: scope.effectiveLocationId,
+        branchId: scope.effectiveBranchId,
         currencyCode: scope.currencyCode,
       })}
     </div>

@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     clerk
       .load()
-      .then(() => {
+      .then(async () => {
         if (!mounted) return;
         unsubscribe = clerk.addListener(async ({ session }: ClerkResources) => {
           if (!mounted) return;
@@ -174,6 +174,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         });
+
+        try {
+          if (clerk.session) {
+            lastSessionId.current = clerk.session.id;
+            await refresh();
+          } else {
+            setUser(null);
+            setBootPhase(null);
+          }
+        } finally {
+          if (mounted && !hasLoadedOnce) {
+            hasLoadedOnce = true;
+            setLoading(false);
+            if (!clerk.session) setBootPhase(null);
+          }
+        }
       })
       .catch((error) => {
         if (!mounted) return;

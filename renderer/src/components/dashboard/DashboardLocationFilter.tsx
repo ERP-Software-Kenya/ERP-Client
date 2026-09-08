@@ -27,10 +27,10 @@ export default function DashboardLocationFilter({
   assignedLocationId,
 }: DashboardLocationFilterProps) {
   if (!canPickLocation && assignedLocationId) {
-    const name = locations.find((l) => l.id === assignedLocationId)?.name ?? 'Your store';
+    const name = locations.find((l) => l.id === assignedLocationId)?.name ?? 'Your branch';
     return (
       <p className="text-xs text-muted-foreground">
-        Store: <span className="font-medium text-foreground">{name}</span>
+        Branch: <span className="font-medium text-foreground">{name}</span>
       </p>
     );
   }
@@ -39,7 +39,7 @@ export default function DashboardLocationFilter({
 
   const selectedLabel =
     selectedLocationId === 'all'
-      ? 'All locations'
+      ? 'All branches'
       : locations.find((l) => l.id === selectedLocationId)?.name;
 
   return (
@@ -48,10 +48,10 @@ export default function DashboardLocationFilter({
       onValueChange={(v) => onChange(v as string | 'all')}
     >
       <SelectTrigger className="h-8 w-[180px] text-xs" title={selectedLabel}>
-        <SelectValue placeholder="All locations" />
+        <SelectValue placeholder="All branches" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">All locations</SelectItem>
+        <SelectItem value="all">All branches</SelectItem>
         {locations.map((loc) => (
           <SelectItem key={loc.id} value={loc.id}>
             {loc.name}

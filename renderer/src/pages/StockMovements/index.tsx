@@ -148,7 +148,16 @@ export default function StockHistoryPage() {
 
   const { data: products } = Products.useList();
   const { data: locations } = Locations.useList();
-  const { data: inventoryList } = Inventory.useList();
+  const { data: inventoryPage } = Inventory.useSearch({
+    page: 1,
+    limit: 500,
+    filters: selectedLocationId ? { locationId: selectedLocationId } : undefined,
+  });
+  const inventoryList = inventoryPage?.items ?? [];
+
+  useAutoSelectFirst(locations, (location) => {
+    setSelectedLocationId(location.id);
+  });
 
   useAutoSelectFirst(inventoryList, (item: InventoryItem) => {
     setSelectedProductId(item.productId);

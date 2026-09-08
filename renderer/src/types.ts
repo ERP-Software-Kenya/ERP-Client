@@ -440,6 +440,7 @@ export interface ReportGenerationLog {
   status?: string;
   fileUrl?: string;
   errorMessage?: string;
+  reportData?: Record<string, unknown>;
   createdAt?: string;
 }
 
@@ -1191,6 +1192,7 @@ export interface DashboardAnalyticsParams {
   period?: string;
   from?: string;
   to?: string;
+  branchId?: string;
   locationId?: string;
 }
 
@@ -1241,4 +1243,3 @@ export interface LiveDriverLocation {
   status: 'in_transit' | 'delayed' | 'completed';
   lastUpdated: string;
 }
-

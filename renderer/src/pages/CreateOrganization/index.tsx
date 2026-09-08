@@ -30,6 +30,7 @@ export default function CreateOrganization() {
     e.preventDefault();
     setLoading(true);
     let clerkOrg: Awaited<ReturnType<typeof clerk.createOrganization>> | undefined;
+    let backendCreated = false;
     try {
       clerkOrg = await clerk.createOrganization({ name: name.trim() });
       await clerk.setActive({ organization: clerkOrg.id });
@@ -38,12 +39,13 @@ export default function CreateOrganization() {
         slug: slug.trim(),
         clerkOrgId: clerkOrg.id,
       });
+      backendCreated = true;
       await refresh();
       toast.success('Organization created');
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (error: any) {
-      // Backend failed after the Clerk org was created — clean it up so retry doesn't orphan/duplicate it.
-      if (clerkOrg) await clerkOrg.destroy().catch(() => {});
+      // Only destroy the Clerk organization if backend onboarding did not complete.
+      if (clerkOrg && !backendCreated) await clerkOrg.destroy().catch(() => {});
       toast.error(error.message || 'Failed to create organization');
     } finally {
       setLoading(false);

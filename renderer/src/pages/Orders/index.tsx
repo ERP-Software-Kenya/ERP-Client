@@ -212,7 +212,13 @@ export default function OrdersPage(): React.JSX.Element {
   const debouncedSearch = useDebounce(searchVal, 250);
 
   const { data: locations = [] } = Locations.useList();
-  const { data: inventory = [] } = Inventory.useList();
+  const { data: inventoryPage } = Inventory.useSearch({
+    page: 1,
+    limit: 500,
+    filters: locationId ? { locationId } : undefined,
+    enabled: !!locationId,
+  });
+  const inventory = inventoryPage?.items ?? [];
   const { data: typeRules = [] } = BillingSettings.useCustomerTypeRules();
   const { data: fleetDrivers = [] } = FleetDrivers.useList(true);
   const { data: productSearch } = Products.useSearch({ page: 1, limit: 20, search: debouncedSearch.trim() || undefined });

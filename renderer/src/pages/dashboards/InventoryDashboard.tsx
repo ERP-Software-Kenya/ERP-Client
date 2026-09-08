@@ -30,18 +30,21 @@ function KpiCard({
 
 function InventoryDashboardBody({
   period,
+  branchId,
   locationId,
   currencyCode,
 }: {
   period: import('../../components/dashboard/DashboardPeriodFilter').DashboardPeriodRange;
+  branchId?: string;
   locationId?: string;
   currencyCode: string;
 }) {
-  const locParams = { locationId };
+  const locParams = { branchId, locationId };
   const periodParams = {
     period: period.preset,
     from: period.from,
     to: period.to,
+    branchId,
     locationId,
   };
   const fmt = (n: number) => formatMoney(n, currencyCode);
@@ -97,9 +100,11 @@ function InventoryDashboardBody({
   }, [statusTrend]);
 
   const filteredLowStock = useMemo(() => {
-    if (!locationId) return lowStock ?? [];
-    return (lowStock ?? []).filter((row) => row.locationId === locationId);
-  }, [lowStock, locationId]);
+    if (locationId) return (lowStock ?? []).filter((row) => row.locationId === locationId);
+    if (!branchId) return lowStock ?? [];
+    const branchLocationIds = new Set((locations ?? []).filter((loc) => loc.branchId === branchId).map((loc) => loc.id));
+    return (lowStock ?? []).filter((row) => branchLocationIds.has(row.locationId));
+  }, [branchId, locations, lowStock, locationId]);
 
   return (
     <>

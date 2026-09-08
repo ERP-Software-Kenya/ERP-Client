@@ -49,7 +49,20 @@ export function useListUserRoles() {
 export function useListUserDirectory(organizationId?: string) {
   return useQuery<PlatformUser[]>({
     queryKey: ['users', 'directory', organizationId],
-    queryFn: () => get<PlatformUser[]>('/api/v1/users/directory', organizationId ? { organizationId } : undefined),
+    queryFn: () =>
+      get<ClerkUserListResponse>('/api/v1/users', {
+        limit: 100,
+        offset: 0,
+        ...(organizationId ? { organizationId } : {}),
+      }).then((res) =>
+        res.data.map((user) => ({
+          id: user.clerkUserId,
+          email: user.email,
+          firstName: user.firstName ?? undefined,
+          lastName: user.lastName ?? undefined,
+          isActive: !user.banned,
+        })),
+      ),
     staleTime: 5 * 60 * 1000,
   });
 }

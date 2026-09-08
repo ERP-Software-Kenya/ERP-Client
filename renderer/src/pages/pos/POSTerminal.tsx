@@ -366,7 +366,13 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
 
   const { data: locations = [], isLoading: locationsLoading } =
     Locations.useList();
-  const { data: inventory = [] } = Inventory.useList();
+  const { data: inventoryPage } = Inventory.useSearch({
+    page: 1,
+    limit: 500,
+    filters: locationId ? { locationId } : undefined,
+    enabled: !!locationId,
+  });
+  const inventory = inventoryPage?.items ?? [];
   const { data: suppliers = [] } = Suppliers.useList(mode === "purchase");
   const { data: productSearch } = Products.useSearch({
     page: 1,

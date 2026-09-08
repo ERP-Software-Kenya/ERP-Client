@@ -16,8 +16,8 @@ import { cn } from '../../lib/utils';
 const PURCHASE_BLUE = '#3b82f6';
 const DIST_COLORS = ['#3b82f6', '#22c55e', '#eab308', '#f97316', '#8b5cf6'];
 
-function toParams(period: DashboardPeriodRange, locationId?: string) {
-  return { period: period.preset, from: period.from, to: period.to, locationId };
+function toParams(period: DashboardPeriodRange, branchId?: string) {
+  return { period: period.preset, from: period.from, to: period.to, branchId };
 }
 
 function ChartCard({
@@ -50,9 +50,9 @@ function ChartEmpty({ label }: { label: string }) {
 }
 
 function PurchaseDashboardBody({
-  period, locationId, currencyCode,
-}: { period: DashboardPeriodRange; locationId?: string; currencyCode: string }) {
-  const params = toParams(period, locationId);
+  period, branchId, currencyCode,
+}: { period: DashboardPeriodRange; branchId?: string; currencyCode: string }) {
+  const params = toParams(period, branchId);
   const fmt = (n: number) => formatMoney(n, currencyCode);
 
   const { data: trend, isLoading: tLoading } = Analytics.usePurchaseTrend(params);
