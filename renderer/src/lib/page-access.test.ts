@@ -3,8 +3,8 @@ import { canAccessPage, isFullPageAccessRole } from './page-access';
 
 describe('canAccessPage', () => {
   const emptyMap = new Map<string, ReadonlySet<string>>();
-  const usersOnlyForStoreManager = new Map<string, ReadonlySet<string>>([
-    ['users', new Set(['store_manager'])],
+  const usersOnlyForBranchManager = new Map<string, ReadonlySet<string>>([
+    ['users', new Set(['branch_manager'])],
   ]);
 
   it('grants super_admin every page when configs are empty', () => {
@@ -16,7 +16,7 @@ describe('canAccessPage', () => {
   });
 
   it('grants org_admin a page even when the config omits org_admin', () => {
-    expect(canAccessPage(['org_admin'], 'users', usersOnlyForStoreManager)).toBe(true);
+    expect(canAccessPage(['org_admin'], 'users', usersOnlyForBranchManager)).toBe(true);
   });
 
   it('denies org_admin SuperAdmin-only pages like organizations', () => {
@@ -27,13 +27,13 @@ describe('canAccessPage', () => {
     expect(canAccessPage(['super_admin'], 'organizations', emptyMap)).toBe(true);
   });
 
-  it('denies store_staff when configs are empty', () => {
-    expect(canAccessPage(['store_staff'], 'users', emptyMap)).toBe(false);
+  it('denies driver when configs are empty', () => {
+    expect(canAccessPage(['driver'], 'users', emptyMap)).toBe(false);
   });
 
-  it('allows store_manager only when the page lists that role', () => {
-    expect(canAccessPage(['store_manager'], 'users', usersOnlyForStoreManager)).toBe(true);
-    expect(canAccessPage(['store_manager'], 'dashboard', usersOnlyForStoreManager)).toBe(false);
+  it('allows branch_manager only when the page lists that role', () => {
+    expect(canAccessPage(['branch_manager'], 'users', usersOnlyForBranchManager)).toBe(true);
+    expect(canAccessPage(['branch_manager'], 'dashboard', usersOnlyForBranchManager)).toBe(false);
   });
 });
 
@@ -42,7 +42,7 @@ describe('isFullPageAccessRole', () => {
     expect(isFullPageAccessRole('org_admin')).toBe(true);
   });
 
-  it('does not treat store_manager as a full-access role', () => {
-    expect(isFullPageAccessRole('store_manager')).toBe(false);
+  it('does not treat branch_manager as a full-access role', () => {
+    expect(isFullPageAccessRole('branch_manager')).toBe(false);
   });
 });

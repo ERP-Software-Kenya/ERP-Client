@@ -362,7 +362,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const canCreateBlackSale =
     isUnlocked &&
     userRoles.some((r) =>
-      ["super_admin", "org_admin", "org_manager"].includes(r),
+      ["super_admin", "org_admin", "branch_manager"].includes(r),
     );
 
   useEffect(() => {

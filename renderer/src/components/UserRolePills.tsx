@@ -3,15 +3,10 @@ import { cn } from '../lib/utils';
 const ROLE_COLORS: Record<string, string> = {
   super_admin:    'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20',
   org_admin:      'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20',
-  org_manager:    'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20',
   branch_manager: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
-  store_manager:  'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
-  store_staff:    'bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20',
-  picker:         'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20',
   driver:         'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20',
-  admin:          'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20',
-  manager:        'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20',
-  viewer:         'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20',
+  packer:         'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20',
+  picker:         'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20',
 };
 
 function roleColor(role: string): string {

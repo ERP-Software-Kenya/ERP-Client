@@ -794,8 +794,8 @@ export interface ActivityLog {
 }
 
 // Verified against role.entity.ts: `name` is a Postgres enum (fixed values, unique).
-// CreateRoleRequest validation requires organizationId/permissions but RoleEntity has no matching columns.
-export const ROLE_NAMES = ['super_admin', 'org_admin', 'org_manager', 'branch_manager', 'store_manager', 'store_staff', 'picker', 'driver'] as const;
+// Active system roles: super_admin, org_admin, branch_manager, driver, packer.
+export const ROLE_NAMES = ['super_admin', 'org_admin', 'branch_manager', 'driver', 'packer'] as const;
 
 export interface Role {
   id: string;

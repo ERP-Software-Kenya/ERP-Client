@@ -302,7 +302,7 @@ describe('Stock Requests End-to-End Role & Location Scoping', () => {
         user: { id: 'staff-delhi-wh' },
         raw: {
           id: 'staff-delhi-wh',
-          roles: ['store_staff'],
+          roles: ['packer'],
           hasOrgWideAccess: false,
           locationIds: [delhiWarehouseId], // specifically assigned to Delhi Warehouse
         },
@@ -324,7 +324,7 @@ describe('Stock Requests End-to-End Role & Location Scoping', () => {
         user: { id: 'unassigned-user' },
         raw: {
           id: 'unassigned-user',
-          roles: ['store_staff'],
+          roles: ['packer'],
           hasOrgWideAccess: false,
           locationIds: [],
         },
