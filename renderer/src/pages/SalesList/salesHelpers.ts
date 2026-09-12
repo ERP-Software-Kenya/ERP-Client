@@ -2,12 +2,12 @@ import type { Bill } from '../../types';
 
 export function money(n: number | undefined | null): string {
   if (n == null || Number.isNaN(Number(n))) return '—';
-  return `$${Number(n).toFixed(2)}`;
+  return `KSh ${Number(n).toFixed(2)}`;
 }
 
 export function moneyOrZero(n: number | undefined | null): string {
-  if (n == null || Number.isNaN(Number(n))) return '$0.00';
-  return `$${Number(n).toFixed(2)}`;
+  if (n == null || Number.isNaN(Number(n))) return 'KSh 0.00';
+  return `KSh ${Number(n).toFixed(2)}`;
 }
 
 export function extractRef(notes: string | null | undefined): string {

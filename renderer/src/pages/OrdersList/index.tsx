@@ -19,7 +19,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 function money(n: number | undefined | null): string {
   if (n == null || Number.isNaN(Number(n))) return '—';
-  return `$${Number(n).toFixed(2)}`;
+  return `KSh ${Number(n).toFixed(2)}`;
 }
 
 function formatDate(d: string | null | undefined): string {

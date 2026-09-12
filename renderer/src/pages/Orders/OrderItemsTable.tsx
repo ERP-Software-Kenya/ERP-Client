@@ -15,7 +15,7 @@ interface OrderItemsTableProps {
 }
 
 function fmt(n: number): string {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `KSh ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function OrderItemsTable({ items, onQtyChange, onRemove }: OrderItemsTableProps): React.JSX.Element {

@@ -14,7 +14,7 @@ type Tab = 'to-pack' | 'ready-for-pickup';
 
 function money(n: number | undefined | null): string {
   if (n == null || Number.isNaN(Number(n))) return '—';
-  return `$${Number(n).toFixed(2)}`;
+  return `KSh ${Number(n).toFixed(2)}`;
 }
 
 function formatWhen(d: string | Date | undefined): string {

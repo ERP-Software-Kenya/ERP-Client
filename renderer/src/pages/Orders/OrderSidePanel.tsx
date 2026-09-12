@@ -24,7 +24,7 @@ interface OrderSidePanelProps {
 }
 
 function fmt(n: number): string {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `KSh ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function SideLabel({ children }: { children: React.ReactNode }): React.JSX.Element {

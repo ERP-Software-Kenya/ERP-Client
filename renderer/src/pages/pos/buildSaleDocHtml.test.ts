@@ -42,6 +42,6 @@ describe('buildSaleDocHtml receipt formal layout', () => {
     );
 
     expect(html).toContain('<span>Extras</span>');
-    expect(html).toContain('$5.00');
+    expect(html).toContain('KSh 5.00');
   });
 });

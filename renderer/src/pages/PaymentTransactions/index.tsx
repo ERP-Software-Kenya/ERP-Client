@@ -109,7 +109,7 @@ export default function PaymentTransactionsPage() {
     {
       key: 'amount',
       label: 'Amount',
-      render: (row) => (row.amount != null ? `$${Number(row.amount).toFixed(2)}` : '—'),
+      render: (row) => (row.amount != null ? `KSh ${Number(row.amount).toFixed(2)}` : '—'),
     },
     { key: 'status', label: 'Status' },
   ];

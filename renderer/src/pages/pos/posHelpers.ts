@@ -69,7 +69,7 @@ export interface ExtraCharge {
 }
 
 export function fmt(n: number) {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `KSh ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function lineTax(l: BillLine) {

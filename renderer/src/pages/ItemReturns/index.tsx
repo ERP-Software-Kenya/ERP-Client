@@ -212,7 +212,7 @@ export default function ItemReturnsPage() {
     {
       key: 'totalAmount',
       label: 'Total',
-      render: (row) => `$${Number(row.totalAmount || 0).toFixed(2)}`,
+      render: (row) => `KSh ${Number(row.totalAmount || 0).toFixed(2)}`,
     },
     { key: 'status', label: 'Status' },
     {

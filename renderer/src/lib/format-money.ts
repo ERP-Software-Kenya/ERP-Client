@@ -14,6 +14,10 @@ export function resolveCurrencyCode(country?: string | null, fallback = 'KES'): 
 }
 
 export function formatMoney(amount: number, currencyCode = 'KES'): string {
+  if (currencyCode === 'KES') {
+    const decimals = amount >= 1000 ? 0 : 2;
+    return `KSh ${amount.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+  }
   try {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',

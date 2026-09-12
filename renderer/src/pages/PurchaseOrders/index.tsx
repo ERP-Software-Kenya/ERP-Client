@@ -94,7 +94,7 @@ export default function PurchaseOrdersPage() {
       label: "Total",
       render: (row) =>
         row.totalAmount != null
-          ? `$${Number(row.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          ? `KSh ${Number(row.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : "—",
     },
     {

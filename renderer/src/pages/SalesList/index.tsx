@@ -155,7 +155,7 @@ export default function SalesListPage() {
       const d = Number(r.discountAmount ?? 0);
       return (
         <span className={`tabular-nums ${d > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
-          {d > 0 ? `-${money(d)}` : '$0.00'}
+          {d > 0 ? `-${money(d)}` : 'KSh 0.00'}
         </span>
       );
     }},
@@ -176,7 +176,7 @@ export default function SalesListPage() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <SummaryCard label="Total Sales" value={money(totals.total)} accent />
         <SummaryCard label="Gross Amount" value={money(totals.subtotal)} />
-        <SummaryCard label="Total Discount" value={totals.discount > 0 ? `-${money(totals.discount)}` : '$0.00'} />
+        <SummaryCard label="Total Discount" value={totals.discount > 0 ? `-${money(totals.discount)}` : 'KSh 0.00'} />
         <SummaryCard label="Total Tax" value={moneyOrZero(totals.tax)} />
       </div>
 
