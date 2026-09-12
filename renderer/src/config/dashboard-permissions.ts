@@ -22,7 +22,7 @@ export function canViewDashboardModule(
   const r = roles ?? [];
   if (r.some((role) => role === 'super_admin' || role === 'org_admin')) return true;
   if (module === 'sales' || module === 'purchase' || module === 'inventory') {
-    return r.includes('store_manager') || r.includes('org_admin') || r.includes('super_admin');
+    return r.includes('branch_manager') || r.includes('org_admin') || r.includes('super_admin');
   }
   return false;
 }

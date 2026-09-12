@@ -32,8 +32,7 @@ export interface SessionContextValue {
   isLoading: boolean;
   isSuperAdmin: boolean;
   isOrgAdmin: boolean;
-  isStoreManager: boolean;
-  isStoreStaff: boolean;
+  isBranchManager: boolean;
   /** True for any role that can see admin-only pages. */
   isAdmin: boolean;
   logout: () => Promise<void>;
@@ -85,8 +84,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     const isSuperAdmin = roles.includes('super_admin');
     const isOrgAdmin = isSuperAdmin || roles.includes('org_admin');
-    const isStoreManager = isOrgAdmin || roles.includes('store_manager');
-    const isStoreStaff = isStoreManager || roles.includes('store_staff');
+    const isBranchManager = isOrgAdmin || roles.includes('branch_manager');
     const isAdmin = isOrgAdmin;
 
     return {
@@ -96,8 +94,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       isLoading: loading || syncing,
       isSuperAdmin,
       isOrgAdmin,
-      isStoreManager,
-      isStoreStaff,
+      isBranchManager,
       isAdmin,
       logout,
       refresh,

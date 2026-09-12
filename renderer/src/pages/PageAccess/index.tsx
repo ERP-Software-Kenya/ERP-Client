@@ -9,10 +9,10 @@ import { isFullPageAccessRole } from '../../lib/page-access';
 
 const ROLES = [
   { key: 'super_admin',    label: 'Super Admin' },
-  { key: 'org_admin',     label: 'Org Admin' },
-  { key: 'org_manager',   label: 'Org Manager' },
-  { key: 'store_manager', label: 'Store Manager' },
-  { key: 'store_staff',   label: 'Store Staff' },
+  { key: 'org_admin',      label: 'Org Admin' },
+  { key: 'branch_manager', label: 'Branch Manager' },
+  { key: 'driver',         label: 'Driver' },
+  { key: 'packer',         label: 'Packer' },
 ];
 
 function buildMap(configs: PageAccessConfig[]): Map<string, Set<string>> {

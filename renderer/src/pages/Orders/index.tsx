@@ -185,7 +185,7 @@ function OrdersHeader({
 export default function OrdersPage(): React.JSX.Element {
   const { user } = useAuth();
   const userRoles = user?.roles ?? [];
-  const canCreateBlackSale = userRoles.some((r) => ['super_admin', 'org_admin', 'org_manager'].includes(r));
+  const canCreateBlackSale = userRoles.some((r) => ['super_admin', 'org_admin', 'branch_manager'].includes(r));
 
   const [lines, setLines] = useState<BillLine[]>([]);
   const [locationId, setLocationId] = useState('');

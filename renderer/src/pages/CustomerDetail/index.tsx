@@ -58,7 +58,7 @@ export interface CustomerDetailContentProps {
 export function CustomerDetailContent({ customerId, onCreditUpdated }: CustomerDetailContentProps) {
   const { user } = useAuth();
   const roles = user?.roles ?? [];
-  const isAdminOrManager = ['org_admin', 'org_manager', 'super_admin', 'store_manager'].some((r) => roles.includes(r));
+  const isAdminOrManager = ['org_admin', 'super_admin', 'branch_manager'].some((r) => roles.includes(r));
 
   const { data: customer, isLoading, refetch: refetchCustomer } = Customers.useGet(customerId);
   const recordTx = Customers.useRecordCreditTransaction(customerId);
