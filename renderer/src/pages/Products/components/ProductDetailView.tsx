@@ -17,7 +17,7 @@ import type { Product, Supplier } from '../../../types';
 // ── Formatters ──────────────────────────────────────────────────────────────
 
 function fmtCurrency(n: number) {
-  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return 'KSh ' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtDate(d: string | Date | undefined) {
@@ -287,7 +287,7 @@ export function ProductDetailView({ productId, categoryName, allSuppliers, onClo
                   <h2 className="text-sm font-semibold">Pricing &amp; Stock</h2>
                 </div>
                 <span className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground tracking-wide">
-                  CURRENCY: USD
+                  CURRENCY: KES (KSh)
                 </span>
               </div>
 

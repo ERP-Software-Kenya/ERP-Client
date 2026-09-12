@@ -51,7 +51,7 @@ export function ProductDetailsSection({
   showCheckoutFailureBanner,
 }: ProductDetailsSectionProps) {
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-hidden px-6 pb-2 pt-2">
+    <section className="flex min-h-0 flex-1 flex-col overflow-hidden pl-6 pr-2 pb-2 pt-1.5">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
         {/* Section header */}
         <div className="flex flex-shrink-0 items-center justify-between border-b border-border bg-muted/30 px-4 py-3">

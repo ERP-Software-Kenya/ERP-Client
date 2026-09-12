@@ -70,20 +70,20 @@ export function OrderSummarySidebar({
   const balanceDue = grandTotalWithBalance - amountPaid;
 
   return (
-    <aside className="flex w-80 min-h-0 flex-shrink-0 flex-col gap-3 overflow-y-auto border-l border-border bg-muted/40 p-4">
+    <aside className="flex w-72 2xl:w-80 min-h-0 flex-shrink-0 flex-col gap-2.5 overflow-y-auto border-l border-border bg-muted/40 pt-3 pb-3 pl-2 pr-4">
       {/* Order Summary Card */}
       <div className="rounded-xl border border-border bg-card shadow-sm">
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2 border-b border-border px-3.5 py-2.5">
           <LayoutDashboard size={15} className="text-primary" />
           <h2 className="text-sm font-semibold text-foreground">Order Summary</h2>
         </div>
 
-        <div className="px-4 py-3 space-y-2.5">
+        <div className="px-3.5 py-3 space-y-2.5">
           <SummaryRow label="Subtotal" value={fmt(subtotal)} />
 
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm text-muted-foreground">Total Discount</span>
-            <div className="flex h-8 w-28 items-center rounded-lg border border-border bg-background px-3 text-right text-sm tabular-nums text-muted-foreground">
+            <div className="flex h-8 w-24 items-center rounded-lg border border-border bg-background px-2.5 text-right text-sm tabular-nums text-muted-foreground">
               {discountAmount > 0 ? (
                 <span className="text-emerald-600 font-medium w-full text-right">{fmt(discountAmount)}</span>
               ) : (
@@ -109,7 +109,7 @@ export function OrderSummarySidebar({
         </div>
 
         {/* Status notices */}
-        <div className="px-4 pb-3 space-y-1.5">
+        <div className="px-3.5 pb-3 space-y-1.5">
           {saleType === "credit" && creditNeedsApproval && (
             <p className="text-xs font-medium text-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-1.5">Needs approval — over credit limit</p>
           )}
@@ -130,12 +130,12 @@ export function OrderSummarySidebar({
 
       {/* Payment Details Card */}
       <div className="rounded-xl border border-border bg-card shadow-sm">
-        <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+        <div className="flex items-center gap-2 border-b border-border px-3.5 py-2.5">
           <LayoutDashboard size={15} className="text-primary" />
           <h2 className="text-sm font-semibold text-foreground">Payment Details</h2>
         </div>
 
-        <div className="px-4 py-3 space-y-4">
+        <div className="px-3.5 py-3 space-y-3">
           {/* Payment Method */}
           <div className="space-y-2">
             <div>

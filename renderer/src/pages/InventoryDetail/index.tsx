@@ -181,7 +181,7 @@ export default function InventoryDetailPage() {
         <Stat label="On hand" value={item.quantityOnHand} />
         <Stat label="Reserved" value={item.quantityReserved} />
         <Stat label="Available" value={available} />
-        <Stat label="Avg cost" value={item.averageCost != null ? `$${item.averageCost.toFixed(2)}` : '—'} />
+        <Stat label="Avg cost" value={item.averageCost != null ? `KSh ${item.averageCost.toFixed(2)}` : '—'} />
       </div>
 
       <div className="grid gap-4 text-sm lg:grid-cols-3">

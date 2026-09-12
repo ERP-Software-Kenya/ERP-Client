@@ -428,7 +428,7 @@ export default function OrdersPage(): React.JSX.Element {
                 onLocationChange={handleLocationChange}
               />
 
-              <section className="flex-shrink-0 border-b border-border bg-card px-6 py-3">
+              <section className="flex-shrink-0 border-b border-border bg-card pl-6 pr-4 py-2.5">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Fulfillment</p>
                 <div className="flex flex-wrap items-end gap-4">
                   <div className="min-w-[200px]">

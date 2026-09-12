@@ -62,7 +62,7 @@ export function PaymentLogisticsSection({
   const inputCls = "h-8 rounded-lg border border-border bg-background px-3 text-xs outline-none focus:border-primary";
 
   return (
-    <section className="flex-shrink-0 border-t border-border bg-card px-6 py-3">
+    <section className="flex-shrink-0 border-t border-border bg-card pl-6 pr-4 py-2.5">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         {/* Payment Timing */}
         <div>

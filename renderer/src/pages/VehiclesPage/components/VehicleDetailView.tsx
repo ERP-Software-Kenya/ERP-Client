@@ -421,7 +421,7 @@ export function VehicleDetailView({ vehicleId }: Props) {
                           <td style={{ padding: '0.8rem 1rem', fontWeight: 600, color: 'var(--color-foreground)' }}>{row.service_type}</td>
                           <td style={{ padding: '0.8rem 1rem', color: 'var(--color-muted-foreground)', fontSize: '0.8rem' }}>{row.provider}</td>
                           <td style={{ padding: '0.8rem 1rem', fontFamily: 'monospace', color: 'var(--color-foreground)' }}>
-                            {row.cost === 0 ? '$0.00' : `$${row.cost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                            {row.cost === 0 ? 'KSh 0.00' : `KSh ${row.cost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
                           </td>
                           <td style={{ padding: '0.8rem 1rem' }}>
                             <span style={{ background: sc.bg, color: sc.text, padding: '2px 8px', borderRadius: 4, fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>

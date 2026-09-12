@@ -59,7 +59,7 @@ export default function ProductsPage() {
     {
       key: 'retailPrice',
       label: 'Retail Price',
-      render: (row) => `$${Number(row.retailPrice || 0).toFixed(2)}`,
+      render: (row) => `KSh ${Number(row.retailPrice || 0).toFixed(2)}`,
     },
     { key: 'unit', label: 'Unit' },
     {

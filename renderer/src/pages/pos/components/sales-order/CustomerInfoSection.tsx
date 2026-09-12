@@ -62,7 +62,7 @@ export function CustomerInfoSection({
   ];
 
   return (
-    <section className="flex-shrink-0 px-6 pt-4 pb-2">
+    <section className="flex-shrink-0 pl-6 pr-2 pt-3 pb-1.5">
       <div className="rounded-xl border border-border bg-card shadow-sm">
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           <UserCircle size={16} className="text-primary" />

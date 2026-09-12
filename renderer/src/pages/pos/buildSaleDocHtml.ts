@@ -11,7 +11,7 @@ function esc(s: string) {
 }
 
 function fmt(n: number) {
-  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `KSh ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function fmtDate(iso: string) {

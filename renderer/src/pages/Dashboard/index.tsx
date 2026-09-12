@@ -107,9 +107,9 @@ function useFadeIn(delay = 0) {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmt(n: number): string {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
-  return `$${n.toFixed(0)}`;
+  if (n >= 1_000_000) return `KSh ${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `KSh ${(n / 1_000).toFixed(1)}K`;
+  return `KSh ${n.toFixed(0)}`;
 }
 
 function fmtN(n: number): string {
@@ -675,7 +675,7 @@ function OperationsTab() {
                   <BarChart data={locationPerf} barCategoryGap="35%">
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
+                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => `KSh ${(v / 1000).toFixed(0)}k`} />
                     <Tooltip content={<ChartTooltipBox currency />} />
                     <Bar dataKey="value" name="Stock Value" radius={[6, 6, 0, 0]} animationDuration={1200}>
                       {locationPerf.map((_, i) => (

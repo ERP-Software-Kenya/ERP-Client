@@ -53,7 +53,7 @@ function canMarkOrdered(status?: PurchaseOrderStatus): boolean {
 
 function fmt(n: number | null | undefined): string {
   if (n == null) return '—';
-  return `$${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `KSh ${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function fmtDate(d: string | Date | undefined | null): string {

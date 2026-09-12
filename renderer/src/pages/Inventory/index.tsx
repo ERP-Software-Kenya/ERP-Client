@@ -192,7 +192,7 @@ export default function InventoryPage() {
       key: 'available', label: 'Available',
       render: r => <span className="font-mono font-medium">{(Number(r.quantityOnHand) - Number(r.quantityReserved)).toLocaleString()}</span>,
     },
-    { key: 'averageCost', label: 'Avg Cost', render: r => r.averageCost != null ? `$${Number(r.averageCost).toFixed(2)}` : '—' },
+    { key: 'averageCost', label: 'Avg Cost', render: r => r.averageCost != null ? `KSh ${Number(r.averageCost).toFixed(2)}` : '—' },
     { key: 'status',      label: 'Status',   render: r => <StockStatusBadge item={r} /> },
   ];
 
@@ -300,7 +300,7 @@ export default function InventoryPage() {
         <StatCard icon={<Package size={18}/>}       label="Total Items"  value={(searchData?.total ?? 0).toLocaleString()}     colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" />
         <StatCard icon={<AlertTriangle size={18}/>} label="Low Stock"    value={(lowStockItems?.length ?? 0).toLocaleString()} colorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
           onClick={() => setStatusFilter(f => f === 'low' ? 'all' : 'low')} active={statusFilter === 'low'} />
-        <StatCard icon={<DollarSign size={18}/>}    label="Total Value"  value={`$${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} colorClass="bg-green-500/10 text-green-600 dark:text-green-400" />
+        <StatCard icon={<DollarSign size={18}/>}    label="Total Value"  value={`KSh ${totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} colorClass="bg-green-500/10 text-green-600 dark:text-green-400" />
       </div>
 
       {/* Filters */}
@@ -338,7 +338,7 @@ export default function InventoryPage() {
             <DetailRow label="On Hand"     value={Number(viewItem.quantityOnHand).toLocaleString()} />
             <DetailRow label="Reserved"    value={Number(viewItem.quantityReserved).toLocaleString()} />
             <DetailRow label="Available"   value={(Number(viewItem.quantityOnHand) - Number(viewItem.quantityReserved)).toLocaleString()} />
-            <DetailRow label="Avg Cost"    value={viewItem.averageCost != null ? `$${Number(viewItem.averageCost).toFixed(2)}` : '—'} />
+            <DetailRow label="Avg Cost"    value={viewItem.averageCost != null ? `KSh ${Number(viewItem.averageCost).toFixed(2)}` : '—'} />
             {viewItem.productPackSize != null && (
               <>
                 <DetailRow label="Packs on Hand" value={`${viewItem.packsOnHand ?? 0} packs`} />

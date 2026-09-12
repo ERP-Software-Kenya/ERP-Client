@@ -127,14 +127,14 @@ function CurrencyInput({ label, value, onChange, hint, showMargin, margin }: {
     <div className="space-y-1.5">
       <FieldLabel>{label}</FieldLabel>
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">$</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">KSh</span>
         <Input
           type="number"
           step="0.01"
           min="0"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="pl-7 pr-24"
+          className="pl-12 pr-24"
           placeholder="0.00"
         />
         {showMargin && margin !== null && margin !== undefined && (

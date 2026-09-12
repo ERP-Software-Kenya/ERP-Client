@@ -57,10 +57,10 @@ describe('salesHelpers', () => {
   });
 
   describe('money & moneyOrZero', () => {
-    it('formats numbers with dollar sign', () => {
-      expect(money(42)).toBe('$42.00');
-      expect(money(65)).toBe('$65.00');
-      expect(money(0)).toBe('$0.00');
+    it('formats numbers with KSh currency', () => {
+      expect(money(42)).toBe('KSh 42.00');
+      expect(money(65)).toBe('KSh 65.00');
+      expect(money(0)).toBe('KSh 0.00');
     });
 
     it('money returns dash on null or undefined or NaN', () => {
@@ -69,12 +69,12 @@ describe('salesHelpers', () => {
       expect(money(NaN)).toBe('—');
     });
 
-    it('moneyOrZero returns $0.00 on null or undefined or NaN or 0', () => {
-      expect(moneyOrZero(null)).toBe('$0.00');
-      expect(moneyOrZero(undefined)).toBe('$0.00');
-      expect(moneyOrZero(NaN)).toBe('$0.00');
-      expect(moneyOrZero(0)).toBe('$0.00');
-      expect(moneyOrZero(15.5)).toBe('$15.50');
+    it('moneyOrZero returns KSh 0.00 on null or undefined or NaN or 0', () => {
+      expect(moneyOrZero(null)).toBe('KSh 0.00');
+      expect(moneyOrZero(undefined)).toBe('KSh 0.00');
+      expect(moneyOrZero(NaN)).toBe('KSh 0.00');
+      expect(moneyOrZero(0)).toBe('KSh 0.00');
+      expect(moneyOrZero(15.5)).toBe('KSh 15.50');
     });
   });
 

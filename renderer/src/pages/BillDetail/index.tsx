@@ -13,7 +13,7 @@ import { formatPayment, moneyOrZero } from '../SalesList/salesHelpers';
 
 function money(n: number | undefined | null): string {
   if (n == null || Number.isNaN(Number(n))) return '—';
-  return `$${Number(n).toFixed(2)}`;
+  return `KSh ${Number(n).toFixed(2)}`;
 }
 
 const PAY_METHODS: PaymentMethod[] = ['CASH', 'CARD', 'UPI', 'NET_BANKING', 'CHEQUE', 'CREDIT'];
