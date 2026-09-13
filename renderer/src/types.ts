@@ -770,26 +770,53 @@ export interface PurchaseItem {
   updatedAt?: string;
 }
 
-export const ACTIVITY_LOG_ACTIONS = [
-  'login', 'logout',
-  'add_stock', 'remove_stock', 'adjust_stock', 'transfer_stock',
-  'create_product', 'update_product', 'delete_product',
-  'create_purchase_order', 'receive_purchase_order', 'cancel_purchase_order',
-  'create_store', 'update_store',
-  'create_user', 'update_user', 'deactivate_user',
-] as const;
+export const ACTIVITY_LOG_ACTIONS = {
+  Auth:           ['auth.login', 'auth.logout', 'auth.login_failed'],
+  Products:       ['product.created', 'product.updated', 'product.deleted', 'product.enabled', 'product.disabled', 'product.price_changed'],
+  Stock:          ['stock.added', 'stock.removed', 'stock.adjusted', 'stock.transferred', 'stock.damaged', 'stock.written_off', 'stock.reserved', 'stock.reservation_released'],
+  Sales:          ['sale.created', 'sale.confirmed', 'sale.voided', 'sale.payment_received', 'sale.refunded'],
+  PurchaseOrders: ['purchase_order.created', 'purchase_order.sent', 'purchase_order.goods_received', 'purchase_order.cancelled'],
+  Invoices:       ['invoice.created', 'invoice.sent', 'invoice.paid', 'invoice.voided'],
+  Bills:          ['bill.created', 'bill.paid'],
+  Customers:      ['customer.created', 'customer.updated', 'customer.credit_limit_changed', 'customer.deactivated'],
+  Suppliers:      ['supplier.created', 'supplier.updated', 'supplier.deactivated'],
+  Users:          ['user.created', 'user.updated', 'user.role_changed', 'user.deactivated', 'user.reactivated'],
+  Branches:       ['branch.created', 'branch.updated'],
+  Reports:        ['report.generated', 'report.exported'],
+  OrgSettings:    ['org.settings_updated', 'org.module_toggled', 'org.billing_changed'],
+} as const;
+
+export type ActivityLogAction = typeof ACTIVITY_LOG_ACTIONS[keyof typeof ACTIVITY_LOG_ACTIONS][number];
 
 export interface ActivityLog {
   id: string;
   organizationId?: string;
   userId?: string;
-  action?: string;
-  entityName?: string;
+  locationId?: string;
+  action?: ActivityLogAction;
   entityType?: string;
   entityId?: string;
-  details?: Record<string, any>;
-  metadata?: Record<string, any>;
+  actorName?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: Record<string, unknown>;
   createdAt?: string;
+}
+
+export interface PaginatedActivityLogResponse {
+  data: ActivityLog[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface ActivityLogFilters {
+  action?: string[];
+  userId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  limit?: number;
 }
 
 // Verified against role.entity.ts: `name` is a Postgres enum (fixed values, unique).

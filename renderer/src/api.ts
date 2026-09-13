@@ -6,7 +6,8 @@ import { toast } from 'sonner';
 import type {
   Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
   Notification, ItemReturn, ReportGenerationLog, GenerateReportInput, Order, OrderQueueItem, Invoice, Customer, CustomerCreditTransaction, CreditTransactionDocument, Expense, PurchaseItem,
-  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location, Branch,
+  ActivityLog, PaginatedActivityLogResponse, ActivityLogFilters,
+  Role, UserRole, PlatformConfiguration, PlatformUser, Location, Branch,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer, StockTransferRequest,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
@@ -601,14 +602,30 @@ export const ExpensesApi = {
   },
 };
 export const PurchaseItems = createCreateOnlyResource<PurchaseItem>('/api/v1/purchase-items', 'purchase-items', 'Purchase item');
-export const ActivityLogs = createCreateOnlyResource<ActivityLog>('/api/v1/activity-logs', 'activity-logs', 'Activity log');
-
-export function useListActivityLogs() {
-  return useQuery<ActivityLog[]>({
-    queryKey: ['activity-logs', 'list'],
-    queryFn: () => get<ActivityLog[]>('/api/v1/activity-logs/list'),
+export function useActivityLogs(filters: ActivityLogFilters) {
+  return useQuery<PaginatedActivityLogResponse>({
+    queryKey: ['activity-logs', filters],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (filters.action?.length) filters.action.forEach((a) => params.append('action', a));
+      if (filters.userId) params.set('userId', filters.userId);
+      if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+      if (filters.dateTo) params.set('dateTo', filters.dateTo);
+      if (filters.page) params.set('page', String(filters.page));
+      if (filters.limit) params.set('limit', String(filters.limit));
+      return get<PaginatedActivityLogResponse>(`/api/v1/activity-logs/list?${params.toString()}`);
+    },
     staleTime: 30_000,
   });
+}
+
+export async function exportActivityLogsPdf(filters: ActivityLogFilters): Promise<{ blob: Blob; filename: string }> {
+  const params = new URLSearchParams();
+  if (filters.action?.length) filters.action.forEach((a) => params.append('action', a));
+  if (filters.userId) params.set('userId', filters.userId);
+  if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+  if (filters.dateTo) params.set('dateTo', filters.dateTo);
+  return getBlob(`/api/v1/activity-logs/export?${params.toString()}`);
 }
 export const Roles = createCreateOnlyResource<Role>('/api/v1/roles', 'roles', 'Role');
 

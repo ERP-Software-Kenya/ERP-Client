@@ -52,7 +52,6 @@ const OrdersList = lazy(() => import('./pages/OrdersList'));
 const WarehousePacking = lazy(() => import('./pages/WarehousePacking'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const ActivityLogs = lazy(() => import('./pages/ActivityLogs'));
-const AuditLog = lazy(() => import('./pages/AuditLog'));
 const Expenses = lazy(() => import('./pages/Expenses'));
 const PlatformConfigurations = lazy(() => import('./pages/PlatformConfigurations'));
 const AppUpdates = lazy(() => import('./pages/AppUpdates'));
@@ -180,7 +179,6 @@ function App() {
             <Route path="fleet/plan-trip" element={<PlanTrip />} />
             <Route path="fleet/live-map" element={<LiveFleetMap />} />
             <Route path="activity-logs" element={<ActivityLogs />} />
-            <Route path="audit-log" element={<AuditLog />} />
             <Route path="expenses" element={<Expenses />} />
             <Route path="platform-configurations" element={<PlatformConfigurations />} />
             <Route path="settings/app" element={<AppUpdates />} />
