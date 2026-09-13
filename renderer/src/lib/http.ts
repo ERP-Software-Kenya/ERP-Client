@@ -84,33 +84,40 @@ async function request<T>(resp: Response): Promise<T> {
   return readJsonBody<T>(resp);
 }
 
+async function retryingFetch(
+  url: string,
+  makeHeaders: () => Promise<Record<string, string>>,
+  init: Omit<RequestInit, 'headers'> = {},
+): Promise<Response> {
+  const resp = await fetch(url, { ...init, headers: await makeHeaders() });
+  if (resp.status !== 401) return resp;
+  return fetch(url, { ...init, headers: await makeHeaders() });
+}
+
 export async function get<T>(path: string, params?: QueryParams): Promise<T> {
-  const resp = await fetch(buildUrl(path, params), { headers: await jsonHeaders() });
+  const resp = await retryingFetch(buildUrl(path, params), jsonHeaders);
   return request<T>(resp);
 }
 
 export async function post<T>(path: string, body?: unknown): Promise<T> {
-  const resp = await fetch(buildUrl(path), {
+  const resp = await retryingFetch(buildUrl(path), jsonHeaders, {
     method: 'POST',
-    headers: await jsonHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return request<T>(resp);
 }
 
 export async function put<T>(path: string, body?: unknown): Promise<T> {
-  const resp = await fetch(buildUrl(path), {
+  const resp = await retryingFetch(buildUrl(path), jsonHeaders, {
     method: 'PUT',
-    headers: await jsonHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return request<T>(resp);
 }
 
 export async function patch<T>(path: string, body?: unknown): Promise<T> {
-  const resp = await fetch(buildUrl(path), {
+  const resp = await retryingFetch(buildUrl(path), jsonHeaders, {
     method: 'PATCH',
-    headers: await jsonHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return request<T>(resp);
@@ -123,12 +130,14 @@ async function readJsonBody<T>(resp: Response): Promise<T> {
 }
 
 export async function del(path: string): Promise<void> {
-  const resp = await fetch(buildUrl(path), { method: 'DELETE', headers: await jsonHeaders() });
+  const resp = await retryingFetch(buildUrl(path), jsonHeaders, { method: 'DELETE' });
   await request<void>(resp);
 }
 
 export async function getBlob(path: string, params?: QueryParams): Promise<{ blob: Blob; filename: string }> {
-  const resp = await fetch(buildUrl(path, params), { headers: await authHeader() });
+  const url = buildUrl(path, params);
+  let resp = await fetch(url, { headers: await authHeader() });
+  if (resp.status === 401) resp = await fetch(url, { headers: await authHeader() });
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
     checkAuth(resp.status);
@@ -141,6 +150,6 @@ export async function getBlob(path: string, params?: QueryParams): Promise<{ blo
 }
 
 export async function uploadForm<T>(path: string, form: FormData): Promise<T> {
-  const resp = await fetch(buildUrl(path), { method: 'POST', headers: await authHeader(), body: form });
+  const resp = await retryingFetch(buildUrl(path), authHeader, { method: 'POST', body: form });
   return request<T>(resp);
 }
