@@ -1,7 +1,7 @@
 import { useState, Fragment } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { MODULES } from '../../config/modules';
+import { MODULES, pageKeyForPath } from '../../config/modules';
 import { getAppInitial, getAppName } from '../../lib/branding';
 import { cn } from '../../lib/utils';
 import { Tooltip } from '../ui/tooltip';
@@ -12,6 +12,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
   const location = useLocation();
   const { canAccess, isLoading } = usePageAccess();
   const { isUnlocked } = useBlackTab();
+  const activeKey = pageKeyForPath(location.pathname);
 
   const visibleModules = MODULES.map((group) => {
     // If the group is Black Stock and it's not unlocked, filter it out
@@ -25,7 +26,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
   }).filter((group) => group.items.length > 0);
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
-    const active = MODULES.find((g) => g.items.some((i) => i.path === location.pathname));
+    const active = MODULES.find((g) => g.items.some((i) => i.key === pageKeyForPath(location.pathname)));
     return new Set(active ? [active.label] : MODULES.map((g) => g.label));
   });
 
@@ -69,7 +70,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
           </div>
         ) : visibleModules.map((group) => {
           const isOpen = openGroups.has(group.label);
-          const isGroupActive = group.items.some((i) => !i.disabled && i.path === location.pathname);
+          const isGroupActive = group.items.some((i) => !i.disabled && i.key === activeKey);
           const GroupIcon = group.icon;
 
           return (
@@ -121,16 +122,15 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
                       );
                     }
 
+                    const isItemActive = item.key === activeKey;
                     const link = (
                       <NavLink
                         to={item.path}
-                        className={({ isActive }) =>
-                          cn(
-                            "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-                            isActive ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                            collapsed && "justify-center px-0 w-full"
-                          )
-                        }
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
+                          isItemActive ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                          collapsed && "justify-center px-0 w-full"
+                        )}
                       >
                         <Icon size={18} />
                         {!collapsed && <span className="truncate">{item.title}</span>}
