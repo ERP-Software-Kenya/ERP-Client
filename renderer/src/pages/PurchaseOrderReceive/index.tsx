@@ -46,6 +46,9 @@ interface AllocationRow {
   quantity: number;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const isValidUuid = (v: string | undefined): boolean => !!v && UUID_RE.test(v);
+
 function hasUnallocated(items: PurchaseItem[]): boolean {
   return items.some(
     (item) => Math.max(0, Number(item.quantityReceived ?? 0) - Number(item.quantityAllocated ?? 0)) > 0,
@@ -124,7 +127,7 @@ export default function PurchaseOrderReceive() {
     return allocatableItems.flatMap((item) => {
       const unallocated = Math.max(0, Number(item.quantityReceived ?? 0) - Number(item.quantityAllocated ?? 0));
       return getRowsForItem(item.id, unallocated)
-        .filter((row) => row.locationId && row.quantity > 0)
+        .filter((row) => isValidUuid(row.locationId) && row.quantity > 0)
         .map((row) => ({ purchaseItemId: item.id, locationId: row.locationId, quantity: row.quantity }));
     });
   }, [items, allocationRows]);
@@ -138,7 +141,7 @@ export default function PurchaseOrderReceive() {
       const unallocated = Math.max(0, Number(item.quantityReceived ?? 0) - Number(item.quantityAllocated ?? 0));
       const rows = getRowsForItem(item.id, unallocated);
       const total = rows.reduce((sum, row) => sum + (row.quantity || 0), 0);
-      const allHaveLocation = rows.every((row) => row.locationId !== '');
+      const allHaveLocation = rows.every((row) => isValidUuid(row.locationId));
       return total > 0 && total <= unallocated && allHaveLocation;
     });
   }, [items, allocationRows]);
