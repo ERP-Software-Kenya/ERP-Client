@@ -738,7 +738,7 @@ export interface CommissionPayable {
 }
 
 
-export type EExpenseStatus = 'pending' | 'approved' | 'rejected';
+export type EExpenseStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'settled';
 
 export interface Expense {
   id: string;
@@ -749,7 +749,10 @@ export interface Expense {
   expenseDate?: string;
   description?: string;
   status?: EExpenseStatus;
-  submittedBy?: string;
+  submittedByUserId?: string;
+  submittedByName?: string;
+  receiptKey?: string;
+  adminComment?: string;
   createdAt?: string;
 }
 
