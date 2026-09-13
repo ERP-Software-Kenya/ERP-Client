@@ -7,12 +7,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import { Spinner } from './Spinner';
 
 export interface ExtraAction {
   label: string;
   icon?: React.ReactNode;
   onSelect: () => void;
   destructive?: boolean;
+  loading?: boolean;
+  disabled?: boolean;
 }
 
 export interface RowActionsMenuProps {
@@ -54,10 +57,11 @@ export function RowActionsMenu({ onView, onEdit, onDelete, extraActions }: RowAc
         {hasExtra && extraActions!.map((action, i) => (
           <DropdownMenuItem
             key={i}
-            onSelect={action.onSelect}
+            onSelect={action.loading || action.disabled ? undefined : action.onSelect}
             destructive={action.destructive}
+            disabled={action.loading || action.disabled}
           >
-            {action.icon}
+            {action.loading ? <Spinner size={14} /> : action.icon}
             {action.label}
           </DropdownMenuItem>
         ))}

@@ -156,10 +156,13 @@ export default function ReportGenerationLogsPage(): React.ReactElement {
   const extraRowActions = useMemo(() => (row: ReportGenerationLog): ExtraAction[] => {
     const actions: ExtraAction[] = [];
     if (row.status === 'COMPLETED') {
+      const isThisRowDownloading = downloadMutation.isPending && downloadMutation.variables === row.id;
       actions.push({
-        label: 'Export PDF',
+        label: isThisRowDownloading ? 'Exporting…' : 'Export PDF',
         icon: <Download size={14} />,
         onSelect: () => downloadMutation.mutate(row.id),
+        loading: isThisRowDownloading,
+        disabled: downloadMutation.isPending,
       });
     }
     if (row.status === 'FAILED' && row.reportType && row.reportPeriod && row.fromDate && row.toDate) {
