@@ -131,9 +131,7 @@ function App() {
             <Route path="organizations" element={<Organizations />} />
             <Route path="stores" element={<Locations />} />
             <Route path="warehouse" element={<Locations />} />
-            <Route path="branches" element={<Locations />} />
             <Route path="warehouse/packing" element={<WarehousePacking />} />
-            <Route path="locations" element={<Locations />} />
             <Route path="branches" element={<Branches />} />
             <Route path="categories" element={<Categories />} />
             <Route path="suppliers" element={<Suppliers />} />

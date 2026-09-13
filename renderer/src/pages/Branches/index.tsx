@@ -4,7 +4,7 @@ import { MoreHorizontal } from 'lucide-react';
 import { Branches, Locations, patch } from '../../api';
 import { DataTable, type Column } from '../../components/DataTable';
 import { FormDrawer, Field } from '../../components/FormDrawer';
-import { ViewDrawer } from '../../components/ViewDrawer';
+import { BranchViewDrawer } from './BranchViewDrawer';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -188,11 +188,12 @@ export default function BranchesPage() {
         addLabel="Add Branch"
       />
 
-      <ViewDrawer
-        open={viewRow != null}
-        title="View Branch"
-        data={viewRow as Record<string, unknown> | null}
+      <BranchViewDrawer
+        branch={viewRow}
+        locations={locations}
         onClose={() => setViewRow(null)}
+        onEdit={(b) => { setViewRow(null); openEdit(b); }}
+        onInactive={(b) => { setViewRow(null); setInactiveTarget(b); }}
       />
 
       <FormDrawer

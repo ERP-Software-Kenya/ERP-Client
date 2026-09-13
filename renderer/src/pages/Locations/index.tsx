@@ -29,7 +29,6 @@ const TYPE_OPTIONS: LocationType[] = ['store', 'warehouse', 'branch'];
 interface FormState {
   name: string;
   type: LocationType | '';
-  parentId: string;
   branchId: string;
   address: string;
   countryName: string;
@@ -44,7 +43,7 @@ interface FormState {
 interface PendingImage { file: File; previewUrl: string }
 
 const EMPTY_FORM: FormState = {
-  name: '', type: '', parentId: '', branchId: '',
+  name: '', type: '', branchId: '',
   address: '',
   countryName: '', countryId: null,
   stateName: '', stateId: null,
@@ -59,14 +58,11 @@ export default function LocationsPage() {
   const { isSuperAdmin } = useSession();
   const warehouseOnly = pathname.startsWith('/warehouse');
   const storeOnly = pathname.startsWith('/stores');
-  const branchOnly = pathname.startsWith('/branches');
   const emptyForm: FormState = warehouseOnly
     ? { ...EMPTY_FORM, type: 'warehouse' }
     : storeOnly
       ? { ...EMPTY_FORM, type: 'store' }
-      : branchOnly
-        ? { ...EMPTY_FORM, type: 'branch' }
-        : EMPTY_FORM;
+      : EMPTY_FORM;
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Location | null>(null);
@@ -97,10 +93,9 @@ export default function LocationsPage() {
     const next: Record<string, string> = {};
     if (warehouseOnly) next.type = 'warehouse';
     else if (storeOnly) next.type = 'store';
-    else if (branchOnly) next.type = 'branch';
     if (statusFilter) next.isActive = statusFilter;
     return Object.keys(next).length ? next : undefined;
-  }, [warehouseOnly, storeOnly, branchOnly, statusFilter]);
+  }, [warehouseOnly, storeOnly, statusFilter]);
 
   const { data, isLoading, error, refetch } = Locations.useSearch({ page, search: debouncedSearch, filters });
 
@@ -109,8 +104,6 @@ export default function LocationsPage() {
   const { data: cities = [] } = useListCities(form.stateId);
 
   const { data: branchEntities = [] } = Branches.useList();
-  const { data: branchesData } = Locations.useSearch({ filters: { type: 'branch' } });
-  const branches = branchesData?.items ?? [];
 
   const clearPending = () => {
     setPendingImage((prev) => { if (prev) URL.revokeObjectURL(prev.previewUrl); return null; });
@@ -130,7 +123,7 @@ export default function LocationsPage() {
     setForm({
       name: row.name ?? '',
       type: row.type ?? '',
-      parentId: row.parentId ?? '',
+      branchId: row.branchId ?? '',
       address: row.address ?? '',
       countryName: row.country ?? '',
       countryId: country?.id ?? null,
@@ -184,7 +177,6 @@ export default function LocationsPage() {
     const body: Partial<Location> = {
       name: form.name,
       type: form.type || undefined,
-      parentId: form.parentId || undefined,
       address: form.address || undefined,
       city: form.cityName || undefined,
       state: form.stateName || undefined,
@@ -214,9 +206,9 @@ export default function LocationsPage() {
     { key: 'name', label: 'Name' },
     { key: 'type', label: 'Type' },
     {
-      key: 'parentId', label: 'Branch', render: (r) => {
-        if (!r.parentId) return '—';
-        const branch = branches.find(b => b.id === r.parentId);
+      key: 'branchId', label: 'Branch', render: (r) => {
+        if (!r.branchId) return '—';
+        const branch = branchEntities.find(b => b.id === r.branchId);
         return branch ? branch.name : 'Unknown Branch';
       }
     },
@@ -236,15 +228,11 @@ export default function LocationsPage() {
   ];
 
   const isSaving = createMutation.isPending || updateMutation.isPending || uploading;
-  const pageTitle = warehouseOnly ? 'Warehouses' : storeOnly ? 'Stores' : branchOnly ? 'Branches' : 'Locations';
-  const entityLabel = warehouseOnly ? 'Warehouse' : storeOnly ? 'Store' : branchOnly ? 'Branch' : 'Location';
+  const pageTitle = warehouseOnly ? 'Warehouses' : 'Stores';
+  const entityLabel = warehouseOnly ? 'Warehouse' : 'Store';
   const pageDesc = warehouseOnly
     ? 'Manage warehouse locations for your organization.'
-    : storeOnly
-      ? 'Manage store locations for your organization.'
-      : branchOnly
-        ? 'Manage branch locations for your organization.'
-        : 'Manage store, warehouse, and branch locations for your organization.';
+    : 'Manage store locations for your organization.';
 
   return (
     <div className="space-y-4" style={{ height: '100%' }}>
@@ -271,10 +259,10 @@ export default function LocationsPage() {
             onChange={(v) => { setStatusFilter(v); setPage(1); }}
           />
         }
-        searchPlaceholder={warehouseOnly ? 'Search warehouses…' : storeOnly ? 'Search stores…' : branchOnly ? 'Search branches…' : 'Search locations…'}
+        searchPlaceholder={warehouseOnly ? 'Search warehouses…' : 'Search stores…'}
         isAdmin={true}
         onAdd={openCreate}
-        addLabel={warehouseOnly ? 'Configure Warehouse' : storeOnly ? 'Configure Store' : branchOnly ? 'Configure Branch' : 'Configure Location'}
+        addLabel={warehouseOnly ? 'Configure Warehouse' : 'Configure Store'}
         onView={(row) => setViewRow(row)}
         onEdit={openEdit}
         onDelete={(row) => setDeleteTarget(row)}
@@ -334,7 +322,7 @@ export default function LocationsPage() {
 
           {!warehouseOnly && !storeOnly && (
             <Field label="Type" required>
-              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as LocationType, parentId: v === 'branch' ? '' : form.parentId })}>
+              <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v as LocationType })}>
                 <SelectTrigger><SelectValue placeholder="Select type…" /></SelectTrigger>
                 <SelectContent>
                   {TYPE_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -343,17 +331,6 @@ export default function LocationsPage() {
             </Field>
           )}
 
-          {form.type !== 'branch' && (
-            <Field label="Branch">
-              <Select value={form.parentId || 'none'} onValueChange={(v) => setForm({ ...form, parentId: v === 'none' ? '' : v })}>
-                <SelectTrigger><SelectValue placeholder="Select parent branch…" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {branches.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </Field>
-          )}
 
           <Field label="Address">
             <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
