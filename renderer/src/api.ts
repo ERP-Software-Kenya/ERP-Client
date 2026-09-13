@@ -591,13 +591,28 @@ export const ExpensesApi = {
   useUpdateStatus() {
     const qc = useQueryClient();
     return useMutation({
-      mutationFn: ({ id, status }: { id: string; status: string }) =>
-        patch<Expense>(`/api/v1/expenses/${id}/status`, { status }),
+      mutationFn: ({ id, status, comment }: { id: string; status: string; comment?: string }) =>
+        patch<Expense>(`/api/v1/expenses/${id}/status`, { status, comment }),
       onSuccess: () => {
         void qc.invalidateQueries({ queryKey: ['expenses', 'list'] });
         toast.success('Expense status updated');
       },
       onError: () => toast.error('Failed to update expense status'),
+    });
+  },
+  useUploadReceipt() {
+    const qc = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, file }: { id: string; file: File }) => {
+        const form = new FormData();
+        form.append('receipt', file);
+        return uploadForm<Expense>(`/api/v1/expenses/${id}/receipt`, form);
+      },
+      onSuccess: () => {
+        void qc.invalidateQueries({ queryKey: ['expenses', 'list'] });
+        toast.success('Receipt uploaded');
+      },
+      onError: () => toast.error('Failed to upload receipt'),
     });
   },
 };
