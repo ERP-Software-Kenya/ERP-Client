@@ -199,19 +199,6 @@ export default function SignUp() {
               )}
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer select-none text-muted-foreground hover:text-foreground">
-                <input
-                  type="checkbox"
-                  checked={showPassword}
-                  onChange={(e) => setShowPassword(e.target.checked)}
-                  className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
-                  disabled={loading}
-                />
-                <span>Show password</span>
-              </label>
-            </div>
-
             <div id="clerk-captcha" />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="animate-spin" />}
