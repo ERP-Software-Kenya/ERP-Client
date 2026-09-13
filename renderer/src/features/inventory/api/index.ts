@@ -38,7 +38,7 @@ export const Inventory = {
   useByProduct(productId: string | undefined) {
     return useQuery({
       queryKey: ['inventory', 'by-product', productId],
-      queryFn: () => get<InventoryItem[]>(`/api/v1/inventory/by-product/${productId}`),
+      queryFn: () => get<PaginatedResponse<InventoryItem>>('/api/v1/inventory', { productId }).then((res) => res.items),
       enabled: !!productId,
     });
   },

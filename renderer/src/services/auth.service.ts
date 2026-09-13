@@ -11,6 +11,7 @@ export interface MeResponse {
   isOnboarded: boolean;
   organization?: { id: string; name: string; slug: string; logoUrl?: string };
   membership?: { id: string; roleId: string; status: string; joinedAt?: string };
+  branchIds?: string[];
   locationIds?: string[];
   branchId?: string;
   hasOrgWideAccess?: boolean;

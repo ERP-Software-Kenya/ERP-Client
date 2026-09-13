@@ -24,6 +24,7 @@ export default function SSOContinue() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [bootError, setBootError] = useState<string | null>(null);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const emailCodeSent = useRef(false);
 
@@ -39,23 +40,29 @@ export default function SSOContinue() {
 
   useEffect(() => {
     (async () => {
-      if (!clerk.loaded) await clerk.load();
-      const signUp = clerk.client?.signUp;
-      if (!signUp?.id || signUp.status !== 'missing_requirements') {
-        toast.error('Google sign-up session expired — try again');
-        navigate('/login', { replace: true });
-        return;
-      }
-      if (signUp.unverifiedFields?.includes('email_address')) {
-        await beginEmailVerification(signUp);
+      try {
+        if (!clerk.loaded) await clerk.load();
+        const signUp = clerk.client?.signUp;
+        if (!signUp?.id || signUp.status !== 'missing_requirements') {
+          toast.error('Google sign-up session expired — try again');
+          navigate('/login', { replace: true });
+          return;
+        }
+        if (signUp.unverifiedFields?.includes('email_address')) {
+          await beginEmailVerification(signUp);
+          setReady(true);
+          return;
+        }
+        setMissingFields(signUp.missingFields ?? []);
+        setFirstName(signUp.firstName ?? '');
+        setLastName(signUp.lastName ?? '');
+        setUsername(signUp.username ?? '');
         setReady(true);
-        return;
+      } catch (error: any) {
+        const message = clerkErrorMessage(error, 'Google sign-up could not continue');
+        setBootError(message);
+        toast.error(message);
       }
-      setMissingFields(signUp.missingFields ?? []);
-      setFirstName(signUp.firstName ?? '');
-      setLastName(signUp.lastName ?? '');
-      setUsername(signUp.username ?? '');
-      setReady(true);
     })();
   }, [navigate]);
 
@@ -135,10 +142,17 @@ export default function SSOContinue() {
     }
   };
 
-  if (!ready) {
+  if (!ready || bootError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-        <p className="text-muted-foreground">Preparing account…</p>
+        <div className="w-full max-w-md p-8 bg-card border border-border rounded-xl shadow-lg space-y-4 text-center">
+          <p className="text-muted-foreground">{bootError ?? 'Preparing account...'}</p>
+          {bootError && (
+            <Button type="button" variant="outline" className="w-full" onClick={handleBackToSignIn}>
+              Back to sign in
+            </Button>
+          )}
+        </div>
       </div>
     );
   }

@@ -26,8 +26,8 @@ const PAYMENT_COLORS: Record<string, string> = {
 
 const PERF_BAR_COLORS = ['#3b82f6', '#06b6d4', '#8b5cf6', '#f97316'];
 
-function toParams(period: DashboardPeriodRange, locationId?: string) {
-  return { period: period.preset, from: period.from, to: period.to, locationId };
+function toParams(period: DashboardPeriodRange, branchId?: string) {
+  return { period: period.preset, from: period.from, to: period.to, branchId };
 }
 
 function truncateName(name: string, max = 16): string {
@@ -138,8 +138,8 @@ function TopPerformanceList({
 }
 
 function SalesDashboardBody({
-  period, locationId, currencyCode,
-}: { period: DashboardPeriodRange; locationId?: string; currencyCode: string }) {
+  period, branchId, currencyCode,
+}: { period: DashboardPeriodRange; branchId?: string; currencyCode: string }) {
   const { user, raw } = useSession();
   const canViewMargin = canViewSensitiveChart(
     DASHBOARD_PERMISSIONS.sales.margin,
@@ -147,7 +147,7 @@ function SalesDashboardBody({
     raw?.hasOrgWideAccess ?? false,
   );
 
-  const params = toParams(period, locationId);
+  const params = toParams(period, branchId);
   const fmt = (n: number) => formatMoney(n, currencyCode);
   const ld = (loading: boolean, value: string) => (loading ? '…' : value);
 

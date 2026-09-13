@@ -76,10 +76,6 @@ export function useListActivityLogs() {
 }
 
 export const PlatformConfigurations = createCreateOnlyResource<PlatformConfiguration>('/api/v1/platform-configurations', 'platform-configurations', 'Configuration');
-/**
- * Internal user directory (local DB, distinct from the Clerk-backed `ClerkUsers` resource
- * used on the Users page). GET /api/v1/users/directory.
- */
 
 export function useInventoryValuation() {
   return useQuery({

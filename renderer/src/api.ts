@@ -664,18 +664,25 @@ export const PlatformConfigurations = createCreateOnlyResource<PlatformConfigura
 /**
  * Internal user directory (local DB). GET /api/v1/users/directory.
  * Fails silently when the API route is not deployed yet (legacy servers treat "directory" as :id).
+ * Lightweight user directory from the existing Clerk-backed users endpoint.
  */
 export function useListUserDirectory(organizationId?: string, enabled = true) {
   return useQuery<PlatformUser[]>({
     queryKey: ['users', 'directory', organizationId],
-    queryFn: async () => {
-      try {
-        return await get<PlatformUser[]>('/api/v1/users/directory', organizationId ? { organizationId } : undefined);
-      } catch {
-        return [];
-      }
-    },
-    enabled,
+    queryFn: () =>
+      get<ClerkUserListResponse>('/api/v1/users', {
+        limit: 100,
+        offset: 0,
+        ...(organizationId ? { organizationId } : {}),
+      }).then((res) =>
+        res.data.map((user) => ({
+          id: user.clerkUserId,
+          email: user.email,
+          firstName: user.firstName ?? undefined,
+          lastName: user.lastName ?? undefined,
+          isActive: !user.banned,
+        })),
+      ),
     staleTime: 5 * 60 * 1000,
     retry: false,
     refetchOnWindowFocus: false,
@@ -1375,6 +1382,7 @@ function analyticsQueryParams(params?: DashboardAnalyticsParams & { limit?: numb
   if (params?.period) q.period = params.period;
   if (params?.from) q.from = params.from;
   if (params?.to) q.to = params.to;
+  if (params?.branchId) q.branchId = params.branchId;
   if (params?.locationId) q.locationId = params.locationId;
   if (params?.limit != null) q.limit = params.limit;
   if (params?.months != null) q.months = params.months;
@@ -1411,10 +1419,10 @@ export const Analytics = {
       staleTime: 5 * 60 * 1000,
     });
   },
-  useTopCustomers(limit = 10) {
+  useTopCustomers(params?: DashboardAnalyticsParams & { limit?: number }) {
     return useQuery<TopCustomer[]>({
-      queryKey: ['analytics', 'top-customers', limit],
-      queryFn:  () => get<TopCustomer[]>('/api/v1/analytics/top-customers', { limit }),
+      queryKey: ['analytics', 'top-customers', params],
+      queryFn:  () => get<TopCustomer[]>('/api/v1/analytics/top-customers', analyticsQueryParams({ limit: 10, ...params })),
       staleTime: 5 * 60 * 1000,
     });
   },
@@ -1446,35 +1454,35 @@ export const Analytics = {
       staleTime: 5 * 60 * 1000,
     });
   },
-  usePurchaseExceptions(params?: Pick<DashboardAnalyticsParams, 'locationId'>) {
+  usePurchaseExceptions(params?: DashboardAnalyticsParams) {
     return useQuery<PurchaseExceptionsData>({
       queryKey: ['analytics', 'purchase-exceptions', params],
       queryFn:  () => get<PurchaseExceptionsData>('/api/v1/analytics/purchase-exceptions', analyticsQueryParams(params)),
       staleTime: 5 * 60 * 1000,
     });
   },
-  useTopSuppliers(limit = 10) {
+  useTopSuppliers(params?: DashboardAnalyticsParams & { limit?: number }) {
     return useQuery<TopSupplier[]>({
-      queryKey: ['analytics', 'top-suppliers', limit],
-      queryFn:  () => get<TopSupplier[]>('/api/v1/analytics/top-suppliers', { limit }),
+      queryKey: ['analytics', 'top-suppliers', params],
+      queryFn:  () => get<TopSupplier[]>('/api/v1/analytics/top-suppliers', analyticsQueryParams({ limit: 10, ...params })),
       staleTime: 5 * 60 * 1000,
     });
   },
-  useInventorySummary(params?: Pick<DashboardAnalyticsParams, 'locationId'>) {
+  useInventorySummary(params?: DashboardAnalyticsParams) {
     return useQuery<InventorySummaryData>({
       queryKey: ['analytics', 'inventory-summary', params],
       queryFn:  () => get<InventorySummaryData>('/api/v1/analytics/inventory-summary', analyticsQueryParams(params)),
       staleTime: 5 * 60 * 1000,
     });
   },
-  useStockByLocation(params?: Pick<DashboardAnalyticsParams, 'locationId'>) {
+  useStockByLocation(params?: DashboardAnalyticsParams) {
     return useQuery<StockByLocationPoint[]>({
       queryKey: ['analytics', 'stock-by-location', params],
       queryFn:  () => get<StockByLocationPoint[]>('/api/v1/analytics/stock-by-location', analyticsQueryParams(params)),
       staleTime: 5 * 60 * 1000,
     });
   },
-  useStockValueByCategory(params?: Pick<DashboardAnalyticsParams, 'locationId'>) {
+  useStockValueByCategory(params?: DashboardAnalyticsParams) {
     return useQuery<CategoryValuePoint[]>({
       queryKey: ['analytics', 'stock-value-by-category', params],
       queryFn:  () => get<CategoryValuePoint[]>('/api/v1/analytics/stock-value-by-category', analyticsQueryParams(params)),
@@ -1509,7 +1517,7 @@ export const Analytics = {
       staleTime: 5 * 60 * 1000,
     });
   },
-  useDeadStock(params?: Pick<DashboardAnalyticsParams, 'locationId'> & { limit?: number; staleDays?: number }) {
+  useDeadStock(params?: DashboardAnalyticsParams & { limit?: number; staleDays?: number }) {
     return useQuery<ProductMovementRank[]>({
       queryKey: ['analytics', 'dead-stock', params],
       queryFn:  () => get<ProductMovementRank[]>('/api/v1/analytics/dead-stock', analyticsQueryParams(params)),
@@ -1523,7 +1531,7 @@ export const Analytics = {
       staleTime: 5 * 60 * 1000,
     });
   },
-  useInventoryStatus(params?: Pick<DashboardAnalyticsParams, 'locationId'> & { staleDays?: number }) {
+  useInventoryStatus(params?: DashboardAnalyticsParams & { staleDays?: number }) {
     return useQuery<InventoryStatusData>({
       queryKey: ['analytics', 'inventory-status', params],
       queryFn:  () => get<InventoryStatusData>('/api/v1/analytics/inventory-status', analyticsQueryParams(params)),
