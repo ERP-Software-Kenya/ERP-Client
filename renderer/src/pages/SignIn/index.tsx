@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +21,13 @@ export default function SignIn() {
   const [capsLockActive, setCapsLockActive] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem('erp.session-expired')) {
+      sessionStorage.removeItem('erp.session-expired');
+      toast.warning('Your session has expired. Please sign in again.');
+    }
+  }, []);
 
   // Backend /me still catching up after setActive — avoid flashing the login form.
   // Require an active Clerk session so a stale syncing flag after logout cannot flash this UI.

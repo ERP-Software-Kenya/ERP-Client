@@ -162,9 +162,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               lastSessionId.current = session.id;
               await refresh();
             } else {
+              const hadSession = lastSessionId.current !== null;
               lastSessionId.current = null;
               setUser(null);
               setBootPhase(null);
+              if (hadSession) {
+                try { sessionStorage.setItem('erp.session-expired', '1'); } catch { /* ignore */ }
+              }
             }
           } finally {
             if (!hasLoadedOnce) {
