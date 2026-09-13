@@ -24,7 +24,6 @@ interface FormState {
   address: string;
   city: string;
   phone: string;
-  locationIds: string[];
 }
 
 const EMPTY: FormState = {
@@ -33,7 +32,6 @@ const EMPTY: FormState = {
   address: '',
   city: '',
   phone: '',
-  locationIds: [],
 };
 
 export default function BranchesPage() {
@@ -121,16 +119,8 @@ export default function BranchesPage() {
       address: row.address ?? '',
       city: row.city ?? '',
       phone: row.phone ?? '',
-      locationIds: row.locationIds ?? [],
     });
     setDrawerOpen(true);
-  };
-
-  const toggleLocation = (id: string, checked: boolean) => {
-    setForm((f) => ({
-      ...f,
-      locationIds: checked ? [...f.locationIds, id] : f.locationIds.filter((x) => x !== id),
-    }));
   };
 
   const handleSubmit = (ev: React.FormEvent) => {
@@ -142,7 +132,6 @@ export default function BranchesPage() {
       address: form.address || undefined,
       city: form.city || undefined,
       phone: form.phone || undefined,
-      locationIds: form.locationIds,
     };
     if (editing) {
       updateMutation.mutate(
@@ -228,24 +217,6 @@ export default function BranchesPage() {
           </Field>
           <Field label="Phone">
             <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          </Field>
-          <Field label="Stores & warehouses" hint="Select locations to include in this branch.">
-            <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
-              {locations.length === 0 && (
-                <p className="text-sm text-muted-foreground">No locations available.</p>
-              )}
-              {locations.map((loc) => (
-                <label key={loc.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={form.locationIds.includes(loc.id)}
-                    onChange={(e) => toggleLocation(loc.id, e.target.checked)}
-                  />
-                  <span>{loc.name} ({loc.type})</span>
-                </label>
-              ))}
-            </div>
           </Field>
         </form>
       </FormDrawer>
