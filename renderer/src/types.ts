@@ -67,7 +67,6 @@ export type LocationType = 'store' | 'warehouse' | 'branch';
 export interface Location {
   id: string;
   organizationId?: string;
-  parentId?: string;
   branchId?: string;
   name: string;
   type: LocationType;
