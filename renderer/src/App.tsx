@@ -46,7 +46,9 @@ const UnpublishedStockPage = lazy(() => import('./pages/UnpublishedStock'));
 const ProductLogsPage = lazy(() => import('./pages/ProductLogs'));
 const Customers = lazy(() => import('./pages/Customers'));
 const CustomerDetail = lazy(() => import('./pages/CustomerDetail'));
+const Debtors = lazy(() => import('./pages/Debtors'));
 const Creditors = lazy(() => import('./pages/Creditors'));
+const PurchaseCreditors = lazy(() => import('./pages/PurchaseCreditors'));
 const Orders = lazy(() => import('./pages/Orders'));
 const OrdersList = lazy(() => import('./pages/OrdersList'));
 const WarehousePacking = lazy(() => import('./pages/WarehousePacking'));
@@ -157,7 +159,9 @@ function App() {
             <Route path="product-logs" element={<ProductLogsPage />} />
             <Route path="customers" element={<Customers />} />
             <Route path="customers/:id" element={<CustomerDetail />} />
+            <Route path="sales/debtors" element={<Debtors />} />
             <Route path="sales/creditors" element={<Creditors />} />
+            <Route path="purchase/creditors" element={<PurchaseCreditors />} />
             <Route path="pending-approvals" element={<PendingApprovals />} />
             <Route path="black-ledger" element={<BlackTabProtectedRoute><BlackLedger /></BlackTabProtectedRoute>} />
             <Route path="orders" element={<Navigate to="/orders/list" replace />} />

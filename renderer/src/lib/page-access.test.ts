@@ -35,6 +35,31 @@ describe('canAccessPage', () => {
     expect(canAccessPage(['branch_manager'], 'users', usersOnlyForBranchManager)).toBe(true);
     expect(canAccessPage(['branch_manager'], 'dashboard', usersOnlyForBranchManager)).toBe(false);
   });
+
+  it('inherits debtors access from customers when unconfigured', () => {
+    const configWithCustomers = new Map<string, ReadonlySet<string>>([
+      ['customers', new Set(['branch_manager'])],
+    ]);
+    expect(canAccessPage(['branch_manager'], 'debtors', configWithCustomers)).toBe(true);
+    expect(canAccessPage(['driver'], 'debtors', configWithCustomers)).toBe(false);
+  });
+
+  it('inherits purchase-creditors access from suppliers when unconfigured', () => {
+    const configWithSuppliers = new Map<string, ReadonlySet<string>>([
+      ['suppliers', new Set(['branch_manager'])],
+    ]);
+    expect(canAccessPage(['branch_manager'], 'purchase-creditors', configWithSuppliers)).toBe(true);
+    expect(canAccessPage(['driver'], 'purchase-creditors', configWithSuppliers)).toBe(false);
+  });
+
+  it('uses explicit debtors config over customers fallback when present', () => {
+    const customConfig = new Map<string, ReadonlySet<string>>([
+      ['customers', new Set(['branch_manager'])],
+      ['debtors', new Set(['driver'])],
+    ]);
+    expect(canAccessPage(['driver'], 'debtors', customConfig)).toBe(true);
+    expect(canAccessPage(['branch_manager'], 'debtors', customConfig)).toBe(false);
+  });
 });
 
 describe('isFullPageAccessRole', () => {

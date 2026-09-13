@@ -20,7 +20,13 @@ export function canAccessPage(
   if (userRoles.some((role) => isFullPageAccessRole(role))) {
     return true;
   }
-  const allowed = accessMap.get(pageKey);
+  let allowed = accessMap.get(pageKey);
+  if (!allowed && pageKey === 'debtors') {
+    allowed = accessMap.get('customers');
+  }
+  if (!allowed && pageKey === 'purchase-creditors') {
+    allowed = accessMap.get('suppliers');
+  }
   if (!allowed) {
     return false;
   }
