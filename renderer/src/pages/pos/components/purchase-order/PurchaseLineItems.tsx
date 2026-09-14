@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { LayoutList, Minus, Plus, Scan, Trash2 } from "lucide-react";
 import type { Product } from "../../../../types";
 import { fmt, type BillLine, type ExtraCharge } from "../../posHelpers";
@@ -38,6 +38,34 @@ export function PurchaseLineItems({
   checkoutResult,
   showCheckoutFailureBanner,
 }: PurchaseLineItemsProps) {
+  const [activeIdx, setActiveIdx] = useState(-1);
+
+  useEffect(() => {
+    setActiveIdx(-1);
+  }, [suggestions]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (suggestions.length === 0) {
+      if (e.key === "Enter") onEnter();
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Enter") {
+      if (activeIdx >= 0) {
+        onAddProduct(suggestions[activeIdx]);
+      } else {
+        onEnter();
+      }
+    } else if (e.key === "Escape") {
+      onSearchChange("");
+    }
+  };
+
   return (
     <div className="rounded-xl border border-border bg-card shadow-sm">
       {/* Header */}
@@ -57,19 +85,19 @@ export function PurchaseLineItems({
           <input
             ref={searchRef}
             value={searchVal}
-            onChange={(e) => onSearchChange(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onEnter()}
+            onChange={(e) => { onSearchChange(e.target.value); setActiveIdx(-1); }}
+            onKeyDown={handleKeyDown}
             placeholder="Scan or search product…"
             className="w-full rounded-lg border border-border bg-background py-1.5 pl-8 pr-3 text-xs outline-none focus:border-primary"
           />
           {suggestions.length > 0 && searchVal.trim() && (
             <div className="absolute z-30 mt-1 w-full rounded-lg border border-border bg-card shadow-lg">
-              {suggestions.map((p) => (
+              {suggestions.map((p, idx) => (
                 <button
                   key={p.id}
                   type="button"
                   onClick={() => onAddProduct(p)}
-                  className="flex w-full items-center justify-between border-b border-border px-3 py-2 text-left text-xs last:border-0 hover:bg-muted"
+                  className={`flex w-full items-center justify-between border-b border-border px-3 py-2 text-left text-xs last:border-0 hover:bg-muted ${idx === activeIdx ? "bg-primary/10" : ""}`}
                 >
                   <span className="font-medium">{p.name}</span>
                   <span className="text-muted-foreground font-mono text-[10px]">{p.sku}</span>
