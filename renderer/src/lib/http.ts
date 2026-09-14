@@ -13,7 +13,7 @@ export class HttpError extends Error {
   }
 }
 
-let _baseUrl = 'https://core-apis-m03n.onrender.com';
+let _baseUrl = 'http://51.20.217.230:10000';
 let _getToken: () => Promise<string | null> = async () => null;
 
 /** Call once at startup. getToken is invoked fresh on every request (Clerk auto-refreshes). */

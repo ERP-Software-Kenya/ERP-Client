@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { ChevronDown, Package, Receipt, Scan, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Product, SaleType, Supplier } from "../../../types";
@@ -56,6 +56,34 @@ export function ProductSearchPanel({
   suppliers,
   accentBtnCls,
 }: ProductSearchPanelProps) {
+  const [activeIdx, setActiveIdx] = useState(-1);
+
+  useEffect(() => {
+    setActiveIdx(-1);
+  }, [suggestions]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (suggestions.length === 0) {
+      if (e.key === "Enter") onEnter();
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Enter") {
+      if (activeIdx >= 0) {
+        onAddProduct(suggestions[activeIdx]);
+      } else {
+        onEnter();
+      }
+    } else if (e.key === "Escape") {
+      onSearchChange("");
+    }
+  };
+
   return (
     <div className="flex w-64 min-h-0 flex-shrink-0 flex-col overflow-y-auto bg-card border-r border-border">
       <div className="p-4 border-b border-border">
@@ -70,8 +98,8 @@ export function ProductSearchPanel({
           <input
             ref={searchRef}
             value={searchVal}
-            onChange={(e) => onSearchChange(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onEnter()}
+            onChange={(e) => { onSearchChange(e.target.value); setActiveIdx(-1); }}
+            onKeyDown={handleKeyDown}
             placeholder="SKU or product name..."
             className="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-primary focus:ring-2 focus:ring-ring/20"
           />
@@ -88,7 +116,7 @@ export function ProductSearchPanel({
 
         {suggestions.length > 0 && (
           <div className="mt-1 border border-border rounded-lg overflow-hidden shadow-lg bg-card z-10 relative">
-            {suggestions.map((p) => {
+            {suggestions.map((p, idx) => {
               const stock =
                 mode === "sales" || mode === "purchase"
                   ? getStockInfo(p.id)
@@ -98,7 +126,7 @@ export function ProductSearchPanel({
                   key={p.id}
                   type="button"
                   onClick={() => onAddProduct(p)}
-                  className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left hover:bg-primary/10 border-b border-border last:border-0 transition"
+                  className={`w-full flex items-start gap-2.5 px-3 py-2.5 text-left border-b border-border last:border-0 transition ${idx === activeIdx ? "bg-primary/15" : "hover:bg-primary/10"}`}
                 >
                   <div className="w-7 h-7 rounded-md bg-muted flex items-center justify-center flex-shrink-0 mt-0.5">
                     <Package size={13} className="text-muted-foreground" />

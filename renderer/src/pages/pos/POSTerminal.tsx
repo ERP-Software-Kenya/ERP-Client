@@ -473,15 +473,22 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const suggestions: Product[] = useMemo(() => {
     if (!searchVal.trim()) return [];
     const items = productSearch?.items ?? [];
-    const q = searchVal.toLowerCase();
-    return items
-      .filter(
-        (p) =>
-          (p.name ?? "").toLowerCase().includes(q) ||
-          (p.sku ?? "").toLowerCase().includes(q) ||
-          (p.barcode ?? "").toLowerCase().includes(q),
-      )
-      .slice(0, 6);
+    const q = searchVal.trim().toLowerCase();
+    const filtered = items.filter(
+      (p) =>
+        (p.name ?? "").toLowerCase().includes(q) ||
+        (p.sku ?? "").toLowerCase().includes(q) ||
+        (p.barcode ?? "").toLowerCase().includes(q),
+    );
+    // Sort: exact SKU match first, then SKU starts-with, then rest
+    filtered.sort((a, b) => {
+      const aSku = (a.sku ?? "").toLowerCase();
+      const bSku = (b.sku ?? "").toLowerCase();
+      const aExact = aSku === q ? 0 : aSku.startsWith(q) ? 1 : 2;
+      const bExact = bSku === q ? 0 : bSku.startsWith(q) ? 1 : 2;
+      return aExact - bExact;
+    });
+    return filtered.slice(0, 6);
   }, [productSearch, searchVal]);
 
   const addProduct = (p: Product) => {
