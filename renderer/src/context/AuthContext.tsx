@@ -21,7 +21,7 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://core-apis-m03n.onrender.com';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://51.20.217.230:10000';
 
 type ClerkResources = Parameters<Parameters<typeof clerk.addListener>[0]>[0];
 
