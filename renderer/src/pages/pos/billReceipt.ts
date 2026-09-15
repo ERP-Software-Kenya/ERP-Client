@@ -31,6 +31,7 @@ export function billToPosReceipt(
     orgAddress: opts.orgAddress,
     paymentMethod: bill.paymentMethod ?? (bill.paymentTiming === 'cod' ? 'COD' : undefined),
     saleType: bill.saleType ?? undefined,
+    customerType: bill.customerType ?? undefined,
     paymentTiming: bill.paymentTiming ?? undefined,
     lines: items.map((item) => ({
       sku: formatEntityLabel({ id: item.productId }),

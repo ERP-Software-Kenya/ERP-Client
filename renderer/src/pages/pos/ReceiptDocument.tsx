@@ -1,4 +1,6 @@
 import type { PosReceipt } from './checkout';
+import { isBigCustomer } from './posHelpers';
+import { THERMAL_STYLE, thermalReceiptBodyHtml, INVOICE_STYLE, invoiceBodyHtml } from './buildSaleDocHtml';
 
 function fmt(n: number) {
   return `KSh ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -19,6 +21,20 @@ export type PrintDocType = 'receipt' | 'debtor_note' | 'statement' | 'delivery_n
 
 /** Printable receipt body — only this block is shown when printing (see index.css). */
 export function ReceiptDocument({ receipt, docType = 'receipt' }: { receipt: PosReceipt, docType?: PrintDocType }) {
+  if (docType === 'receipt') {
+    return isBigCustomer(receipt) ? (
+      <div className="sales-invoice">
+        <style>{INVOICE_STYLE}</style>
+        <div dangerouslySetInnerHTML={{ __html: invoiceBodyHtml(receipt) }} />
+      </div>
+    ) : (
+      <div className="thermal-receipt">
+        <style>{THERMAL_STYLE}</style>
+        <div dangerouslySetInnerHTML={{ __html: thermalReceiptBodyHtml(receipt) }} />
+      </div>
+    );
+  }
+
   const extrasTotal = receipt.extraCharges.reduce((s, c) => s + c.amount, 0);
   const showPrices = docType !== 'delivery_note';
 

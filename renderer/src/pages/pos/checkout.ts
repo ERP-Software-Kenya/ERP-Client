@@ -46,6 +46,11 @@ export interface PosReceipt {
   paymentMethod?: string;
   paymentReference?: string;
   saleType?: SaleType | string;
+  customerType?: CustomerType | string;
+  /** Logged-in cashier's name, for the thermal receipt's "Served By" line. */
+  servedByName?: string;
+  /** Cash tendered at checkout — only meaningful when paymentMethod is cash. */
+  amountReceived?: number;
   paymentTiming?: PaymentTiming | string;
   creditLimit?: number;
   creditBalance?: number;
@@ -296,6 +301,8 @@ export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftS
     paymentMethod: input.paymentMethod,
     paymentReference: input.paymentReference?.trim() || undefined,
     saleType: input.saleType,
+    customerType: input.customerType,
+    amountReceived: input.amountReceived,
     paymentTiming: input.paymentTiming,
     creditLimit: input.creditLimit,
     creditBalance: input.creditBalance,

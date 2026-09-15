@@ -845,7 +845,8 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
       setCheckoutResult(result);
       if (result.primaryOk) {
-        const brandedReceipt = { ...result.receipt, ...orgBrand };
+        const servedByName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || undefined;
+        const brandedReceipt = { ...result.receipt, ...orgBrand, servedByName };
         setPrintDoc("receipt");
         setLastReceipt(brandedReceipt);
         setSuccess({
