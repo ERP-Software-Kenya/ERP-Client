@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -17,6 +18,7 @@ import {
   Package,
   PackagePlus,
   Send,
+  ShoppingCart,
   Sparkles,
   Workflow,
   X,
@@ -119,6 +121,7 @@ const EMPTY_PUBLISH: PublishForm = { quantity: '', notes: '' };
 type PageTab = 'workflow' | 'browse';
 
 export default function UnpublishedStockPage() {
+  const navigate = useNavigate();
   const [guideOpen, setGuideOpen] = useState(() => !localStorage.getItem(GUIDE_KEY));
   const [activeTab, setActiveTab] = useState<PageTab>('workflow');
 
@@ -321,10 +324,16 @@ export default function UnpublishedStockPage() {
             Stage stock for review before publishing it to live inventory.
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)} className="gap-1.5">
-          <HelpCircle size={15} />
-          Guide
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => navigate('/pos/sales?saleType=black')} className="gap-1.5">
+            <ShoppingCart size={15} />
+            Sell Black Stock
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)} className="gap-1.5">
+            <HelpCircle size={15} />
+            Guide
+          </Button>
+        </div>
       </div>
 
       {/* Tab bar */}

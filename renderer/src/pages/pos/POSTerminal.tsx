@@ -371,6 +371,22 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
     }
   }, [isUnlocked, saleType]);
 
+  // Deep link from Black Stock ("Sell Black Stock" action) — preset black-sale mode once, then strip the param.
+  const requestedSaleType = searchParams.get("saleType");
+  useEffect(() => {
+    if (mode !== "sales" || requestedSaleType !== "black") return;
+    if (canCreateBlackSale) setSaleType("black");
+    setSearchParams(
+      (prev) => {
+        if (!prev.get("saleType")) return prev;
+        const next = new URLSearchParams(prev);
+        next.delete("saleType");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [mode, requestedSaleType, canCreateBlackSale, setSearchParams]);
+
   const debouncedCustomerInfo = useDebounce(customerInfo, 300);
 
   const { data: locations = [], isLoading: locationsLoading } =
