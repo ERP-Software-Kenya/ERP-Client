@@ -36,6 +36,7 @@ import { downloadSaleDoc, downloadBillPdf, downloadPurchaseOrderPdf } from "./bi
 import { HeldSalesPanel } from "./HeldSalesPanel";
 import { productRate, customerTypeToTier, productTierPrices, type BillLine, type ExtraCharge, type Mode, type PriceTier, type PrintDoc } from "./posHelpers";
 import {
+  buildAllLocationsStockMap,
   buildLocationStockMap,
   cartQtyForProduct,
   getStockInfo,
@@ -455,20 +456,30 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
     [inventory, locationId],
   );
 
+  const allStockMaps = useMemo(
+    () => buildAllLocationsStockMap(inventory),
+    [inventory],
+  );
+
   const getProductStock = useCallback(
-    (productId: string) =>
-      getStockInfo(stockMap, productId, mode === "sales" ? saleType : "normal"),
-    [stockMap, saleType, mode],
+    (productId: string, locId?: string) => {
+      const effectiveMap =
+        locId && allStockMaps.has(locId) ? allStockMaps.get(locId)! : stockMap;
+      return getStockInfo(effectiveMap, productId, mode === "sales" ? saleType : "normal");
+    },
+    [allStockMaps, stockMap, saleType, mode],
   );
 
   const lineOverStock = useCallback(
     (line: BillLine) =>
-      mode === "sales" && lineExceedsStock(lines, line, stockMap, saleType),
-    [mode, lines, stockMap, saleType],
+      mode === "sales" &&
+      lineExceedsStock(lines, line, stockMap, saleType, allStockMaps, locationId),
+    [mode, lines, stockMap, saleType, allStockMaps, locationId],
   );
 
   const hasStockIssues =
-    mode === "sales" && saleHasStockIssues(lines, stockMap, saleType);
+    mode === "sales" &&
+    saleHasStockIssues(lines, stockMap, saleType, allStockMaps, locationId);
 
   const suggestions: Product[] = useMemo(() => {
     if (!searchVal.trim()) return [];
@@ -495,8 +506,8 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
     let addQty = 1;
 
     if (mode === "sales") {
-      const stock = getProductStock(p.id);
-      const inCart = cartQtyForProduct(lines, p.id);
+      const stock = getProductStock(p.id, locationId);
+      const inCart = cartQtyForProduct(lines, p.id, undefined, locationId);
       if (!stock.found) {
         toast.error("No stock record at this location — add inventory first");
         return;
@@ -528,11 +539,13 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
         ? discountedRate(listRate, effectiveDiscountPercent(selectedCustomer, customerType, typeRules))
         : listRate;
     const sku = formatEntityLabel({ sku: p.sku, id: p.id });
-    const existing = lines.find((l) => l.productId === p.id);
+    const existing = lines.find((l) => l.productId === p.id && l.locationId === locationId);
     if (existing) {
       setLines((ls) =>
         ls.map((l) =>
-          l.productId === p.id ? { ...l, qty: l.qty + addQty } : l,
+          l.productId === p.id && l.locationId === locationId
+            ? { ...l, qty: l.qty + addQty }
+            : l,
         ),
       );
     } else {
@@ -554,6 +567,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           p4: tiers.p4,
           activeTier: tier,
           storeCode: stockLocation?.name?.slice(0, 1).toUpperCase(),
+          locationId: locationId || undefined,
           manufacturer: p.manufacturer,
           packSize: p.packSize,
         },
@@ -576,8 +590,13 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
         if (l.id !== lineId) return l;
         let qty = Math.max(mode === "sales" ? 0.001 : 1, newQty);
         if (mode === "sales") {
-          const stock = getStockInfo(stockMap, l.productId, saleType);
-          const others = cartQtyForProduct(ls, l.productId, lineId);
+          const effectiveLocId = l.locationId || locationId;
+          const map =
+            effectiveLocId && allStockMaps.has(effectiveLocId)
+              ? allStockMaps.get(effectiveLocId)!
+              : stockMap;
+          const stock = getStockInfo(map, l.productId, saleType);
+          const others = cartQtyForProduct(ls, l.productId, lineId, effectiveLocId);
           const maxForLine = Math.max(0.001, stock.available - others);
           if (!stock.found) {
             toast.error("No stock record for this product at this location");
@@ -589,6 +608,20 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
           }
         }
         return { ...l, qty };
+      }),
+    );
+  };
+
+  const handleLineLocationChange = (lineId: number, newLocationId: string) => {
+    setLines((ls) =>
+      ls.map((l) => {
+        if (l.id !== lineId) return l;
+        const loc = locations.find((loc) => loc.id === newLocationId);
+        return {
+          ...l,
+          locationId: newLocationId,
+          storeCode: loc?.name?.slice(0, 1).toUpperCase() ?? l.storeCode,
+        };
       }),
     );
   };
@@ -751,6 +784,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
       unitPrice: l.rate,
       taxPct: l.taxPct,
       packSize: mode === 'purchase' ? l.packSize : undefined,
+      locationId: l.locationId || undefined,
     }));
 
   const generateBill = async () => {
@@ -1164,6 +1198,8 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
                 onRateChange={handleRateChange}
                 onRemoveLine={removeLine}
                 onRemoveCharge={removeCharge}
+                onLineLocationChange={handleLineLocationChange}
+                locations={locations}
                 storeCode={stockLocation?.name?.slice(0, 1).toUpperCase()}
                 checkoutResult={checkoutResult}
                 showCheckoutFailureBanner={!!checkoutResult && !success}

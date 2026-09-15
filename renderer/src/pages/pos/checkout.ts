@@ -20,6 +20,8 @@ export interface PosLineInput {
   taxPct: number;
   /** Units per pack — present only for pack products in purchase mode */
   packSize?: number;
+  /** Per-item location override for stock deduction — falls back to bill locationId */
+  locationId?: string;
 }
 
 export type PosPayMethod = 'cash' | 'mpesa' | 'till' | 'bank' | 'other';
@@ -261,6 +263,7 @@ async function updateDraftSale(
           quantity: l.qty,
           unitPrice: l.unitPrice,
           taxRate: l.taxPct,
+          locationId: l.locationId ?? undefined,
         }),
       (b) => b.id,
     );
@@ -390,6 +393,7 @@ export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftS
           quantity: l.qty,
           unitPrice: l.unitPrice,
           taxRate: l.taxPct,
+          locationId: l.locationId ?? undefined,
         })),
         // Sales v2 fields
         saleType: input.saleType,
