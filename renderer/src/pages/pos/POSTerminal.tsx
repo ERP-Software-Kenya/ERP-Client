@@ -289,7 +289,7 @@ function BillSuccessModal({
   );
 }
 
-export default function POSTerminal({ mode }: { mode: Mode }) {
+export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; initialSaleType?: SaleType }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [locationId, setLocationId] = useState("");
   const [lines, setLines] = useState<BillLine[]>([]);
@@ -316,7 +316,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const [checkingOut, setCheckingOut] = useState(false);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
-  const [saleType, setSaleType] = useState<SaleType>("normal");
+  const [saleType, setSaleType] = useState<SaleType>(initialSaleType ?? "normal");
   const [customerType, setCustomerType] = useState<CustomerType>("regular");
   const [paymentTiming, setPaymentTiming] = useState<PaymentTiming>("cod");
   const [partialAmount, setPartialAmount] = useState("");
@@ -370,22 +370,6 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
       setSaleType("normal");
     }
   }, [isUnlocked, saleType]);
-
-  // Deep link from Black Stock ("Sell Black Stock" action) — preset black-sale mode once, then strip the param.
-  const requestedSaleType = searchParams.get("saleType");
-  useEffect(() => {
-    if (mode !== "sales" || requestedSaleType !== "black") return;
-    if (canCreateBlackSale) setSaleType("black");
-    setSearchParams(
-      (prev) => {
-        if (!prev.get("saleType")) return prev;
-        const next = new URLSearchParams(prev);
-        next.delete("saleType");
-        return next;
-      },
-      { replace: true },
-    );
-  }, [mode, requestedSaleType, canCreateBlackSale, setSearchParams]);
 
   const debouncedCustomerInfo = useDebounce(customerInfo, 300);
 

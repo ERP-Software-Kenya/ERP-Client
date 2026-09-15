@@ -325,7 +325,7 @@ export default function UnpublishedStockPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" onClick={() => navigate('/pos/sales?saleType=black')} className="gap-1.5">
+          <Button size="sm" onClick={() => navigate('/pos/black-sale')} className="gap-1.5">
             <ShoppingCart size={15} />
             Sell Black Stock
           </Button>

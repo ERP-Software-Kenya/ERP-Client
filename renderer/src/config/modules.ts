@@ -243,7 +243,7 @@ export const MODULES: ModuleGroup[] = [
       {
         key: "black-sale",
         title: "Sell",
-        path: "/pos/sales?saleType=black",
+        path: "/pos/black-sale",
         icon: ShoppingCart,
       },
       {

@@ -80,6 +80,7 @@ const PlanTrip = lazy(() => import('./pages/Fleet/PlanTrip'));
 const LiveFleetMap = lazy(() => import('./pages/Fleet/LiveFleetMap'));
 const SalesList = lazy(() => import('./pages/SalesList'));
 const SalesBilling = lazy(() => import('./pages/pos/SalesBilling'));
+const BlackSaleBilling = lazy(() => import('./pages/pos/BlackSaleBilling'));
 const PurchaseBilling = lazy(() => import('./pages/pos/PurchaseBilling'));
 
 function RouteFallback() {
@@ -145,6 +146,7 @@ function App() {
             <Route path="pos" element={<PosRedirect />} />
             <Route path="sales/list" element={<SalesList />} />
             <Route path="pos/sales" element={<SalesBilling />} />
+            <Route path="pos/black-sale" element={<BlackTabProtectedRoute><BlackSaleBilling /></BlackTabProtectedRoute>} />
             <Route path="pos/purchase" element={<PurchaseBilling />} />
             <Route path="bills" element={<Bills />} />
             <Route path="bills/:id" element={<BillDetail />} />
