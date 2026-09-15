@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Plus, RefreshCw, ShoppingCart, Users, CheckCircle2, XCircle } from 'lucide-react';
+import { Building2, Plus, RefreshCw, ShoppingCart, Users, CheckCircle2, XCircle, Landmark } from 'lucide-react';
 import { DataTable, Column } from '../../components/DataTable';
 import { SupplierFormDrawer } from '../../components/SupplierFormDrawer';
+import { SupplierAccountDrawer } from '../../components/SupplierAccountDrawer';
 import { Button } from '../../components/ui/button';
 import { Suppliers } from '../../api';
 import { usePagination } from '../../hooks/usePagination';
@@ -15,6 +16,7 @@ export default function PurchaseCreditorsPage() {
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [accountSupplierId, setAccountSupplierId] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = Suppliers.useSearch({
     page,
@@ -101,6 +103,15 @@ export default function PurchaseCreditorsPage() {
       label: 'Actions',
       render: (row) => (
         <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs px-2"
+            onClick={() => setAccountSupplierId(row.id)}
+            title="View account & payments"
+          >
+            <Landmark size={12} className="mr-1" /> Account
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -213,6 +224,7 @@ export default function PurchaseCreditorsPage() {
           onSearchChange={setSearch}
           onRefetch={() => void refetch()}
           searchPlaceholder="Search creditors by name, contact, phone, tax ID…"
+          onRowClick={(row) => setAccountSupplierId(row.id)}
         />
       </div>
 
@@ -223,6 +235,12 @@ export default function PurchaseCreditorsPage() {
           setDrawerOpen(false);
           void refetch();
         }}
+      />
+
+      <SupplierAccountDrawer
+        supplierId={accountSupplierId}
+        open={!!accountSupplierId}
+        onClose={() => setAccountSupplierId(null)}
       />
     </div>
   );

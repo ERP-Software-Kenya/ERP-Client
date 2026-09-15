@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ClipboardCheck,
   Clock,
+  CreditCard,
   DollarSign,
   FileDown,
   Package2,
@@ -23,9 +24,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu';
+import { RecordPaymentModal } from '../../components/RecordPaymentModal';
 import { Products, PurchaseOrders, Suppliers } from '../../api';
 import { getErrorMessage } from '../../lib/api-error';
 import { downloadPurchaseOrderPdf } from '../pos/billReceipt';
+import { fmt } from '../pos/posHelpers';
 import type { PurchaseOrder, PurchaseOrderStatus } from '../../types';
 
 const STATUS_CONFIG: Record<PurchaseOrderStatus, { label: string; cls: string; dot: string }> = {
@@ -36,6 +39,12 @@ const STATUS_CONFIG: Record<PurchaseOrderStatus, { label: string; cls: string; d
   partially_allocated: { label: 'Partially Allocated', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',      dot: 'bg-violet-500' },
   allocated:           { label: 'Allocated',           cls: 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-400',             dot: 'bg-teal-500' },
   cancelled:           { label: 'Cancelled',           cls: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400',                 dot: 'bg-red-500' },
+};
+
+const PAYMENT_STATUS_CONFIG: Record<'unpaid' | 'partial' | 'paid', { label: string; cls: string }> = {
+  unpaid:  { label: 'Unpaid',  cls: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' },
+  partial: { label: 'Partial', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' },
+  paid:    { label: 'Paid',    cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' },
 };
 
 function canVerify(status?: PurchaseOrderStatus): boolean {
@@ -51,9 +60,12 @@ function canMarkOrdered(status?: PurchaseOrderStatus): boolean {
   return status === 'draft';
 }
 
-function fmt(n: number | null | undefined): string {
-  if (n == null) return '—';
-  return `KSh ${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function canRecordPayment(po: PurchaseOrder): boolean {
+  return (
+    po.paymentStatus !== 'paid' &&
+    po.status !== 'draft' &&
+    po.status !== 'cancelled'
+  );
 }
 
 function fmtDate(d: string | Date | undefined | null): string {
@@ -68,6 +80,16 @@ function StatusBadge({ status }: { status: PurchaseOrderStatus | undefined }) {
     <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${cls}`}>
       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
       {label}
+    </span>
+  );
+}
+
+function PaymentStatusBadge({ status }: { status: 'unpaid' | 'partial' | 'paid' | undefined }) {
+  if (!status) return null;
+  const cfg = PAYMENT_STATUS_CONFIG[status];
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+      {cfg.label}
     </span>
   );
 }
@@ -116,12 +138,16 @@ export default function PurchaseOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
-  const { data: po, isLoading, error } = PurchaseOrders.useGet(id);
+  const { data: po, isLoading, error, refetch: refetchPo } = PurchaseOrders.useGet(id);
   const { data: items = [], isLoading: itemsLoading } = PurchaseOrders.useGetItems(id);
+  const { data: paymentsData, isLoading: paymentsLoading, refetch: refetchPayments } = PurchaseOrders.useListPayments(id);
   const { data: products = [] } = Products.useList();
   const { data: suppliers = [] } = Suppliers.useList();
   const updateMutation = PurchaseOrders.useUpdate();
+
+  const payments = paymentsData?.items ?? [];
 
   const handleDownloadPdf = async () => {
     if (!id) return;
@@ -174,7 +200,9 @@ export default function PurchaseOrderDetail() {
     );
   }
 
+  const outstanding = Math.max(0, (po.totalAmount ?? 0) - (po.amountPaid ?? 0));
   const showActions = canVerify(po.status) || canMarkOrdered(po.status);
+  const showRecordPayment = canRecordPayment(po);
 
   return (
     <div className="space-y-5">
@@ -196,6 +224,9 @@ export default function PurchaseOrderDetail() {
               {po.poNumber ?? `PO-${po.id.slice(0, 8).toUpperCase()}`}
             </h1>
             <StatusBadge status={po.status} />
+            {po.paymentStatus && (
+              <PaymentStatusBadge status={po.paymentStatus} />
+            )}
           </div>
           {supplier && (
             <div className="mt-1.5 flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
@@ -206,6 +237,18 @@ export default function PurchaseOrderDetail() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {showRecordPayment && (
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={() => setPaymentModalOpen(true)}
+            >
+              <CreditCard size={14} />
+              Record Payment
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -252,13 +295,27 @@ export default function PurchaseOrderDetail() {
 
       {/* Stat cards — 4-col grid across full width */}
       <div className="grid grid-cols-4 gap-3">
-        <StatCard icon={<DollarSign size={17} />} label="Total Amount" value={fmt(po.totalAmount)} />
         <StatCard
-          icon={<Package2 size={17} />}
-          label="Line Items"
-          value={itemsLoading ? '…' : String(items.length)}
-          sub={itemsLoading ? undefined : `${fullyReceivedCount} / ${items.length} received`}
+          icon={<DollarSign size={17} />}
+          label="Total Amount"
+          value={fmt(po.totalAmount ?? 0)}
+          sub={po.amountPaid != null && po.amountPaid > 0 ? `${fmt(po.amountPaid)} paid` : undefined}
         />
+        {po.amountPaid != null ? (
+          <StatCard
+            icon={<CreditCard size={17} />}
+            label="Outstanding"
+            value={fmt(outstanding)}
+            sub={po.paymentStatus ? po.paymentStatus.charAt(0).toUpperCase() + po.paymentStatus.slice(1) : undefined}
+          />
+        ) : (
+          <StatCard
+            icon={<Package2 size={17} />}
+            label="Line Items"
+            value={itemsLoading ? '…' : String(items.length)}
+            sub={itemsLoading ? undefined : `${fullyReceivedCount} / ${items.length} received`}
+          />
+        )}
         <StatCard icon={<Calendar size={17} />} label="Created" value={fmtDate(po.createdAt)} />
         <StatCard
           icon={<Calendar size={17} />}
@@ -408,6 +465,87 @@ export default function PurchaseOrderDetail() {
         )}
       </div>
 
+      {/* Payment History */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+          <h2 className="font-semibold text-foreground text-sm">Payment History</h2>
+          {showRecordPayment && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => setPaymentModalOpen(true)}
+            >
+              <CreditCard size={11} /> Record Payment
+            </Button>
+          )}
+        </div>
+
+        {paymentsLoading ? (
+          <div className="px-5 py-10 text-center text-sm text-muted-foreground">Loading payments…</div>
+        ) : payments.length === 0 ? (
+          <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+            No payments recorded yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 border-b border-border">
+                <tr>
+                  <th className="px-5 py-2.5 text-left text-xs font-semibold text-muted-foreground">Date</th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground">Amount</th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Method</th>
+                  <th className="px-5 py-2.5 text-left text-xs font-semibold text-muted-foreground">Note</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {payments.map((payment) => (
+                  <tr key={payment.id} className="hover:bg-muted/20 transition-colors">
+                    <td className="px-5 py-3">
+                      <span className="text-xs text-foreground">
+                        {fmtDate(payment.paidAt)}
+                      </span>
+                      <span className="block text-[10px] text-muted-foreground">
+                        {fmtDate(payment.createdAt)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right tabular-nums font-semibold font-mono text-emerald-600 dark:text-emerald-400">
+                      {fmt(payment.amount)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-foreground">{payment.paymentMethod}</span>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-muted-foreground max-w-xs truncate">
+                      {payment.note || '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Payment summary footer */}
+        {payments.length > 0 && (
+          <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-end gap-6 text-xs">
+            <span className="text-muted-foreground">
+              Total paid:{' '}
+              <span className="font-semibold font-mono text-foreground">
+                {fmt(payments.reduce((s, p) => s + p.amount, 0))}
+              </span>
+            </span>
+            {outstanding > 0 && (
+              <span className="text-muted-foreground">
+                Remaining:{' '}
+                <span className="font-semibold font-mono text-red-600 dark:text-red-400">
+                  {fmt(outstanding)}
+                </span>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Status banners */}
       {po.status === 'partially_allocated' && (
         <div className="rounded-xl border border-violet-200 bg-violet-50 dark:border-violet-800/50 dark:bg-violet-950/30 px-4 py-4 flex items-center gap-3">
@@ -470,6 +608,22 @@ export default function PurchaseOrderDetail() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* Record Payment Modal */}
+      {id && (
+        <RecordPaymentModal
+          open={paymentModalOpen}
+          onClose={() => setPaymentModalOpen(false)}
+          poId={id}
+          poNumber={po.poNumber ?? `PO-${id.slice(0, 8).toUpperCase()}`}
+          outstanding={outstanding}
+          onSuccess={() => {
+            setPaymentModalOpen(false);
+            void refetchPo();
+            void refetchPayments();
+          }}
+        />
       )}
     </div>
   );
