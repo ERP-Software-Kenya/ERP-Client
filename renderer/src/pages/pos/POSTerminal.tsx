@@ -290,7 +290,7 @@ function BillSuccessModal({
   );
 }
 
-export default function POSTerminal({ mode }: { mode: Mode }) {
+export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; initialSaleType?: SaleType }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [locationId, setLocationId] = useState("");
   const [lines, setLines] = useState<BillLine[]>([]);
@@ -317,7 +317,7 @@ export default function POSTerminal({ mode }: { mode: Mode }) {
   const [checkingOut, setCheckingOut] = useState(false);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
-  const [saleType, setSaleType] = useState<SaleType>("normal");
+  const [saleType, setSaleType] = useState<SaleType>(initialSaleType ?? "normal");
   const [customerType, setCustomerType] = useState<CustomerType>("regular");
   const [paymentTiming, setPaymentTiming] = useState<PaymentTiming>("cod");
   const [partialAmount, setPartialAmount] = useState("");

@@ -251,6 +251,12 @@ export const MODULES: ModuleGroup[] = [
         icon: Boxes,
       },
       {
+        key: "black-sale",
+        title: "Sell",
+        path: "/pos/black-sale",
+        icon: ShoppingCart,
+      },
+      {
         key: "black-ledger",
         title: "Ledger",
         path: "/black-ledger",

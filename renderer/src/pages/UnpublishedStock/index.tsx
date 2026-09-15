@@ -1,19 +1,26 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   BookOpen,
+  Boxes,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   ChevronUp,
   Copy,
+  DollarSign,
   HelpCircle,
+  ListTree,
   Loader2,
   MousePointerClick,
+  Package,
   PackagePlus,
   Send,
+  ShoppingCart,
   Sparkles,
+  Workflow,
   X,
 } from 'lucide-react';
 import { GuideModal, type GuideStep } from '../../components/GuideModal';
@@ -21,6 +28,8 @@ import { ResourceSelect } from '../../components/ResourceSelect';
 import { Field } from '../../components/FormDrawer';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { DataTable, type Column } from '../../components/DataTable';
+import { FilterDropdown } from '../../components/FilterDropdown';
 import {
   Locations,
   Products,
@@ -31,7 +40,9 @@ import {
   usePublishUnpublishedStock,
   get,
 } from '../../api';
+import { usePagination } from '../../hooks/usePagination';
 import { formatEntityLabel } from '../../lib/entityLabel';
+import { cn } from '../../lib/utils';
 import type { UnpublishedStock, UnpublishedStockMovement, PlatformUser } from '../../types';
 
 const GUIDE_KEY = 'guide-unpublished-stock-v2';
@@ -71,6 +82,20 @@ function MovementBadge({ type }: { type: string }) {
   );
 }
 
+function StatCard({ icon, label, value, colorClass }: {
+  icon: ReactNode; label: string; value: string; colorClass: string;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 text-left">
+      <div className="mb-1 flex items-center gap-2">
+        <span className={`rounded-lg p-1.5 ${colorClass}`}>{icon}</span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      </div>
+      <p className="text-2xl font-bold tracking-tight">{value}</p>
+    </div>
+  );
+}
+
 interface AddForm {
   productId: string;
   locationId: string;
@@ -93,8 +118,12 @@ interface LastAdded {
 const EMPTY_ADD: AddForm = { productId: '', locationId: '', quantity: '', unitCost: '', notes: '' };
 const EMPTY_PUBLISH: PublishForm = { quantity: '', notes: '' };
 
+type PageTab = 'workflow' | 'browse';
+
 export default function UnpublishedStockPage() {
+  const navigate = useNavigate();
   const [guideOpen, setGuideOpen] = useState(() => !localStorage.getItem(GUIDE_KEY));
+  const [activeTab, setActiveTab] = useState<PageTab>('workflow');
 
   const [addForm, setAddForm] = useState<AddForm>(EMPTY_ADD);
   const [lastAdded, setLastAdded] = useState<LastAdded | null>(null);
@@ -118,6 +147,12 @@ export default function UnpublishedStockPage() {
   const { data: products } = Products.useList();
   const { data: locations } = Locations.useList();
 
+  // Full, unfiltered list — backs the "Browse All" tab independently of the workflow tab's filters.
+  const { data: allStock, isLoading: allStockLoading } = useUnpublishedStockList();
+
+  const { page: browsePage, setPage: setBrowsePage, setSearch: setBrowseSearch, debouncedSearch: browseSearch } = usePagination();
+  const [browseLocationId, setBrowseLocationId] = useState('');
+
   const productMap = useMemo(() => {
     const m = new Map<string, string>();
     for (const p of products ?? []) m.set(p.id, p.name);
@@ -129,6 +164,56 @@ export default function UnpublishedStockPage() {
     for (const l of locations ?? []) m.set(l.id, l.name);
     return m;
   }, [locations]);
+
+  const locationOptions = useMemo(
+    () => (locations ?? []).map(l => ({ value: l.id, label: l.name ?? l.id })),
+    [locations],
+  );
+
+  const browseFiltered = useMemo(() => {
+    const term = browseSearch.trim().toLowerCase();
+    return (allStock ?? []).filter((item) => {
+      if (browseLocationId && item.locationId !== browseLocationId) return false;
+      if (!term) return true;
+      const productName = (productMap.get(item.productId) ?? '').toLowerCase();
+      const locationName = (locationMap.get(item.locationId) ?? '').toLowerCase();
+      return productName.includes(term) || locationName.includes(term);
+    });
+  }, [allStock, browseLocationId, browseSearch, productMap, locationMap]);
+
+  const BROWSE_PAGE_SIZE = 15;
+  const browsePageRows = useMemo(
+    () => browseFiltered.slice((browsePage - 1) * BROWSE_PAGE_SIZE, browsePage * BROWSE_PAGE_SIZE),
+    [browseFiltered, browsePage],
+  );
+
+  const browseTotals = useMemo(() => {
+    const items = allStock ?? [];
+    return items.reduce(
+      (acc, item) => ({
+        quantity: acc.quantity + Number(item.quantityOnHand || 0),
+        value: acc.value + Number(item.quantityOnHand || 0) * Number(item.averageCost || 0),
+      }),
+      { quantity: 0, value: 0 },
+    );
+  }, [allStock]);
+
+  const browseColumns: Column<UnpublishedStock>[] = [
+    { key: 'productId', label: 'Product', render: r => <span className="font-medium">{productMap.get(r.productId) ?? formatEntityLabel({ id: r.productId })}</span> },
+    { key: 'locationId', label: 'Location', render: r => <span className="text-muted-foreground">{locationMap.get(r.locationId) ?? formatEntityLabel({ id: r.locationId })}</span> },
+    { key: 'quantityOnHand', label: 'On Hand', render: r => <span className="font-mono">{Number(r.quantityOnHand).toLocaleString()}</span> },
+    { key: 'averageCost', label: 'Avg Cost', render: r => r.averageCost != null ? `KSh ${Number(r.averageCost).toFixed(2)}` : '—' },
+    {
+      key: 'value', label: 'Value',
+      render: r => `KSh ${(Number(r.quantityOnHand || 0) * Number(r.averageCost || 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+    },
+    { key: 'binLocation', label: 'Bin', render: r => r.binLocation || '—' },
+  ];
+
+  const handleBrowseView = (item: UnpublishedStock) => {
+    setActiveTab('workflow');
+    handleSelectRecord(item);
+  };
 
   const sortedMovements = useMemo(() => {
     const rows = [...(movements ?? [])];
@@ -239,13 +324,80 @@ export default function UnpublishedStockPage() {
             Stage stock for review before publishing it to live inventory.
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)} className="gap-1.5">
-          <HelpCircle size={15} />
-          Guide
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => navigate('/pos/black-sale')} className="gap-1.5">
+            <ShoppingCart size={15} />
+            Sell Black Stock
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)} className="gap-1.5">
+            <HelpCircle size={15} />
+            Guide
+          </Button>
+        </div>
       </div>
 
+      {/* Tab bar */}
+      <div className="flex items-center gap-1 self-start rounded-xl bg-muted p-1">
+        {([
+          { id: 'workflow' as const, icon: Workflow, label: 'Add & Publish' },
+          { id: 'browse' as const, icon: ListTree, label: 'Browse All' },
+        ]).map(({ id, icon: Icon, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveTab(id)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-all duration-200',
+              activeTab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Icon size={14} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'browse' && (
+        <div className="space-y-4">
+          {/* Stat cards */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <StatCard icon={<Boxes size={18} />} label="Total Records" value={(allStock?.length ?? 0).toLocaleString()} colorClass="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300" />
+            <StatCard icon={<Package size={18} />} label="Total Quantity" value={browseTotals.quantity.toLocaleString()} colorClass="bg-slate-500/10 text-slate-700 dark:text-slate-300" />
+            <StatCard icon={<DollarSign size={18} />} label="Total Value" value={`KSh ${browseTotals.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} colorClass="bg-neutral-500/15 text-neutral-800 dark:text-neutral-200" />
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <FilterDropdown
+              label="Location"
+              options={locationOptions}
+              value={browseLocationId || null}
+              onChange={(v) => { setBrowseLocationId(v ?? ''); setBrowsePage(1); }}
+              searchable
+            />
+          </div>
+
+          <DataTable
+            title=""
+            columns={browseColumns}
+            rows={browsePageRows}
+            total={browseFiltered.length}
+            page={browsePage}
+            loading={allStockLoading}
+            onPageChange={setBrowsePage}
+            onSearchChange={(s) => { setBrowseSearch(s); setBrowsePage(1); }}
+            onRefetch={() => void 0}
+            onView={handleBrowseView}
+            onAdd={() => setActiveTab('workflow')}
+            addLabel="Add to Staging"
+            searchPlaceholder="Search by product or location…"
+            limit={BROWSE_PAGE_SIZE}
+          />
+        </div>
+      )}
+
       {/* Two-column layout */}
+      {activeTab === 'workflow' && (
       <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
 
         {/* ─── Left: Add Staging Stock ─── */}
@@ -613,6 +765,7 @@ export default function UnpublishedStockPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
