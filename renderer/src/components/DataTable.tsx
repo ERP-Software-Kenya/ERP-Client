@@ -41,6 +41,8 @@ interface DataTableProps<T extends { id: string }> {
   footerNote?: string;
   /** Optional custom empty state rendered when there are no records. */
   emptyState?: React.ReactNode;
+  /** Called when a data row is clicked. Use e.stopPropagation() in cell renderers to prevent this. */
+  onRowClick?: (row: T) => void;
 }
 
 function getCellValue<T>(row: T, key: string): unknown {
@@ -73,6 +75,7 @@ export function DataTable<T extends { id: string }>({
   limit = 15,
   footerNote,
   emptyState,
+  onRowClick,
 }: DataTableProps<T>) {
   const [searchInput, setSearchInput] = useState('');
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -171,7 +174,11 @@ export function DataTable<T extends { id: string }>({
               )}
 
               {rows.map((row) => (
-                <tr key={row.id} className="hover:bg-muted/50">
+                <tr
+                  key={row.id}
+                  className={`hover:bg-muted/50${onRowClick ? ' cursor-pointer' : ''}`}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                >
                   {columns.map((col) => (
                     <td key={String(col.key)} className="px-3 py-1.5">
                       {col.render ? col.render(row) : String(getCellValue(row, String(col.key)) ?? '—')}

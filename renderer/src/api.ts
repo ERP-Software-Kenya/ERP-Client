@@ -30,6 +30,7 @@ import type {
   SupplierPricePoint, InventoryStatusData, InventoryStatusTrendPoint, StockDamageSummaryData,
   DashboardAnalyticsParams,
   PackedOrder,
+  PurchaseOrderPayment, SupplierAccount,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -37,7 +38,19 @@ import type {
 export const Organizations = createResource<Organization>('/api/v1/organizations', 'organizations', 'Organization');
 export const Categories = createResource<Category>('/api/v1/categories', 'categories', 'Category');
 export const Products = createResource<Product>('/api/v1/products', 'products', 'Product');
-export const Suppliers = createResource<Supplier>('/api/v1/suppliers', 'suppliers', 'Supplier');
+const suppliersBase = createResource<Supplier>('/api/v1/suppliers', 'suppliers', 'Supplier');
+
+export const Suppliers = {
+  ...suppliersBase,
+  useGetAccount(supplierId: string | undefined) {
+    return useQuery({
+      queryKey: ['suppliers', supplierId, 'account'],
+      queryFn: () => get<SupplierAccount>(`/api/v1/suppliers/${supplierId as string}/account`),
+      enabled: !!supplierId,
+    });
+  },
+};
+
 const purchaseOrdersBase = createResource<PurchaseOrder>('/api/v1/purchase-orders', 'purchase-orders', 'Purchase order');
 
 export const PurchaseOrders = {
@@ -86,6 +99,32 @@ export const PurchaseOrders = {
         queryClient.invalidateQueries({ queryKey: ['inventory'] });
       },
       onError: (error: Error) => toast.error(error.message || 'Failed to allocate stock'),
+    });
+  },
+  useListPayments(poId: string | undefined) {
+    return useQuery({
+      queryKey: ['purchase-orders', poId, 'payments'],
+      queryFn: () => get<PaginatedResponse<PurchaseOrderPayment>>(`/api/v1/purchase-orders/${poId as string}/payments`),
+      enabled: !!poId,
+    });
+  },
+  useRecordPayment() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({
+        poId,
+        body,
+      }: {
+        poId: string;
+        body: { amount: number; paymentMethod: string; paidAt?: string; note?: string };
+      }) => post<PurchaseOrder>(`/api/v1/purchase-orders/${poId}/payments`, body),
+      onSuccess: (_po, { poId }) => {
+        toast.success('Payment recorded');
+        queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['purchase-orders', poId, 'payments'] });
+        queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to record payment'),
     });
   },
 };

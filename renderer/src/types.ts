@@ -231,9 +231,44 @@ export interface PurchaseOrder {
   expectedAt?: string;
   receivedAt?: string;
   totalAmount?: number;
+  amountPaid?: number;
+  paymentStatus?: 'unpaid' | 'partial' | 'paid';
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface PurchaseOrderPayment {
+  id: string;
+  purchaseOrderId: string;
+  supplierId: string;
+  amount: number;
+  paymentMethod: string;
+  paidAt: string;
+  note?: string;
+  performedById?: string;
+  createdAt: string;
+}
+
+export interface SupplierAccountPo {
+  id: string;
+  poNumber: string;
+  status: string;
+  totalAmount: number;
+  amountPaid: number;
+  outstanding: number;
+  paymentStatus: 'unpaid' | 'partial' | 'paid';
+  createdAt: string;
+}
+
+export interface SupplierAccount {
+  supplierId: string;
+  supplierName: string;
+  supplierPhone?: string;
+  totalInvoiced: number;
+  totalPaid: number;
+  totalOutstanding: number;
+  purchaseOrders: SupplierAccountPo[];
 }
 
 export interface CreatePurchaseOrderItemInput {
