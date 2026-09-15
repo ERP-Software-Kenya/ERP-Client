@@ -352,9 +352,9 @@ export default function UnpublishedStockPage() {
         <div className="space-y-4">
           {/* Stat cards */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <StatCard icon={<Boxes size={18} />} label="Total Records" value={(allStock?.length ?? 0).toLocaleString()} colorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400" />
-            <StatCard icon={<Package size={18} />} label="Total Quantity" value={browseTotals.quantity.toLocaleString()} colorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400" />
-            <StatCard icon={<DollarSign size={18} />} label="Total Value" value={`KSh ${browseTotals.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} colorClass="bg-green-500/10 text-green-600 dark:text-green-400" />
+            <StatCard icon={<Boxes size={18} />} label="Total Records" value={(allStock?.length ?? 0).toLocaleString()} colorClass="bg-zinc-500/10 text-zinc-700 dark:text-zinc-300" />
+            <StatCard icon={<Package size={18} />} label="Total Quantity" value={browseTotals.quantity.toLocaleString()} colorClass="bg-slate-500/10 text-slate-700 dark:text-slate-300" />
+            <StatCard icon={<DollarSign size={18} />} label="Total Value" value={`KSh ${browseTotals.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`} colorClass="bg-neutral-500/15 text-neutral-800 dark:text-neutral-200" />
           </div>
 
           {/* Filters */}
