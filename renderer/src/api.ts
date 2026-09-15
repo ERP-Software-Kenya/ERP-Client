@@ -36,7 +36,22 @@ import type {
 
 export const Organizations = createResource<Organization>('/api/v1/organizations', 'organizations', 'Organization');
 export const Categories = createResource<Category>('/api/v1/categories', 'categories', 'Category');
-export const Products = createResource<Product>('/api/v1/products', 'products', 'Product');
+const productsBase = createResource<Product>('/api/v1/products', 'products', 'Product');
+
+export const Products = {
+  ...productsBase,
+  useSearch(params?: { page?: number; limit?: number; search?: string; filters?: Record<string, string>; enabled?: boolean }) {
+    const { search, ...rest } = params ?? {};
+    return productsBase.useSearch({
+      ...rest,
+      filters: {
+        ...(rest.filters ?? {}),
+        ...(search ? { search } : {}),
+      },
+    });
+  },
+};
+
 export const Suppliers = createResource<Supplier>('/api/v1/suppliers', 'suppliers', 'Supplier');
 const purchaseOrdersBase = createResource<PurchaseOrder>('/api/v1/purchase-orders', 'purchase-orders', 'Purchase order');
 
