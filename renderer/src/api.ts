@@ -62,6 +62,10 @@ export const PurchaseOrders = {
         post<PurchaseOrder>('/api/v1/purchase-orders', body),
       onSuccess: () => {
         toast.success('Purchase order created');
+        queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to create purchase order'),
+    });
   },
   useGetItems(purchaseOrderId: string | undefined) {
     return useQuery({
