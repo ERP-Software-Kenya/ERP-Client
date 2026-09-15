@@ -1,4 +1,5 @@
 import type { PosReceipt } from './checkout';
+import { isBigCustomer } from './posHelpers';
 
 export type SaleDocKind = 'receipt' | 'debtor' | 'statement' | 'delivery';
 
@@ -52,189 +53,250 @@ function titleFor(kind: SaleDocKind, receipt: PosReceipt) {
   return receipt.mode === 'sales' ? 'Sales receipt' : 'Goods receipt';
 }
 
-function receiptTitle(receipt: PosReceipt) {
-  return receipt.mode === 'sales' ? 'BILL' : 'GOODS RECEIPT';
+function fmtPlain(n: number) {
+  return (n ?? 0).toFixed(2);
 }
 
-function formalReceiptLinesTable(receipt: PosReceipt) {
+/** Shared 80mm thermal-receipt body markup — embedded by both the popup-print HTML doc and the in-app print root. */
+export function thermalReceiptBodyHtml(receipt: PosReceipt): string {
+  const isCash = String(receipt.paymentMethod ?? '').toLowerCase() === 'cash';
+  const change =
+    isCash && receipt.amountReceived != null ? receipt.amountReceived - receipt.totalAmount : null;
+
   const rows = receipt.lines
     .map(
       (l) => `
       <tr>
-        <td>
-          <div>${esc(l.name)}</div>
-          <div class="item-desc">${esc(l.sku)}</div>
-        </td>
+        <td>${esc(l.name)}</td>
         <td class="num">${l.qty}</td>
-        <td class="num">${fmt(l.rate)}</td>
-        <td class="num">${l.taxPct > 0 ? `${l.taxPct}%` : '—'}</td>
-        <td class="num">${fmt(l.lineTotal)}</td>
+        <td class="num">${fmtPlain(l.rate)}</td>
+        <td class="num">${fmtPlain(l.lineTotal)}</td>
       </tr>`,
     )
     .join('');
+
   return `
+    <div class="center">
+      <div class="org-name">${esc(receipt.orgName || receipt.storeName || '—')}</div>
+      ${receipt.orgAddress ? `<div class="org-line">${esc(receipt.orgAddress)}</div>` : ''}
+      ${receipt.orgPhone ? `<div class="org-line">TEL: ${esc(receipt.orgPhone)}</div>` : ''}
+    </div>
+    <hr class="rule" />
+    <div class="center"><span class="ref-box">Sales Receipt #${esc(receipt.ref)}</span></div>
+    ${receipt.servedByName ? `<div class="meta-line">Served By: ${esc(receipt.servedByName)}</div>` : ''}
+    <div class="meta-line">${esc(fmtDate(receipt.createdAt))}</div>
+    <hr class="rule" />
     <table>
       <thead>
-        <tr>
-          <th>ITEM</th>
-          <th class="num">QTY</th>
-          <th class="num">UNIT PRICE</th>
-          <th class="num">TAX %</th>
-          <th class="num">TOTAL</th>
-        </tr>
+        <tr><th>DESCRIPTION</th><th class="num">QTY</th><th class="num">RATE</th><th class="num">AMOUNT</th></tr>
       </thead>
-      <tbody>${rows || '<tr><td class="empty" colspan="5">No line items.</td></tr>'}</tbody>
-    </table>`;
+      <tbody>${rows}</tbody>
+    </table>
+    <hr class="rule" />
+    <div class="totals">
+      <div class="totals-row"><span>Subtotal</span><span>${fmtPlain(receipt.subtotal)}</span></div>
+      <div class="totals-row grand"><span>RECEIPT TOTAL:</span><span>${fmtPlain(receipt.totalAmount)}</span></div>
+    </div>
+    ${
+      isCash && receipt.amountReceived != null
+        ? `<div class="totals">
+            <div class="totals-row"><span>CASH:</span><span>${fmtPlain(receipt.amountReceived)}</span></div>
+            <div class="totals-row"><span>Change:</span><span>${fmtPlain(Math.max(0, change ?? 0))}</span></div>
+          </div>`
+        : receipt.paymentMethod
+          ? `<div class="meta-line" style="margin-top:6px;">Payment: ${esc(String(receipt.paymentMethod).toUpperCase())}</div>`
+          : ''
+    }
+    <hr class="rule" />
+    <div class="center footer bold">GOODS ONCE SOLD CANNOT BE RETURNED!</div>
+    <div class="center ref-number">${esc(receipt.ref)}</div>`;
 }
 
-function buildFormalReceiptHtml(receipt: PosReceipt): string {
-  const title = receiptTitle(receipt);
-  const orgName = receipt.orgName || receipt.storeName || '—';
-  const extrasTotal = receipt.extraCharges.reduce((sum, charge) => sum + charge.amount, 0);
-  const logo = receipt.logoUrl
-    ? `<img src="${esc(receipt.logoUrl)}" alt="" />`
-    : '';
+/**
+ * Scoped entirely under .thermal-receipt — reused as a raw <style> tag inside the live app's
+ * print root (POSTerminal.tsx), so nothing here may leak onto unrelated tags/classes elsewhere.
+ */
+export const THERMAL_STYLE = `
+  .thermal-receipt, .thermal-receipt * { box-sizing: border-box; margin: 0; padding: 0; }
+  .thermal-receipt {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    color: #000;
+    width: 76mm;
+    margin: 0 auto;
+    padding: 2mm 2mm 6mm;
+  }
+  .thermal-receipt .center { text-align: center; }
+  .thermal-receipt .bold { font-weight: 700; }
+  .thermal-receipt .org-name { font-size: 14px; font-weight: 700; text-transform: uppercase; }
+  .thermal-receipt .org-line { font-size: 10px; }
+  .thermal-receipt .rule { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+  .thermal-receipt .ref-box { border: 1px solid #000; display: inline-block; padding: 2px 8px; margin: 6px 0; font-weight: 700; }
+  .thermal-receipt .meta-line { margin: 2px 0; }
+  .thermal-receipt table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 10px; }
+  .thermal-receipt th { text-align: left; border-bottom: 1px solid #000; padding: 2px 2px 4px; font-weight: 700; }
+  .thermal-receipt th.num, .thermal-receipt td.num { text-align: right; }
+  .thermal-receipt td { padding: 3px 2px; vertical-align: top; }
+  .thermal-receipt .totals { margin-top: 6px; }
+  .thermal-receipt .totals-row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .thermal-receipt .totals-row.grand { font-weight: 700; border-top: 1px solid #000; margin-top: 4px; padding-top: 4px; }
+  .thermal-receipt .footer { margin-top: 10px; font-size: 10px; }
+  .thermal-receipt .ref-number { margin-top: 10px; font-size: 10px; letter-spacing: 1px; }
+`;
 
+function buildThermalReceiptHtml(receipt: PosReceipt): string {
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>${esc(title)} ${esc(receipt.ref)}</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-    background: #fff;
-    color: #123;
-    font-size: 12px;
-    line-height: 1.45;
-  }
-  .page { padding: 8px 4px; }
-  .brand { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
-  .brand img { height: 42px; }
-  .brand h1 { font-size: 22px; color: #1e4b8e; font-weight: 800; }
-  .meta { color: #555; margin-top: 4px; font-size: 11px; }
-  .doc-title {
-    text-align: center;
-    font-size: 16px;
-    letter-spacing: 0.08em;
-    font-weight: 800;
-    margin: 18px 0 10px;
-  }
-  .wrap { text-align: center; margin-bottom: 16px; }
-  .range {
-    text-align: center;
-    border: 1px solid #1e4b8e;
-    display: inline-block;
-    padding: 4px 12px;
-  }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-  .box { border: 1px solid #c5d4ea; padding: 10px; }
-  .box h2 {
-    margin: 0 0 6px;
-    font-size: 11px;
-    color: #1e4b8e;
-    text-transform: uppercase;
-  }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-  th {
-    background: #1e4b8e;
-    color: #fff;
-    text-align: left;
-    padding: 8px;
-    font-size: 10px;
-    letter-spacing: 0.06em;
-  }
-  th.num, td.num { text-align: right; }
-  td { padding: 7px 8px; border-bottom: 1px solid #e6eef8; }
-  tbody tr:nth-child(even) td { background: #f4f7fb; }
-  .item-desc { font-size: 10px; color: #666; margin-top: 2px; }
-  .empty { text-align: center; color: #666; padding: 16px; }
-  .foot {
-    margin-top: 16px;
-    background: #e8f0fb;
-    border: 1px solid #c5d4ea;
-    padding: 12px;
-  }
-  .foot-row { display: flex; justify-content: space-between; padding: 4px 0; }
-  .foot-row.total { margin-top: 6px; padding-top: 8px; border-top: 1px solid #c5d4ea; }
-  .bal { font-size: 18px; font-weight: 800; color: #1e4b8e; }
-  .extra { margin-top: 12px; }
-  .extra-label {
-    font-size: 10px;
-    color: #1e4b8e;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: 4px;
-  }
-  .thanks { text-align: center; margin-top: 18px; color: #555; }
-</style>
+<title>Receipt ${esc(receipt.ref)}</title>
+<style>${THERMAL_STYLE}</style>
 </head>
-<body>
-  <div class="page">
+<body><div class="thermal-receipt">${thermalReceiptBodyHtml(receipt)}</div></body>
+</html>`;
+}
+
+const CREDIT_TERMS_LABEL: Record<string, string> = {
+  before_delivery: 'Before Delivery',
+  after_delivery: 'After Delivery',
+  half: 'Half Payment',
+  cod: 'Cash on Delivery',
+};
+
+/** Shared formal-invoice body markup — embedded by both the popup-print HTML doc and the in-app print root. */
+export function invoiceBodyHtml(receipt: PosReceipt): string {
+  const rows = receipt.lines
+    .map(
+      (l, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${esc(l.name)}</td>
+        <td class="num">${l.qty}</td>
+        <td class="num">${fmtPlain(l.rate)}</td>
+        <td class="num">0.00</td>
+        <td class="num">${l.taxPct}%</td>
+        <td class="num">${fmtPlain(l.lineTotal)}</td>
+      </tr>`,
+    )
+    .join('');
+  const creditTerms = receipt.paymentTiming
+    ? CREDIT_TERMS_LABEL[receipt.paymentTiming] ?? receipt.paymentTiming
+    : '';
+  const logo = receipt.logoUrl ? `<img src="${esc(receipt.logoUrl)}" alt="" />` : '';
+
+  return `
     <div class="brand">
       ${logo}
       <div>
-        <h1>${esc(orgName)}</h1>
-        ${receipt.orgMeta ? `<div class="meta">${esc(receipt.orgMeta)}</div>` : ''}
+        <h1>${esc(receipt.orgName || receipt.storeName || '—')}</h1>
+        <div class="meta">
+          ${receipt.orgAddress ? esc(receipt.orgAddress) : ''}
+          ${receipt.orgPhone ? ` · Tel: ${esc(receipt.orgPhone)}` : ''}
+        </div>
       </div>
     </div>
-
-    <div class="doc-title">${esc(title)}</div>
-    <div class="wrap"><div class="range">#${esc(receipt.ref)} · ${esc(fmtDate(receipt.createdAt))}</div></div>
-
-    <div class="grid">
-      <div class="box">
-        <h2>Our business</h2>
-        <div>${esc(orgName)}</div>
-        ${receipt.orgAddress ? `<div>${esc(receipt.orgAddress)}</div>` : ''}
-        ${receipt.orgPhone ? `<div>${esc(receipt.orgPhone)}</div>` : ''}
-        ${receipt.orgMeta ? `<div>${esc(receipt.orgMeta)}</div>` : ''}
+    <div class="title">Sales Invoice</div>
+    <div class="head-grid">
+      <div>
+        <div class="label">Invoice To</div>
+        <div><strong>${esc(receipt.partyLabel || '—')}</strong></div>
       </div>
-      <div class="box">
-        <h2>Billed to</h2>
-        <div>${esc(receipt.partyLabel || '—')}</div>
-        ${receipt.storeName ? `<div>Location: ${esc(receipt.storeName)}</div>` : ''}
-        ${
-          receipt.paymentMethod
-            ? `<div>Payment: ${esc(String(receipt.paymentMethod).toUpperCase())}</div>`
-            : ''
-        }
+      <div class="head-right">
+        <div><span class="label">Doc Date</span><span>${esc(fmtDate(receipt.createdAt))}</span></div>
+        <div><span class="label">Document No.</span><span>${esc(receipt.ref)}</span></div>
+        ${creditTerms ? `<div><span class="label">Credit Terms</span><span>${esc(creditTerms)}</span></div>` : ''}
       </div>
     </div>
-
-    ${formalReceiptLinesTable(receipt)}
-
-    <div class="foot">
-      <div class="foot-row"><span>Subtotal</span><span>${fmt(receipt.subtotal)}</span></div>
-      <div class="foot-row"><span>Tax</span><span>${fmt(receipt.taxAmount)}</span></div>
-      ${
-        extrasTotal
-          ? `<div class="foot-row"><span>Extras</span><span>${fmt(extrasTotal)}</span></div>`
-          : ''
-      }
-      <div class="foot-row total"><span>Total</span><span class="bal">${fmt(receipt.totalAmount)}</span></div>
+    <table>
+      <thead>
+        <tr>
+          <th>No</th><th>Product Name</th><th class="num">Quantity</th><th class="num">Price</th>
+          <th class="num">Disc</th><th class="num">VAT</th><th class="num">Amount</th>
+        </tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#666;">No line items.</td></tr>'}</tbody>
+    </table>
+    <div class="totals">
+      <table>
+        <tr><td>Subtotal</td><td class="num">${fmtPlain(receipt.subtotal)}</td></tr>
+        <tr><td>VAT</td><td class="num">${fmtPlain(receipt.taxAmount)}</td></tr>
+        <tr><td>Discount</td><td class="num">0.00</td></tr>
+        <tr class="grand"><td>Total</td><td class="num">${fmtPlain(receipt.totalAmount)}</td></tr>
+      </table>
     </div>
+    <div class="terms">
+      <div class="terms-title">Terms &amp; Conditions of Sale</div>
+      <ol>
+        <li>Payment terms are strictly as per credit terms from the date of invoice.</li>
+        <li>All goods sold remain property of ${esc(receipt.orgName || 'the seller')} until fully paid for.</li>
+        <li>Goods once sold are not returnable nor exchangeable.</li>
+        <li>Discrepancies should be notified within 3 days from receipt of goods.</li>
+      </ol>
+    </div>
+    <div class="sign-grid">
+      <div class="sign-box">
+        ${receipt.servedByName ? `<div class="sign-name">${esc(receipt.servedByName)}</div>` : ''}
+        Authorized By
+      </div>
+      <div class="sign-box">Goods Received By &amp; ID No / Company Stamp</div>
+    </div>`;
+}
 
-    ${
-      receipt.paymentMethod
-        ? `<div class="extra">
-            <div class="extra-label">Payment method</div>
-            <div>${esc(String(receipt.paymentMethod).toUpperCase())}</div>
-          </div>`
-        : ''
-    }
+/** Scoped entirely under .sales-invoice, for the same in-app-embedding reason as .thermal-receipt above. */
+export const INVOICE_STYLE = `
+  .sales-invoice, .sales-invoice * { box-sizing: border-box; margin: 0; padding: 0; }
+  .sales-invoice {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    color: #1a1a1a;
+    font-size: 12px;
+    line-height: 1.5;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 8px 4px;
+  }
+  .sales-invoice .brand { display: flex; gap: 12px; align-items: center; border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; }
+  .sales-invoice .brand img { height: 48px; }
+  .sales-invoice .brand h1 { font-size: 20px; font-weight: 800; text-transform: uppercase; }
+  .sales-invoice .brand .meta { color: #444; margin-top: 3px; font-size: 11px; }
+  .sales-invoice .title { text-align: center; font-size: 16px; letter-spacing: 0.1em; font-weight: 800; margin: 14px 0; text-decoration: underline; }
+  .sales-invoice .head-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .sales-invoice .head-grid .label { color: #555; font-size: 10px; text-transform: uppercase; }
+  .sales-invoice .head-right div { display: flex; justify-content: space-between; padding: 2px 0; }
+  .sales-invoice .head-right .label { min-width: 120px; }
+  .sales-invoice table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  .sales-invoice th { border: 1px solid #1a1a1a; background: #eee; text-align: left; padding: 6px; font-size: 10px; text-transform: uppercase; }
+  .sales-invoice th.num, .sales-invoice td.num { text-align: right; }
+  .sales-invoice td { border: 1px solid #ccc; padding: 6px; }
+  .sales-invoice .totals { display: flex; justify-content: flex-end; margin-bottom: 20px; }
+  .sales-invoice .totals table { width: 260px; }
+  .sales-invoice .totals td { border: none; padding: 3px 4px; }
+  .sales-invoice .totals .grand td { border-top: 1px solid #1a1a1a; font-weight: 800; font-size: 13px; }
+  .sales-invoice .terms { font-size: 10px; color: #333; margin-bottom: 24px; }
+  .sales-invoice .terms .terms-title { font-weight: 700; margin-bottom: 4px; }
+  .sales-invoice .terms ol { padding-left: 16px; }
+  .sales-invoice .terms li { margin-bottom: 2px; }
+  .sales-invoice .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 30px; }
+  .sales-invoice .sign-box { border-top: 1px solid #1a1a1a; padding-top: 4px; font-size: 10px; text-align: center; }
+  .sales-invoice .sign-name { font-size: 12px; font-weight: 700; margin-bottom: 20px; }
+`;
 
-    <p class="thanks">Thank you for your business · ${esc(orgName)}</p>
-  </div>
-</body>
+function buildInvoiceHtml(receipt: PosReceipt): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Sales Invoice ${esc(receipt.ref)}</title>
+<style>${INVOICE_STYLE}</style>
+</head>
+<body><div class="sales-invoice">${invoiceBodyHtml(receipt)}</div></body>
 </html>`;
 }
 
 /** Minimal printable HTML for Electron printToPDF (no React/CSS deps). */
 export function buildSaleDocHtml(receipt: PosReceipt, kind: SaleDocKind): string {
   if (kind === 'receipt') {
-    return buildFormalReceiptHtml(receipt);
+    return isBigCustomer(receipt) ? buildInvoiceHtml(receipt) : buildThermalReceiptHtml(receipt);
   }
 
   const title = titleFor(kind, receipt);

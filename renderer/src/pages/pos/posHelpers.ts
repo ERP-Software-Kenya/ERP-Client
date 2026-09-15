@@ -82,6 +82,11 @@ export function lineTotal(l: BillLine) {
   return l.qty * l.rate + lineTax(l);
 }
 
+/** Big-customer sales print a formal sales invoice; every other customer type prints a thermal receipt. */
+export function isBigCustomer(receipt: { customerType?: CustomerType | string | null }): boolean {
+  return receipt.customerType === "big_customer";
+}
+
 export function productRate(p: Product, mode: Mode): number {
   if (mode === "purchase")
     return Number(p.costPrice ?? p.wholesalePrice ?? p.retailPrice ?? 0);
