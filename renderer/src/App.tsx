@@ -35,6 +35,8 @@ const PurchaseOrderDetail = lazy(() => import('./pages/PurchaseOrderDetail'));
 const PurchaseOrderReceive = lazy(() => import('./pages/PurchaseOrderReceive'));
 const Bills = lazy(() => import('./pages/Bills'));
 const BillDetail = lazy(() => import('./pages/BillDetail'));
+const SalesReturns = lazy(() => import('./pages/SalesReturns'));
+const PurchaseReturns = lazy(() => import('./pages/PurchaseReturns'));
 const PaymentTransactions = lazy(() => import('./pages/PaymentTransactions'));
 const ItemReturns = lazy(() => import('./pages/ItemReturns'));
 const Notifications = lazy(() => import('./pages/Notifications'));
@@ -148,6 +150,8 @@ function App() {
             <Route path="pos/purchase" element={<PurchaseBilling />} />
             <Route path="bills" element={<Bills />} />
             <Route path="bills/:id" element={<BillDetail />} />
+            <Route path="sales/returns" element={<SalesReturns />} />
+            <Route path="purchase/returns" element={<PurchaseReturns />} />
             <Route path="payment-transactions" element={<PaymentTransactions />} />
             <Route path="item-returns" element={<ItemReturns />} />
             <Route path="notifications" element={<Notifications />} />

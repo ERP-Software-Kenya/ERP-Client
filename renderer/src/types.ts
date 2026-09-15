@@ -332,6 +332,64 @@ export interface Bill {
   items?: BillItem[];
 }
 
+export type SalesReturnStatus = 'draft' | 'finalized' | 'cancelled';
+export type SalesReturnItemCondition = 'restock' | 'damaged' | 'unpublished_restock';
+export type SalesReturnRefundStatus = 'none' | 'pending' | 'completed';
+
+export interface SalesReturnItem {
+  id: string;
+  salesReturnId?: string;
+  billItemId: string;
+  productId: string;
+  variantId?: string | null;
+  quantity: number;
+  unitPrice: number;
+  taxRate?: number;
+  taxAmount?: number;
+  discountAmount?: number;
+  lineTotal: number;
+  condition: SalesReturnItemCondition;
+  reason?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SalesReturn {
+  id: string;
+  returnNumber?: string;
+  organizationId?: string;
+  locationId?: string;
+  billId: string;
+  customerId?: string | null;
+  saleType?: SaleType | string;
+  status: SalesReturnStatus | string;
+  refundMethod?: PaymentMethod | string | null;
+  refundStatus?: SalesReturnRefundStatus | string;
+  subtotal?: number;
+  taxAmount?: number;
+  discountAmount?: number;
+  totalAmount?: number;
+  reason?: string | null;
+  notes?: string | null;
+  finalizedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  items?: SalesReturnItem[];
+}
+
+export interface CreateSalesReturnInput {
+  billId: string;
+  reason?: string;
+  notes?: string;
+  refundMethod?: PaymentMethod | string;
+  items: Array<{
+    billItemId: string;
+    quantity: number;
+    condition: SalesReturnItemCondition;
+    reason?: string;
+  }>;
+}
+
 export interface CreateBillItemInput {
   productId: string;
   variantId?: string;
@@ -771,6 +829,55 @@ export interface PurchaseItem {
   packSizeSnapshot?: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export type PurchaseReturnStatus = 'draft' | 'finalized' | 'cancelled';
+export type PurchaseReturnDispatchStatus = 'pending_dispatch' | 'dispatched' | 'credited';
+export type PurchaseReturnSourceType = 'unallocated_received' | 'allocated_stock';
+
+export interface PurchaseReturnItem {
+  id: string;
+  purchaseReturnId?: string;
+  purchaseItemId: string;
+  productId?: string;
+  quantity: number;
+  unitCost: number;
+  lineTotal: number;
+  sourceType: PurchaseReturnSourceType;
+  locationId?: string | null;
+  reason?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PurchaseReturn {
+  id: string;
+  returnNumber?: string;
+  organizationId?: string;
+  purchaseOrderId: string;
+  supplierId?: string;
+  status: PurchaseReturnStatus | string;
+  dispatchStatus?: PurchaseReturnDispatchStatus | string;
+  totalAmount?: number;
+  reason?: string | null;
+  notes?: string | null;
+  finalizedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  items?: PurchaseReturnItem[];
+}
+
+export interface CreatePurchaseReturnInput {
+  purchaseOrderId: string;
+  reason?: string;
+  notes?: string;
+  items: Array<{
+    purchaseItemId: string;
+    quantity: number;
+    sourceType: PurchaseReturnSourceType;
+    locationId?: string;
+    reason?: string;
+  }>;
 }
 
 export const ACTIVITY_LOG_ACTIONS = {
@@ -1275,4 +1382,3 @@ export interface LiveDriverLocation {
   status: 'in_transit' | 'delayed' | 'completed';
   lastUpdated: string;
 }
-
