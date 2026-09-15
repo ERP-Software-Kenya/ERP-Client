@@ -1,9 +1,10 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 import { AlertCircle, LayoutList, Minus, Plus, Scan, Trash2 } from "lucide-react";
-import type { Product, SaleType } from "../../../../types";
+import type { Location, Product, SaleType } from "../../../../types";
 import type { CheckoutResult } from "../../checkout";
 import { fmt, lineTotal, type BillLine, type ExtraCharge } from "../../posHelpers";
 import type { StockInfo } from "../../posStock";
+import { FormSelect } from "../../../../components/FormSelect";
 import { StockBadge } from "../StockBadge";
 import { StepList } from "../StepList";
 
@@ -15,7 +16,7 @@ export interface ProductDetailsSectionProps {
   onEnter: () => void;
   suggestions: Product[];
   onAddProduct: (p: Product) => void;
-  getStockInfo: (productId: string) => StockInfo;
+  getStockInfo: (productId: string, locationId?: string) => StockInfo;
   lineOverStock: (line: BillLine) => boolean;
   hasStockIssues: boolean;
   lines: BillLine[];
@@ -24,6 +25,8 @@ export interface ProductDetailsSectionProps {
   onRateChange: (lineId: number, rate: number) => void;
   onRemoveLine: (id: number) => void;
   onRemoveCharge: (id: number) => void;
+  onLineLocationChange: (lineId: number, locationId: string) => void;
+  locations: Location[];
   storeCode?: string;
   checkoutResult: CheckoutResult | null;
   showCheckoutFailureBanner: boolean;
@@ -46,11 +49,18 @@ export function ProductDetailsSection({
   onRateChange,
   onRemoveLine,
   onRemoveCharge,
+  onLineLocationChange,
+  locations,
   storeCode,
   checkoutResult,
   showCheckoutFailureBanner,
 }: ProductDetailsSectionProps) {
   const [activeIdx, setActiveIdx] = useState(-1);
+
+  const locationOptions = useMemo(
+    () => locations.map((l) => ({ value: l.id, label: l.name })),
+    [locations],
+  );
 
   useEffect(() => {
     setActiveIdx(-1);
@@ -133,7 +143,7 @@ export function ProductDetailsSection({
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 border-b border-border bg-muted/60">
               <tr>
-                {["#", "Product Name", "Category", "Qty", "Unit", "Weight", "Price", "Discount", "Line Total", ""].map((h) => (
+                {["#", "Product Name", "Category", "Location", "Qty", "Unit", "Weight", "Price", "Discount", "Line Total", ""].map((h) => (
                   <th
                     key={h}
                     className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground"
@@ -161,6 +171,15 @@ export function ProductDetailsSection({
                     </td>
                     <td className="px-3 py-2.5 text-sm text-muted-foreground">
                       {line.storeCode ?? storeCode ?? "—"}
+                    </td>
+                    <td className="px-3 py-2.5 min-w-[140px]">
+                      <FormSelect
+                        value={line.locationId ?? ""}
+                        onChange={(v) => onLineLocationChange(line.id, v)}
+                        options={locationOptions}
+                        placeholder="Select…"
+                        className="h-8 py-1 text-xs"
+                      />
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex flex-col gap-0.5">
@@ -246,7 +265,7 @@ export function ProductDetailsSection({
 
               {extraCharges.map((ec) => (
                 <tr key={ec.id} className="bg-muted/20">
-                  <td colSpan={8} className="px-3 py-2 text-sm italic text-muted-foreground">
+                  <td colSpan={9} className="px-3 py-2 text-sm italic text-muted-foreground">
                     {ec.label}
                   </td>
                   <td className="px-3 py-2 text-sm font-semibold">{fmt(ec.amount)}</td>
@@ -260,7 +279,7 @@ export function ProductDetailsSection({
 
               {lines.length === 0 && extraCharges.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="py-14 text-center">
+                  <td colSpan={11} className="py-14 text-center">
                     <div className="flex flex-col items-center justify-center gap-1.5 text-muted-foreground">
                       <Scan size={24} className="text-muted-foreground/30 stroke-1" />
                       <p className="text-xs font-medium text-muted-foreground">

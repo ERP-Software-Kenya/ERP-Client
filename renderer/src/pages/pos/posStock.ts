@@ -25,6 +25,23 @@ export function buildLocationStockMap(
   return map;
 }
 
+/** Builds a stock map for every location in one pass — keyed by locationId. */
+export function buildAllLocationsStockMap(
+  inventory: InventoryItem[],
+): Map<string, Map<string, InventoryItem>> {
+  const maps = new Map<string, Map<string, InventoryItem>>();
+  for (const row of inventory) {
+    if (!row.locationId) continue;
+    let locMap = maps.get(row.locationId);
+    if (!locMap) {
+      locMap = new Map<string, InventoryItem>();
+      maps.set(row.locationId, locMap);
+    }
+    locMap.set(row.productId, row);
+  }
+  return maps;
+}
+
 /** Sellable qty for the active sale type at the selected location. */
 export function stockAvailable(item: InventoryItem | undefined, saleType: SaleType): number {
   if (!item) return 0;
@@ -66,9 +83,15 @@ export function cartQtyForProduct(
   lines: BillLine[],
   productId: string,
   excludeLineId?: number,
+  locationId?: string,
 ): number {
   return lines
-    .filter((l) => l.productId === productId && l.id !== excludeLineId)
+    .filter(
+      (l) =>
+        l.productId === productId &&
+        l.id !== excludeLineId &&
+        (locationId === undefined || (l.locationId ?? '') === (locationId ?? '')),
+    )
     .reduce((sum, l) => sum + l.qty, 0);
 }
 
@@ -97,10 +120,17 @@ export function lineExceedsStock(
   line: BillLine,
   stockMap: Map<string, InventoryItem>,
   saleType: SaleType,
+  allStockMaps?: Map<string, Map<string, InventoryItem>>,
+  globalLocationId?: string,
 ): boolean {
-  const info = getStockInfo(stockMap, line.productId, saleType);
+  const effectiveLocationId = line.locationId || globalLocationId;
+  const map =
+    effectiveLocationId && allStockMaps?.has(effectiveLocationId)
+      ? allStockMaps.get(effectiveLocationId)!
+      : stockMap;
+  const info = getStockInfo(map, line.productId, saleType);
   if (!info.found) return true;
-  const totalForProduct = cartQtyForProduct(lines, line.productId);
+  const totalForProduct = cartQtyForProduct(lines, line.productId, undefined, effectiveLocationId);
   return totalForProduct > info.available;
 }
 
@@ -108,6 +138,10 @@ export function saleHasStockIssues(
   lines: BillLine[],
   stockMap: Map<string, InventoryItem>,
   saleType: SaleType,
+  allStockMaps?: Map<string, Map<string, InventoryItem>>,
+  globalLocationId?: string,
 ): boolean {
-  return lines.some((line) => lineExceedsStock(lines, line, stockMap, saleType));
+  return lines.some((line) =>
+    lineExceedsStock(lines, line, stockMap, saleType, allStockMaps, globalLocationId),
+  );
 }

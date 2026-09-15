@@ -21,6 +21,8 @@ export interface BillLine {
   p4?: number;
   activeTier?: PriceTier;
   storeCode?: string;
+  /** Per-line location override — falls back to the global sale location when absent */
+  locationId?: string;
   /** Product manufacturer/brand — shown in purchase line items table */
   manufacturer?: string;
   /** Product pack size — units per pack, null when sold individually */
