@@ -24,6 +24,7 @@ import {
   Fuel,
   Hash,
   History,
+  Landmark,
   LayoutDashboard,
   Loader2,
   Lock,
@@ -204,6 +205,24 @@ export const MODULES: ModuleGroup[] = [
       { key: "bills", title: "Bills", path: "/bills", icon: FileText },
       // { key: 'payments-made', title: 'Payments Made', path: '/payment-transactions', icon: Banknote },
       // { key: 'purchase-items', title: 'Purchase Items', path: '/purchase-items', icon: Receipt },
+    ],
+  },
+  {
+    label: "Accounts",
+    icon: Landmark,
+    items: [
+      {
+        key: "debtors-ac",
+        title: "Debtors A/C",
+        path: "/sales/debtors",
+        icon: UserCheck,
+      },
+      {
+        key: "creditors-ac",
+        title: "Creditors A/C",
+        path: "/purchase/creditors",
+        icon: CreditCard,
+      },
     ],
   },
   {
