@@ -12,6 +12,7 @@ import type {
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer, StockTransferRequest,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
+  CreateSalesReturnInput, SalesReturn, CreatePurchaseReturnInput, PurchaseReturn,
   CreditApprovalRequest, CommissionPayable,
   QuickCharge, CustomerTypeRule,
   Country, State, City,
@@ -183,6 +184,109 @@ export const Bills = {
 };
 
 export const PaymentTransactions = createResource<PaymentTransaction>('/api/v1/payment-transactions', 'payment-transactions', 'Payment');
+const salesReturnsBase = createResource<SalesReturn>('/api/v1/sales-returns', 'sales-returns', 'Sales return');
+
+export const SalesReturns = {
+  ...salesReturnsBase,
+  useForBill(billId: string | undefined) {
+    return salesReturnsBase.useSearch({
+      filters: billId ? { billId } : undefined,
+      enabled: !!billId,
+      omitPagination: true,
+    });
+  },
+  useCreateDraft() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: CreateSalesReturnInput) => post<SalesReturn>('/api/v1/sales-returns', body),
+      onSuccess: (created) => {
+        toast.success('Sales return draft created');
+        queryClient.invalidateQueries({ queryKey: ['sales-returns'] });
+        queryClient.invalidateQueries({ queryKey: ['bills', created.billId] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to create sales return'),
+    });
+  },
+  useFinalize() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => post<SalesReturn>(`/api/v1/sales-returns/${id}/finalize`, {}),
+      onSuccess: (finalized) => {
+        toast.success('Sales return finalized');
+        queryClient.invalidateQueries({ queryKey: ['sales-returns'] });
+        queryClient.invalidateQueries({ queryKey: ['bills'] });
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        if (finalized.billId) queryClient.invalidateQueries({ queryKey: ['bills', finalized.billId] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to finalize sales return'),
+    });
+  },
+  useCancel() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => post<SalesReturn>(`/api/v1/sales-returns/${id}/cancel`, {}),
+      onSuccess: () => {
+        toast.success('Sales return cancelled');
+        queryClient.invalidateQueries({ queryKey: ['sales-returns'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to cancel sales return'),
+    });
+  },
+};
+
+const purchaseReturnsBase = createResource<PurchaseReturn>('/api/v1/purchase-returns', 'purchase-returns', 'Purchase return');
+
+export const PurchaseReturns = {
+  ...purchaseReturnsBase,
+  useForPurchaseOrder(purchaseOrderId: string | undefined) {
+    return purchaseReturnsBase.useSearch({
+      filters: purchaseOrderId ? { purchaseOrderId } : undefined,
+      enabled: !!purchaseOrderId,
+      omitPagination: true,
+    });
+  },
+  useCreateDraft() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: CreatePurchaseReturnInput) => post<PurchaseReturn>('/api/v1/purchase-returns', body),
+      onSuccess: (created) => {
+        toast.success('Purchase return draft created');
+        queryClient.invalidateQueries({ queryKey: ['purchase-returns'] });
+        queryClient.invalidateQueries({ queryKey: ['purchase-orders', created.purchaseOrderId] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to create purchase return'),
+    });
+  },
+  useFinalize() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => post<PurchaseReturn>(`/api/v1/purchase-returns/${id}/finalize`, {}),
+      onSuccess: (finalized) => {
+        toast.success('Purchase return finalized');
+        queryClient.invalidateQueries({ queryKey: ['purchase-returns'] });
+        queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['purchase-items'] });
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        if (finalized.purchaseOrderId) {
+          queryClient.invalidateQueries({ queryKey: ['purchase-orders', finalized.purchaseOrderId] });
+        }
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to finalize purchase return'),
+    });
+  },
+  useCancel() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => post<PurchaseReturn>(`/api/v1/purchase-returns/${id}/cancel`, {}),
+      onSuccess: () => {
+        toast.success('Purchase return cancelled');
+        queryClient.invalidateQueries({ queryKey: ['purchase-returns'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to cancel purchase return'),
+    });
+  },
+};
+
 const notificationsBase = createResource<Notification>('/api/v1/notifications', 'notifications', 'Notification');
 
 export const Notifications = {
