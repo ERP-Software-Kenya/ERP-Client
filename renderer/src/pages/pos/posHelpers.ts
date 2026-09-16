@@ -82,6 +82,16 @@ export function lineTotal(l: BillLine) {
   return l.qty * l.rate + lineTax(l);
 }
 
+/** Sums qty for kg/gram lines only (gram normalized to kg); other units have no known weight yet. */
+export function totalWeightKg(lines: BillLine[]): number {
+  return lines.reduce((sum, l) => {
+    const unit = l.unitLabel?.toLowerCase();
+    if (unit === "kg") return sum + l.qty;
+    if (unit === "gram") return sum + l.qty / 1000;
+    return sum;
+  }, 0);
+}
+
 /** Big-customer sales print a formal sales invoice; every other customer type prints a thermal receipt. */
 export function isBigCustomer(receipt: { customerType?: CustomerType | string | null }): boolean {
   return receipt.customerType === "big_customer";

@@ -34,7 +34,7 @@ import { StatementDocument } from "./StatementDocument";
 import { DeliveryNoteDocument } from "./DeliveryNoteDocument";
 import { downloadSaleDoc, downloadBillPdf, downloadPurchaseOrderPdf } from "./billReceipt";
 import { HeldSalesPanel } from "./HeldSalesPanel";
-import { productRate, customerTypeToTier, productTierPrices, type BillLine, type ExtraCharge, type Mode, type PriceTier, type PrintDoc } from "./posHelpers";
+import { productRate, customerTypeToTier, productTierPrices, totalWeightKg, type BillLine, type ExtraCharge, type Mode, type PriceTier, type PrintDoc } from "./posHelpers";
 import {
   buildAllLocationsStockMap,
   buildLocationStockMap,
@@ -690,6 +690,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const extraTotal = extraCharges.reduce((s, c) => s + c.amount, 0);
   const grandTotal = subtotal + totalTax + extraTotal;
   const blackMarkup = saleType === "black" ? lines.reduce((s, l) => s + (l.rate - l.officialRate) * l.qty, 0) : 0;
+  const saleTotalWeightKg = totalWeightKg(lines);
   const creditLimit = Number(selectedCustomer?.creditLimit ?? 0);
   const creditBalance = Number(selectedCustomer?.creditBalance ?? 0);
   const creditRemaining = creditLimit - creditBalance;

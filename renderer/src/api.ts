@@ -37,7 +37,29 @@ import type {
 
 export const Organizations = createResource<Organization>('/api/v1/organizations', 'organizations', 'Organization');
 export const Categories = createResource<Category>('/api/v1/categories', 'categories', 'Category');
-export const Products = createResource<Product>('/api/v1/products', 'products', 'Product');
+const productsBase = createResource<Product>('/api/v1/products', 'products', 'Product');
+
+/**
+ * Products backend exposes a dedicated `search` field (matches name, SKU, or barcode) —
+ * the generic resource's `toQuery()` maps `search` to `name`, which misses SKU/barcode
+ * matches entirely. Route `search` through `filters` so it reaches the backend as `search`.
+ */
+export const Products = {
+  ...productsBase,
+  useSearch(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    filters?: Record<string, string>;
+    enabled?: boolean;
+  }) {
+    const { search, filters, ...rest } = params ?? {};
+    return productsBase.useSearch({
+      ...rest,
+      filters: { ...(filters ?? {}), ...(search ? { search } : {}) },
+    });
+  },
+};
 const suppliersBase = createResource<Supplier>('/api/v1/suppliers', 'suppliers', 'Supplier');
 
 export const Suppliers = {
