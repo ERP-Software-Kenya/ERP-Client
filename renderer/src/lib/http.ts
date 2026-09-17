@@ -25,9 +25,7 @@ export function configureApi(baseUrl: string, getToken: () => Promise<string | n
 export type QueryParams = Record<string, string | number | boolean | undefined>;
 
 function buildUrl(path: string, params?: QueryParams): string {
-  const base = _baseUrl || (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'http://localhost:5173');
-  const fullUrl = _baseUrl ? `${_baseUrl}${path}` : `${base}${path.startsWith('/') ? '' : '/'}${path}`;
-  const url = new URL(fullUrl);
+  const url = new URL(`${_baseUrl}${path}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== '') url.searchParams.set(k, String(v));
