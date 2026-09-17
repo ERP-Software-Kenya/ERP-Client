@@ -6,7 +6,7 @@ import { RecentRecords } from "../../components/RecentRecords";
 import { FormDrawer, Field, FormSection } from "../../components/FormDrawer";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { ResourceSelect } from "../../components/ResourceSelect";
+import { SearchableSelect } from "../../components/SearchableSelect";
 import { PurchaseItems, Products, get } from "../../api";
 import { formatEntityLabel } from "../../lib/entityLabel";
 import { HYDRATE_LIMIT, RECENT_NS, useRecentIds } from "../../lib/recentIds";
@@ -71,6 +71,17 @@ export default function PurchaseItemsPage() {
     }
     return m;
   }, [products]);
+
+  const productSearchItems = useMemo(
+    () =>
+      (products ?? []).map((p) => ({
+        id: p.id,
+        label: p.name ?? formatEntityLabel({ id: p.id }),
+        sublabel: p.sku ?? undefined,
+      })),
+    [products],
+  );
+
 
   const recentQueries = useQueries({
     queries: recent.entries.slice(0, HYDRATE_LIMIT).map((e) => ({
@@ -316,12 +327,11 @@ export default function PurchaseItemsPage() {
             />
           </Field>
           <Field label="Product">
-            <ResourceSelect
-              resource={Products}
-              getLabel={(p) => p.name || p.sku || p.id}
+            <SearchableSelect
+              items={productSearchItems}
               value={form.productId}
               onValueChange={(v) => setForm({ ...form, productId: v })}
-              placeholder="Select product…"
+              placeholder="SKU or product name…"
             />
           </Field>
           <Field label="Quantity Ordered">

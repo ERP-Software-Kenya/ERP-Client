@@ -3,6 +3,7 @@ import { CheckCircle2, AlertCircle, XCircle, Clock, PackageCheck, Send, Building
 import { DataTable, Column } from '../../components/DataTable';
 import { FormDrawer, Field } from '../../components/FormDrawer';
 import { ResourceSelect } from '../../components/ResourceSelect';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import {
@@ -168,6 +169,16 @@ export default function StockRequestsPage() {
     for (const prod of products ?? []) map.set(prod.id, prod.name ?? prod.id);
     return map;
   }, [products]);
+
+  const productSearchItems = useMemo(
+    () =>
+      (products ?? []).map((p) => ({
+        id: p.id,
+        label: p.name ?? p.id,
+        sublabel: p.sku ?? undefined,
+      })),
+    [products],
+  );
 
   const scope = useMemo(() => {
     return resolveStockRequestsScope({
@@ -482,12 +493,11 @@ export default function StockRequestsPage() {
           </Field>
 
           <Field label="Product" required>
-            <ResourceSelect
-              resource={Products}
-              getLabel={(p) => p.name ?? 'Unknown'}
+            <SearchableSelect
+              items={productSearchItems}
               value={raiseProductId}
               onValueChange={setRaiseProductId}
-              placeholder="Search products..."
+              placeholder="SKU or product name…"
             />
           </Field>
 

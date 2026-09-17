@@ -21,11 +21,18 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://51.20.217.230:10000';
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL !== undefined
+    ? import.meta.env.VITE_API_BASE_URL
+    : (import.meta.env.DEV ? '' : 'http://51.20.217.230:10000');
+const IS_DEV_BYPASS = import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_BYPASS === 'true';
 
 type ClerkResources = Parameters<Parameters<typeof clerk.addListener>[0]>[0];
 
-configureApi(API_BASE, () => (clerk.session ? clerk.session.getToken() : Promise.resolve(null)));
+configureApi(API_BASE, () => {
+  if (IS_DEV_BYPASS) return Promise.resolve('dev-bypass-token');
+  return clerk.session ? clerk.session.getToken() : Promise.resolve(null);
+});
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -77,6 +84,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const run = (async () => {
       if (signingOut.current || epoch !== authEpoch.current) return;
+
+      if (IS_DEV_BYPASS) {
+        sessionStorage.removeItem('erp.dev-logged-out');
+        setBootPhase('session');
+        syncingRef.current = true;
+        setSyncing(true);
+        try {
+          let me: MeResponse | null = null;
+          try {
+            me = await AuthService.getMe();
+          } catch {
+            await AuthService.sync();
+            me = await AuthService.getMe();
+          }
+          if (signingOut.current || epoch !== authEpoch.current) return;
+          setUser(me);
+          writeCachedMe(me);
+        } catch (error) {
+          if (signingOut.current || epoch !== authEpoch.current) return;
+          clearCachedMe();
+          toast.error(getErrorMessage(error, 'Failed to load local account'));
+          setUser(null);
+        } finally {
+          if (epoch === authEpoch.current) {
+            syncingRef.current = false;
+            setSyncing(false);
+            setBootPhase(null);
+          }
+        }
+        return;
+      }
+
       if (!clerk.session) {
         setUser(null);
         setBootPhase(null);
@@ -141,6 +180,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    if (IS_DEV_BYPASS) {
+      if (sessionStorage.getItem('erp.dev-logged-out') === '1') {
+        setLoading(false);
+        setBootPhase(null);
+        return;
+      }
+      setLoading(true);
+      void refresh().finally(() => {
+        setLoading(false);
+      });
+      return;
+    }
+
     let mounted = true;
     let hasLoadedOnce = false;
     let unsubscribe: (() => void) | undefined;
@@ -206,6 +258,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     clearCachedMe();
 
+    if (IS_DEV_BYPASS) {
+      sessionStorage.setItem('erp.dev-logged-out', '1');
+      signingOut.current = false;
+      return;
+    }
+
     try {
       // Clerk defaults to window.navigate("/") after sign-out (full page reload).
       // Pass a callback so we keep SPA routing — Topbar navigates to /login.
@@ -227,6 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // While syncing, refresh() owns error handling (avoids racing logout on boot).
   useEffect(() => {
     const handler = () => {
+      if (IS_DEV_BYPASS) return;
       if (!signingOut.current && !syncingRef.current) void logoutRef.current?.();
     };
     document.addEventListener('auth:unauthorized', handler);

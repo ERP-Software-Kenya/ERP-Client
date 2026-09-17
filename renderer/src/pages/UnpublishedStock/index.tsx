@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { GuideModal, type GuideStep } from '../../components/GuideModal';
 import { ResourceSelect } from '../../components/ResourceSelect';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import { Field } from '../../components/FormDrawer';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -158,6 +159,17 @@ export default function UnpublishedStockPage() {
     for (const p of products ?? []) m.set(p.id, p.name);
     return m;
   }, [products]);
+
+  const productSearchItems = useMemo(
+    () =>
+      (products ?? []).map((p) => ({
+        id: p.id,
+        label: p.name ?? p.id,
+        sublabel: p.sku ?? undefined,
+      })),
+    [products],
+  );
+
 
   const locationMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -415,11 +427,11 @@ export default function UnpublishedStockPage() {
 
             <form onSubmit={handleAdd} className="space-y-4 p-5">
               <Field label="Product" required>
-                <ResourceSelect
-                  resource={Products}
-                  getLabel={(p) => p.name}
+                <SearchableSelect
+                  items={productSearchItems}
                   value={addForm.productId}
                   onValueChange={(v) => setAddForm({ ...addForm, productId: v })}
+                  placeholder="SKU or product name…"
                 />
               </Field>
               <Field label="Location" required>
@@ -519,9 +531,8 @@ export default function UnpublishedStockPage() {
             {/* Filters */}
             <div className="flex gap-3 border-b border-border px-5 py-3">
               <div className="flex-1">
-                <ResourceSelect
-                  resource={Products}
-                  getLabel={(p) => p.name}
+                <SearchableSelect
+                  items={productSearchItems}
                   value={filterProductId}
                   onValueChange={setFilterProductId}
                   placeholder="Filter by product…"

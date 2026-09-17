@@ -54,8 +54,18 @@ export default function SignIn() {
     return true;
   };
 
+  const IS_DEV_BYPASS = import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_BYPASS === 'true';
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (IS_DEV_BYPASS) {
+      sessionStorage.removeItem('erp.dev-logged-out');
+      setLoading(true);
+      await refresh();
+      setLoading(false);
+      navigate('/', { replace: true });
+      return;
+    }
     if (!requireClerkClient()) return;
     setErrorMsg(null);
     setLoading(true);
