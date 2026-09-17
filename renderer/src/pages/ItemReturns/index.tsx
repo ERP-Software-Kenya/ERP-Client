@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { DataTable, Column } from '../../components/DataTable';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { ResourceSelect } from '../../components/ResourceSelect';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import { RecentIdPicker } from '../../components/RecentIdPicker';
 import { FormDrawer, Field } from '../../components/FormDrawer';
 import { ViewDrawer } from '../../components/ViewDrawer';
@@ -96,6 +97,17 @@ export default function ItemReturnsPage() {
     for (const p of products ?? []) m.set(p.id, formatEntityLabel({ name: p.name, sku: p.sku, id: p.id }));
     return m;
   }, [products]);
+
+  const productSearchItems = useMemo(
+    () =>
+      (products ?? []).map((p) => ({
+        id: p.id,
+        label: p.name ?? formatEntityLabel({ id: p.id }),
+        sublabel: p.sku ?? undefined,
+      })),
+    [products],
+  );
+
   const orderLabel = useMemo(() => {
     const m = new Map<string, string>();
     for (const e of recentOrders.entries) {
@@ -435,11 +447,11 @@ export default function ItemReturnsPage() {
             />
           </Field>
           <Field label="Product" required>
-            <ResourceSelect
-              resource={Products}
-              getLabel={(p) => formatEntityLabel({ name: p.name, sku: p.sku, id: p.id })}
+            <SearchableSelect
+              items={productSearchItems}
               value={restockForm.productId}
               onValueChange={(productId) => setRestockForm({ ...restockForm, productId })}
+              placeholder="SKU or product name…"
             />
           </Field>
           <Field label="Inventory record" required>

@@ -1,30 +1,34 @@
 import { describe, expect, it } from 'vitest';
 import { MODULES, ALL_ITEMS, pageKeyForPath } from './modules';
-
 describe('Navigation MODULES configuration', () => {
-  it('contains debtors under Sales group', () => {
-    const salesGroup = MODULES.find((g) => g.label === 'Sales');
-    expect(salesGroup).toBeDefined();
+  it('contains debtors-ac and creditors-ac under Accounts group', () => {
+    const accountsGroup = MODULES.find((g) => g.label === 'Accounts');
+    expect(accountsGroup).toBeDefined();
 
-    const debtorsItem = salesGroup?.items.find((i) => i.key === 'debtors');
+    const debtorsItem = accountsGroup?.items.find((i) => i.key === 'debtors-ac');
     expect(debtorsItem).toBeDefined();
-    expect(debtorsItem?.title).toBe('Debtors');
+    expect(debtorsItem?.title).toBe('Debtors A/C');
     expect(debtorsItem?.path).toBe('/sales/debtors');
-  });
 
-  it('contains purchase-creditors under Purchase group', () => {
-    const purchaseGroup = MODULES.find((g) => g.label === 'Purchase');
-    expect(purchaseGroup).toBeDefined();
-
-    const creditorsItem = purchaseGroup?.items.find((i) => i.key === 'purchase-creditors');
+    const creditorsItem = accountsGroup?.items.find((i) => i.key === 'creditors-ac');
     expect(creditorsItem).toBeDefined();
-    expect(creditorsItem?.title).toBe('Creditors');
+    expect(creditorsItem?.title).toBe('Creditors A/C');
     expect(creditorsItem?.path).toBe('/purchase/creditors');
   });
 
-  it('resolves correct pageKey for new paths', () => {
-    expect(pageKeyForPath('/sales/debtors')).toBe('debtors');
-    expect(pageKeyForPath('/purchase/creditors')).toBe('purchase-creditors');
+  it('contains suppliers under Purchase group with correct title', () => {
+    const purchaseGroup = MODULES.find((g) => g.label === 'Purchase');
+    expect(purchaseGroup).toBeDefined();
+
+    const suppliersItem = purchaseGroup?.items.find((i) => i.key === 'suppliers');
+    expect(suppliersItem).toBeDefined();
+    expect(suppliersItem?.title).toBe('Suppliers');
+    expect(suppliersItem?.path).toBe('/suppliers');
+  });
+
+  it('resolves correct pageKey for paths', () => {
+    expect(pageKeyForPath('/sales/debtors')).toBe('debtors-ac');
+    expect(pageKeyForPath('/purchase/creditors')).toBe('creditors-ac');
   });
 
   it('ensures all module item keys are unique', () => {

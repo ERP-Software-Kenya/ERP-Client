@@ -137,12 +137,6 @@ export const MODULES: ModuleGroup[] = [
         icon: Users2,
       },
       {
-        key: "debtors",
-        title: "Debtors",
-        path: "/sales/debtors",
-        icon: UserCheck,
-      },
-      {
         key: "creditors",
         title: "Credit Ledger",
         path: "/sales/creditors",
@@ -178,17 +172,10 @@ export const MODULES: ModuleGroup[] = [
       },
       {
         key: "suppliers",
-        title: "Debtors",
+        title: "Suppliers",
         path: "/suppliers",
         icon: Building2,
       },
-      {
-        key: "purchase-creditors",
-        title: "Creditors",
-        path: "/purchase/creditors",
-        icon: CreditCard,
-      },
-      // { key: 'rfq', title: 'RFQ / Enquiry', path: '/purchase/rfq', icon: Search, disabled: true },
       {
         key: "purchase-orders",
         title: "Purchase Orders",

@@ -21,10 +21,10 @@ export function canAccessPage(
     return true;
   }
   let allowed = accessMap.get(pageKey);
-  if (!allowed && pageKey === 'debtors') {
+  if (!allowed && (pageKey === 'debtors' || pageKey === 'debtors-ac')) {
     allowed = accessMap.get('customers');
   }
-  if (!allowed && pageKey === 'purchase-creditors') {
+  if (!allowed && (pageKey === 'purchase-creditors' || pageKey === 'creditors-ac')) {
     allowed = accessMap.get('suppliers');
   }
   if (!allowed) {
