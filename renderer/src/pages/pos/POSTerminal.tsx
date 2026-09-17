@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Check, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { CustomerDetailDrawer } from "../../components/CustomerDetailDrawer";
-import { BillingSettings, Customers, CreditApprovals, ClerkUsers, FleetDrivers, Inventory, Locations, Products, Suppliers } from "../../api";
+import { BillingSettings, Customers, CreditApprovals, ClerkUsers, FleetDrivers, Inventory, Locations, Products, Suppliers, useUnpublishedStockList } from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import { useBlackTab } from "../../context/BlackTabContext";
 import type {
@@ -34,13 +34,15 @@ import { StatementDocument } from "./StatementDocument";
 import { DeliveryNoteDocument } from "./DeliveryNoteDocument";
 import { downloadSaleDoc, downloadBillPdf, downloadPurchaseOrderPdf } from "./billReceipt";
 import { HeldSalesPanel } from "./HeldSalesPanel";
-import { productRate, customerTypeToTier, productTierPrices, totalWeightKg, type BillLine, type ExtraCharge, type Mode, type PriceTier, type PrintDoc } from "./posHelpers";
+import { fmt, productRate, customerTypeToTier, productTierPrices, totalWeightKg, type BillLine, type ExtraCharge, type Mode, type PriceTier, type PrintDoc } from "./posHelpers";
 import {
   buildAllLocationsStockMap,
   buildLocationStockMap,
   cartQtyForProduct,
   getStockInfo,
+  isSellableNow,
   lineExceedsStock,
+  mergeUnpublishedStock,
   saleHasStockIssues,
 } from "./posStock";
 import { PosToolbar } from "./components/PosToolbar";
@@ -169,11 +171,7 @@ function BillSuccessModal({
                 Total
               </p>
               <p className="text-lg font-bold tabular-nums text-foreground">
-                $
-                {receipt.totalAmount.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {fmt(receipt.totalAmount)}
               </p>
             </div>
           </div>
@@ -376,7 +374,14 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
   const { data: locations = [], isLoading: locationsLoading } =
     Locations.useList();
-  const { data: inventory = [] } = Inventory.useList();
+  const { data: rawInventory = [] } = Inventory.useList();
+  const { data: unpublishedStock = [] } = useUnpublishedStockList(undefined, {
+    enabled: canCreateBlackSale,
+  });
+  const inventory = useMemo(
+    () => mergeUnpublishedStock(rawInventory, unpublishedStock),
+    [rawInventory, unpublishedStock],
+  );
   const { data: suppliers = [] } = Suppliers.useList(mode === "purchase");
   const { data: productSearch } = Products.useSearch({
     page: 1,
@@ -485,12 +490,16 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     if (!searchVal.trim()) return [];
     const items = productSearch?.items ?? [];
     const q = searchVal.trim().toLowerCase();
-    const filtered = items.filter(
+    let filtered = items.filter(
       (p) =>
         (p.name ?? "").toLowerCase().includes(q) ||
         (p.sku ?? "").toLowerCase().includes(q) ||
         (p.barcode ?? "").toLowerCase().includes(q),
     );
+    // Black sale: only products with black-pool stock at this location are sellable.
+    if (mode === "sales" && saleType === "black") {
+      filtered = filtered.filter((p) => isSellableNow(stockMap, p.id, saleType));
+    }
     // Sort: exact SKU match first, then SKU starts-with, then rest
     filtered.sort((a, b) => {
       const aSku = (a.sku ?? "").toLowerCase();
@@ -500,7 +509,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       return aExact - bExact;
     });
     return filtered.slice(0, 6);
-  }, [productSearch, searchVal]);
+  }, [productSearch, searchVal, mode, saleType, stockMap]);
 
   const addProduct = (p: Product) => {
     let addQty = 1;
