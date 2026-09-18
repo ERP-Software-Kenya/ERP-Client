@@ -486,7 +486,7 @@ function Step4Panel({
                       </span>
                     )}
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {link.unitCost != null && `Cost $${link.unitCost}`}
+                      {link.unitCost != null && `Cost KSh ${link.unitCost}`}
                       {link.leadTimeDays != null && ` · Lead ${link.leadTimeDays}d`}
                       {link.minOrderQty != null && ` · MOQ ${link.minOrderQty}`}
                     </div>

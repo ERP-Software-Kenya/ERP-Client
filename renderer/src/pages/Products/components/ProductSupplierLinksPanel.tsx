@@ -64,7 +64,7 @@ export function ProductSupplierLinksPanel({ productId }: { productId: string }) 
                       </span>
                     )}
                     <div className="text-xs text-muted-foreground">
-                      {link.unitCost != null && `Cost $${link.unitCost}`}
+                      {link.unitCost != null && `Cost KSh ${link.unitCost}`}
                       {link.leadTimeDays != null && ` · Lead ${link.leadTimeDays}d`}
                       {link.minOrderQty != null && ` · MOQ ${link.minOrderQty}`}
                     </div>

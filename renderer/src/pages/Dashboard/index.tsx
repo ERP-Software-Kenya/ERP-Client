@@ -413,7 +413,7 @@ function OverviewTab() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{po.poNumber ?? formatEntityLabel({ id: po.id })}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Expected {formatDate(po.expectedAt)}{po.totalAmount ? ` · $${po.totalAmount.toLocaleString()}` : ''}
+                        Expected {formatDate(po.expectedAt)}{po.totalAmount ? ` · ${fmt(po.totalAmount)}` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">

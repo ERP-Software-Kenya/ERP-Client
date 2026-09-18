@@ -494,7 +494,7 @@ export function ProductDetailView({ productId, categoryName, allSuppliers, onClo
                   {suppliers.map((link) => {
                     const sup = allSuppliers.find((s) => s.id === link.supplierId);
                     const details = [
-                      link.unitCost != null && `Cost $${link.unitCost}`,
+                      link.unitCost != null && `Cost KSh ${link.unitCost}`,
                       link.leadTimeDays != null && `Lead ${link.leadTimeDays}d`,
                       link.minOrderQty != null && `MOQ ${link.minOrderQty}`,
                     ].filter(Boolean).join(' · ');

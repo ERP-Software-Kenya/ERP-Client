@@ -1145,10 +1145,14 @@ export function useCancelStockTransfer() {
   });
 }
 
-export function useUnpublishedStockList(params?: { locationId?: string; productId?: string }) {
+export function useUnpublishedStockList(
+  params?: { locationId?: string; productId?: string },
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: ['unpublished-stock', 'list', params],
     queryFn:  () => get<UnpublishedStock[]>('/api/v1/unpublished-stock', params),
+    enabled:  options?.enabled ?? true,
   });
 }
 
