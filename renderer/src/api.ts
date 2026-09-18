@@ -31,6 +31,7 @@ import type {
   DashboardAnalyticsParams,
   PackedOrder,
   PurchaseOrderPayment, SupplierAccount,
+  Quotation, CreateQuotationInput, UpdateQuotationInput, ConvertToOrderInput, SendQuotationEmailInput,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -416,6 +417,55 @@ export const ReportGenerationLogs = {
   },
 };
 export const Orders = createResource<Order>('/api/v1/orders', 'orders', 'Order');
+
+const quotationsBase = createResource<Quotation>('/api/v1/quotations', 'quotations', 'Quotation');
+
+export const Quotations = {
+  ...quotationsBase,
+  useRevisions(id: string | undefined) {
+    return useQuery({
+      queryKey: ['quotations', id, 'revisions'],
+      queryFn: () => get<Quotation[]>(`/api/v1/quotations/${id as string}/revisions`),
+      enabled: !!id,
+    });
+  },
+  useRevise() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => post<Quotation>(`/api/v1/quotations/${id}/revise`, {}),
+      onSuccess: (data) => {
+        toast.success(`New revision created: ${data.quoteNumber}`);
+        queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to create revision'),
+    });
+  },
+  useConvertToOrder() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, ...body }: ConvertToOrderInput & { id: string }) =>
+        post<Order>(`/api/v1/quotations/${id}/convert-to-order`, body),
+      onSuccess: () => {
+        toast.success('Quotation converted to Sales Order');
+        queryClient.invalidateQueries({ queryKey: ['quotations'] });
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to convert quotation'),
+    });
+  },
+  useSendEmail() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, ...body }: SendQuotationEmailInput & { id: string }) =>
+        post<Quotation>(`/api/v1/quotations/${id}/send-email`, body),
+      onSuccess: () => {
+        toast.success('Quotation email sent successfully');
+        queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to send quotation email'),
+    });
+  },
+};
 
 export const WarehouseOrderOps = {
   useQueue(locationId: string | undefined) {

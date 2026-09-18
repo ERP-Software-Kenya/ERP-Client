@@ -84,6 +84,8 @@ const SalesList = lazy(() => import('./pages/SalesList'));
 const SalesBilling = lazy(() => import('./pages/pos/SalesBilling'));
 const BlackSaleBilling = lazy(() => import('./pages/pos/BlackSaleBilling'));
 const PurchaseBilling = lazy(() => import('./pages/pos/PurchaseBilling'));
+const Quotations = lazy(() => import('./pages/Quotations'));
+const QuotationBuilder = lazy(() => import('./pages/Quotations/QuotationBuilder'));
 
 function RouteFallback() {
   return (
@@ -173,6 +175,10 @@ function App() {
             <Route path="orders" element={<Navigate to="/orders/list" replace />} />
             <Route path="orders/list" element={<OrdersList />} />
             <Route path="orders/new" element={<Orders />} />
+            <Route path="quotations" element={<Quotations />} />
+            <Route path="quotations/new" element={<QuotationBuilder />} />
+            <Route path="quotations/:id" element={<QuotationBuilder />} />
+            <Route path="sales/quotations" element={<Navigate to="/quotations" replace />} />
             <Route path="invoices" element={<Invoices />} />
             <Route path="approvals/pending" element={<PendingApprovals />} />
             <Route path="approvals/black-ledger" element={<BlackTabProtectedRoute><BlackLedger /></BlackTabProtectedRoute>} />
