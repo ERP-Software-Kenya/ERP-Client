@@ -39,6 +39,13 @@ declare global {
         canceled?: boolean;
         error?: string;
       }>;
+      getPdfBase64: (payload: {
+        html: string;
+      }) => Promise<{
+        success: boolean;
+        base64?: string;
+        error?: string;
+      }>;
     };
   }
 }

@@ -142,7 +142,12 @@ export const MODULES: ModuleGroup[] = [
         path: "/sales/creditors",
         icon: CreditCard,
       },
-      // { key: 'quotations', title: 'Quotations', path: '/sales/quotations', icon: FileText, disabled: true },
+      {
+        key: 'quotations',
+        title: 'Quotations',
+        path: '/quotations',
+        icon: FileText,
+      },
       {
         key: "orders",
         title: "Sales Orders",

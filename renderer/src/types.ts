@@ -1417,3 +1417,110 @@ export interface LiveDriverLocation {
   status: 'in_transit' | 'delayed' | 'completed';
   lastUpdated: string;
 }
+
+// ── Quotations ─────────────────────────────────────────────────────────────
+
+export type QuotationStatus = 'DRAFT' | 'SENT' | 'CONVERTED' | 'SUPERSEDED' | 'CANCELLED';
+
+export interface QuotationItem {
+  id: string;
+  quotationId: string;
+  productId: string;
+  variantId?: string;
+  quantity: number;
+  unitPriceInclusive: number;
+  unitTaxable: number;
+  taxRate: number;
+  taxAmount: number;
+  lineTotal: number;
+  product?: {
+    id: string;
+    name: string;
+    sku?: string;
+    barcode?: string;
+    hsnCode?: string;
+  };
+  variant?: {
+    id: string;
+    name: string;
+    sku?: string;
+    barcode?: string;
+  };
+}
+
+export interface Quotation {
+  id: string;
+  quoteNumber: string;
+  versionNumber: number;
+  rootQuotationId: string;
+  parentQuotationId?: string;
+  isLatest: boolean;
+  status: QuotationStatus;
+  organizationId: string;
+  locationId: string;
+  customerId: string;
+  subtotal: number;
+  taxAmount: number;
+  totalAmount: number;
+  notes?: string;
+  convertedOrderId?: string;
+  createdByUserId?: string;
+  createdAt: string;
+  updatedAt?: string;
+  items?: QuotationItem[];
+  customer?: {
+    id: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    gstin?: string;
+  };
+  location?: {
+    id: string;
+    name: string;
+    address?: string;
+    phone?: string;
+  };
+  createdByUser?: {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+}
+
+export interface CreateQuotationItemInput {
+  productId: string;
+  variantId?: string;
+  quantity: number;
+  unitPriceInclusive: number;
+  taxRate?: number;
+}
+
+export interface CreateQuotationInput {
+  locationId: string;
+  customerId: string;
+  notes?: string;
+  items: CreateQuotationItemInput[];
+}
+
+export interface UpdateQuotationInput {
+  locationId?: string;
+  customerId?: string;
+  notes?: string;
+  items?: CreateQuotationItemInput[];
+}
+
+export interface ConvertToOrderInput {
+  fulfillmentMode?: 'pickup' | 'delivery';
+  fulfillmentLocationId?: string;
+}
+
+export interface SendQuotationEmailInput {
+  recipientEmail: string;
+  subject: string;
+  body: string;
+  pdfBase64?: string;
+}
+
