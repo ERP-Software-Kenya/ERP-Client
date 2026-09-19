@@ -561,9 +561,7 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
         notes: input.supplierRef || undefined,
         items: input.lines.map((l) => ({
           productId: l.productId,
-          ...(l.packSize != null
-            ? { packQuantity: l.qty }
-            : { quantityOrdered: l.qty }),
+          quantityOrdered: l.qty * (l.packSize ?? 1),
           unitCost: l.unitPrice,
         })),
       }),
