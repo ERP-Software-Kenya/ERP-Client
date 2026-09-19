@@ -1275,6 +1275,29 @@ export function useUnlinkProductSupplier(productId: string | undefined) {
   });
 }
 
+interface UpdateProductPriceBody {
+  costPrice?: number;
+  retailPrice?: number;
+  loyaltyPrice?: number;
+  wholesalePrice?: number;
+  transferPrice?: number;
+  reorderPoint?: number;
+}
+
+export function useUpdateProductPrice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: UpdateProductPriceBody }) =>
+      patch<Product>(`/api/v1/products/${id}/price`, body),
+    onSuccess: (_data, { id }) => {
+      toast.success('Prices updated');
+      void queryClient.invalidateQueries({ queryKey: ['products'] });
+      void queryClient.invalidateQueries({ queryKey: ['products', id] });
+    },
+    onError: (error: Error) => toast.error(error.message || 'Failed to update prices'),
+  });
+}
+
 // ── Common Utility — Countries / States / Cities ─────────────────────────────
 
 export function useListCountries() {

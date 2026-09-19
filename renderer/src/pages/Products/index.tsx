@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { EyeOff, Eye } from 'lucide-react';
+import { EyeOff, Eye, DollarSign } from 'lucide-react';
 import { DataTable, Column } from '../../components/DataTable';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { FilterDropdown } from '../../components/FilterDropdown';
 import { ImageLightbox } from '../../components/ImageLightbox';
 import { ProductDetailView } from './components/ProductDetailView';
 import { ProductOnboardingWizard } from './components/ProductOnboardingWizard';
+import { SetPriceDialog } from './components/SetPriceDialog';
 import { Categories, Products, Suppliers } from '../../api';
 import { usePagination } from '../../hooks/usePagination';
 import { formatEntityLabel } from '../../lib/entityLabel';
@@ -16,6 +17,7 @@ export default function ProductsPage() {
   const [wizard, setWizard]     = useState<{ open: boolean; editing?: Product }>({ open: false });
   const [deleteTarget, setDeleteTarget]           = useState<Product | null>(null);
   const [toggleActiveTarget, setToggleActiveTarget] = useState<Product | null>(null);
+  const [priceTarget, setPriceTarget]             = useState<Product | null>(null);
   const [viewRow, setViewRow]   = useState<Product | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -151,6 +153,11 @@ export default function ProductsPage() {
         onDelete={(row) => setDeleteTarget(row)}
         extraRowActions={(row) => [
           {
+            label: 'Set Price',
+            icon: <DollarSign size={14} />,
+            onSelect: () => setPriceTarget(row),
+          },
+          {
             label: row.isActive === false ? 'Set Active' : 'Set Inactive',
             icon: row.isActive === false
               ? <Eye size={14} />
@@ -161,6 +168,8 @@ export default function ProductsPage() {
       />
 
       <ImageLightbox src={previewSrc} onClose={() => setPreviewSrc(null)} />
+
+      <SetPriceDialog key={priceTarget?.id ?? 'none'} product={priceTarget} onClose={() => setPriceTarget(null)} />
 
       <ConfirmDialog
         open={!!deleteTarget}
