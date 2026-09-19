@@ -13,14 +13,23 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
   const { canAccess, isLoading } = usePageAccess();
   const { isUnlocked } = useBlackTab();
 
+  const isBlackItem = (key: string, path: string) => {
+    return key.includes('black') || key === 'unpublished-stock' || path.includes('black');
+  };
+
   const visibleModules = MODULES.map((group) => {
-    // If the group is Black Stock and it's not unlocked, filter it out
-    if (group.label === 'Black Stock' && !isUnlocked) {
+    // If the group is Black Stock (or contains black in label) and it's not unlocked, filter it out
+    if (group.label.toLowerCase().includes('black') && !isUnlocked) {
       return { ...group, items: [] };
     }
     return {
       ...group,
-      items: group.items.filter((item) => canAccess(item.key)),
+      items: group.items.filter((item) => {
+        if (!isUnlocked && isBlackItem(item.key, item.path)) {
+          return false;
+        }
+        return canAccess(item.key);
+      }),
     };
   }).filter((group) => group.items.length > 0);
 

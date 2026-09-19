@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Info, ShoppingBag, Store, Truck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { BillingSettings, Customers, FleetDrivers, Inventory, Locations, Orders, Products } from '../../api';
 import { patch } from '../../lib/http';
 import { useAuth } from '../../context/AuthContext';
+import { useBlackTab } from '../../context/BlackTabContext';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatEntityLabel } from '../../lib/entityLabel';
 import type { Customer, CustomerType, FulfillmentMode, Order, Product, SaleType } from '../../types';
@@ -184,8 +185,11 @@ function OrdersHeader({
 
 export default function OrdersPage(): React.JSX.Element {
   const { user } = useAuth();
+  const { isUnlocked } = useBlackTab();
   const userRoles = user?.roles ?? [];
-  const canCreateBlackSale = userRoles.some((r) => ['super_admin', 'org_admin', 'branch_manager'].includes(r));
+  const canCreateBlackSale =
+    isUnlocked &&
+    userRoles.some((r) => ['super_admin', 'org_admin', 'branch_manager'].includes(r));
 
   const [lines, setLines] = useState<BillLine[]>([]);
   const [locationId, setLocationId] = useState('');
@@ -195,6 +199,12 @@ export default function OrdersPage(): React.JSX.Element {
   const [customerInfo, setCustomerInfo] = useState('');
   const [customerType, setCustomerType] = useState<CustomerType>('regular');
   const [saleType, setSaleType] = useState<SaleType>('normal');
+
+  useEffect(() => {
+    if (!isUnlocked && saleType === 'black') {
+      setSaleType('normal');
+    }
+  }, [isUnlocked, saleType]);
   const [orderReference, setOrderReference] = useState('');
   const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [payMethod, setPayMethod] = useState<PosPayMethod>('cash');

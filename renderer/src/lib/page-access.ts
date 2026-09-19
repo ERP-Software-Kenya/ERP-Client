@@ -21,11 +21,17 @@ export function canAccessPage(
     return true;
   }
   let allowed = accessMap.get(pageKey);
-  if (!allowed && (pageKey === 'debtors' || pageKey === 'debtors-ac')) {
+  if (!allowed && (pageKey === 'debtors' || pageKey === 'creditors-ac')) {
     allowed = accessMap.get('customers');
   }
-  if (!allowed && (pageKey === 'purchase-creditors' || pageKey === 'creditors-ac')) {
+  if (!allowed && (pageKey === 'purchase-creditors' || pageKey === 'debtors-ac')) {
     allowed = accessMap.get('suppliers');
+  }
+  if (!allowed && pageKey === 'pending-approvals') {
+    allowed = accessMap.get('approvals-pending');
+  }
+  if (!allowed && pageKey === 'approvals-pending') {
+    allowed = accessMap.get('pending-approvals');
   }
   if (!allowed) {
     return false;
