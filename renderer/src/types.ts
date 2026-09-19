@@ -273,11 +273,8 @@ export interface SupplierAccount {
 
 export interface CreatePurchaseOrderItemInput {
   productId: string;
-  /** Units ordered — omit when packQuantity is provided */
-  quantityOrdered?: number;
+  quantityOrdered: number;
   unitCost: number;
-  /** Packs ordered — backend converts to units using product packSize */
-  packQuantity?: number;
 }
 
 export interface CreatePurchaseOrderInput {
