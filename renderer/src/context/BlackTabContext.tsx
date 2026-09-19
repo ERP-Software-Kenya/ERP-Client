@@ -10,8 +10,13 @@ type BlackTabContextType = {
 
 const BlackTabContext = createContext<BlackTabContextType | null>(null);
 
-const STORAGE_KEY = 'black_tab_unlocked';
-const BLACK_ROUTES = ['/unpublished-stock', '/black-ledger', '/approvals/black-ledger', '/black-stock'];
+const BLACK_ROUTES = [
+  '/unpublished-stock',
+  '/black-ledger',
+  '/approvals/black-ledger',
+  '/black-stock',
+  '/pos/black-sale',
+];
 
 export function BlackTabProvider({ children }: { children: ReactNode }) {
   const location = useLocation();

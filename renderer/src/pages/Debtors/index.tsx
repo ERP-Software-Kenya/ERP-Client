@@ -126,7 +126,7 @@ export default function DebtorsPage() {
     },
     {
       key: 'name',
-      label: 'Debtor Name',
+      label: 'Creditor Name',
       render: (row) => (
         <div className="flex flex-col">
           <button
@@ -242,7 +242,7 @@ export default function DebtorsPage() {
 
         <div className="rounded-lg border border-border bg-card p-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Active Debtors</span>
+            <span className="text-xs font-medium text-muted-foreground">Active Creditors</span>
             <Users size={16} className="text-green-500" />
           </div>
           <p className="mt-1 text-lg font-bold text-foreground font-mono">{allDebtors.length}</p>
@@ -261,14 +261,14 @@ export default function DebtorsPage() {
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
-        <div className="flex items-center gap-1.5" aria-label="Debtor filter mode">
+        <div className="flex items-center gap-1.5" aria-label="Creditor filter mode">
           <Button
             size="sm"
             type="button"
             variant={filterMode === 'all' ? 'default' : 'outline'}
             onClick={() => setFilterMode('all')}
           >
-            All Debtors ({allDebtors.length})
+            All Creditors ({allDebtors.length})
           </Button>
           <Button
             size="sm"
@@ -290,7 +290,7 @@ export default function DebtorsPage() {
 
         <div className="flex items-center gap-2">
           <Button size="sm" type="button" onClick={() => setDrawerOpen(true)}>
-            <Plus size={14} className="mr-1" /> Register Debtor
+            <Plus size={14} className="mr-1" /> Register Creditor
           </Button>
           <Button
             size="icon"
@@ -307,7 +307,7 @@ export default function DebtorsPage() {
       {/* Main Table */}
       <div className="min-h-0 flex-1">
         <DataTable
-          title="Debtors (Customer Accounts)"
+          title="Creditors (Customer Accounts)"
           description="Customers with open credit facilities or pending balances."
           columns={columns}
           rows={filteredDebtors}
@@ -319,7 +319,7 @@ export default function DebtorsPage() {
           onPageChange={() => {}}
           onSearchChange={setSearch}
           onRefetch={() => void refetch()}
-          searchPlaceholder="Search debtors by name, phone, shop…"
+          searchPlaceholder="Search creditors by name, phone, shop…"
           onRowClick={(row) => setSelectedCustomerId(row.id)}
         />
       </div>
@@ -334,7 +334,7 @@ export default function DebtorsPage() {
         />
       )}
 
-      {/* Slide-over Form Drawer to Register New Debtor */}
+      {/* Slide-over Form Drawer to Register New Creditor */}
       <CustomerFormDrawer
         open={drawerOpen}
         requireCreditLimit={true}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import { DataTable, type Column } from '../../components/DataTable';
@@ -8,6 +8,7 @@ import { Bills, Customers, Locations } from '../../api';
 import { BillViewDrawer } from '../Bills/BillViewDrawer';
 import { formatEntityLabel, truncateId } from '../../lib/entityLabel';
 import { loadErrorMessage } from '../../lib/api-error';
+import { useBlackTab } from '../../context/BlackTabContext';
 import type { Bill, BillStatus, SaleType } from '../../types';
 
 const STATUS_FILTERS: Array<BillStatus | 'ALL'> = ['ALL', 'COMPLETED', 'DRAFT', 'INITIATED', 'CANCELLED'];
@@ -72,8 +73,23 @@ export default function SalesListPage() {
   const listError = isError ? loadErrorMessage(error, 'sales') : null;
   const allRows = listError ? [] : (data?.items ?? []);
 
+  const { isUnlocked } = useBlackTab();
+
+  useEffect(() => {
+    if (!isUnlocked && saleTypeFilter === 'black') {
+      setSaleTypeFilter('ALL');
+    }
+  }, [isUnlocked, saleTypeFilter]);
+
+  const availableSaleTypeFilters = useMemo(() => {
+    return SALE_TYPE_FILTERS.filter((t) => isUnlocked || t !== 'black');
+  }, [isUnlocked]);
+
   const rows = useMemo(() => {
     let r = allRows;
+    if (!isUnlocked) {
+      r = r.filter((b) => (b.saleType ?? 'normal') !== 'black');
+    }
     if (saleTypeFilter !== 'ALL') {
       r = r.filter((b) => (b.saleType ?? 'normal') === saleTypeFilter);
     }
@@ -88,7 +104,7 @@ export default function SalesListPage() {
       r = r.filter((b) => b.createdAt && new Date(b.createdAt) <= to);
     }
     return r;
-  }, [allRows, saleTypeFilter, dateFrom, dateTo]);
+  }, [allRows, saleTypeFilter, dateFrom, dateTo, isUnlocked]);
 
   const locationName = useMemo(() => {
     const m = new Map<string, string>();
@@ -210,7 +226,7 @@ export default function SalesListPage() {
               className="h-8 w-[120px] py-1.5"
               value={saleTypeFilter}
               onChange={(v) => setSaleTypeFilter(v as SaleType | 'ALL')}
-              options={SALE_TYPE_FILTERS.map((t) => ({
+              options={availableSaleTypeFilters.map((t) => ({
                 value: t,
                 label: t === 'ALL' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1),
               }))}

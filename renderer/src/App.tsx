@@ -183,8 +183,8 @@ function App() {
             <Route path="quotations/:id" element={<QuotationBuilder />} />
             <Route path="sales/quotations" element={<Navigate to="/quotations" replace />} />
             <Route path="invoices" element={<Invoices />} />
-            <Route path="approvals/pending" element={<PendingApprovals />} />
-            <Route path="approvals/black-ledger" element={<BlackTabProtectedRoute><BlackLedger /></BlackTabProtectedRoute>} />
+            <Route path="approvals/pending" element={<Navigate to="/pending-approvals" replace />} />
+            <Route path="approvals/black-ledger" element={<Navigate to="/black-ledger" replace />} />
             <Route path="black-stock/reports" element={<BlackTabProtectedRoute><BlackStockReports /></BlackTabProtectedRoute>} />
             <Route path="black-stock/purchase-orders" element={<BlackTabProtectedRoute><BlackStockPurchaseOrders /></BlackTabProtectedRoute>} />
             <Route path="black-stock/purchase-orders/:id" element={<BlackTabProtectedRoute><BlackStockPurchaseOrderDetail /></BlackTabProtectedRoute>} />

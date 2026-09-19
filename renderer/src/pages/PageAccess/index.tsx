@@ -6,6 +6,7 @@ import { useSession } from '../../context/SessionContext';
 import type { PageAccessConfig } from '../../types';
 import { ALL_ITEMS } from '../../config/modules';
 import { isFullPageAccessRole } from '../../lib/page-access';
+import { useBlackTab } from '../../context/BlackTabContext';
 
 const ROLES = [
   { key: 'super_admin',    label: 'Super Admin' },
@@ -25,10 +26,17 @@ function buildMap(configs: PageAccessConfig[]): Map<string, Set<string>> {
 
 export default function PageAccessPage() {
   const { isSuperAdmin } = useSession();
+  const { isUnlocked } = useBlackTab();
   const { data: configs = [], isLoading } = PageAccess.useList();
   const { mutate: save, isPending } = PageAccess.useUpdate();
 
   const [accessMap, setAccessMap] = useState<Map<string, Set<string>>>(new Map());
+
+  const isBlackItem = (key: string, path: string) => {
+    return key.includes('black') || key === 'unpublished-stock' || path.includes('black');
+  };
+
+  const visibleItems = ALL_ITEMS.filter((item) => isUnlocked || !isBlackItem(item.key, item.path));
 
   useEffect(() => {
     if (configs.length > 0) {
@@ -102,7 +110,7 @@ export default function PageAccessPage() {
             </tr>
           </thead>
           <tbody>
-            {ALL_ITEMS.map((item) => {
+            {visibleItems.map((item) => {
               const allowed = accessMap.get(item.key) ?? new Set<string>();
               return (
                 <tr key={item.key} className="border-b last:border-0 hover:bg-muted/20 transition-colors">

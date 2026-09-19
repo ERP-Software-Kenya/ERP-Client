@@ -14,7 +14,6 @@ import {
   Car,
   CheckSquare,
   ClipboardList,
-  Clock,
   CreditCard,
   Database,
   DollarSign,
@@ -204,14 +203,14 @@ export const MODULES: ModuleGroup[] = [
     icon: Landmark,
     items: [
       {
-        key: "debtors-ac",
-        title: "Debtors A/C",
+        key: "creditors-ac",
+        title: "Creditors A/C",
         path: "/sales/debtors",
         icon: UserCheck,
       },
       {
-        key: "creditors-ac",
-        title: "Creditors A/C",
+        key: "debtors-ac",
+        title: "Debtors A/C",
         path: "/purchase/creditors",
         icon: CreditCard,
       },
@@ -379,24 +378,6 @@ export const MODULES: ModuleGroup[] = [
         title: "Live Fleet Map",
         path: "/fleet/live-map",
         icon: MapPin,
-      },
-    ],
-  },
-  {
-    label: "Approvals",
-    icon: CheckSquare,
-    items: [
-      {
-        key: "approvals-pending",
-        title: "Pending Credit Sales",
-        path: "/approvals/pending",
-        icon: Clock,
-      },
-      {
-        key: "approvals-history",
-        title: "Black Ledger",
-        path: "/approvals/black-ledger",
-        icon: History,
       },
     ],
   },

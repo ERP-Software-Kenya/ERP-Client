@@ -48,7 +48,7 @@ export default function PurchaseCreditorsPage() {
   const columns: Column<Supplier>[] = [
     {
       key: 'name',
-      label: 'Creditor / Supplier Name',
+      label: 'Debtor / Supplier Name',
       render: (row) => (
         <div className="flex flex-col">
           <span className="font-medium text-foreground">{row.name || '—'}</span>
@@ -140,7 +140,7 @@ export default function PurchaseCreditorsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-shrink-0">
         <div className="rounded-lg border border-border bg-card p-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Total Creditors (Suppliers)</span>
+            <span className="text-xs font-medium text-muted-foreground">Total Debtors (Suppliers)</span>
             <Building2 size={16} className="text-primary" />
           </div>
           <p className="mt-1 text-lg font-bold text-foreground font-mono">{data?.total ?? allSuppliers.length}</p>
@@ -148,7 +148,7 @@ export default function PurchaseCreditorsPage() {
 
         <div className="rounded-lg border border-border bg-card p-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Active Creditors</span>
+            <span className="text-xs font-medium text-muted-foreground">Active Debtors</span>
             <Users size={16} className="text-emerald-500" />
           </div>
           <p className="mt-1 text-lg font-bold text-foreground font-mono">{activeCount}</p>
@@ -156,7 +156,7 @@ export default function PurchaseCreditorsPage() {
 
         <div className="rounded-lg border border-border bg-card p-3 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Inactive Creditors</span>
+            <span className="text-xs font-medium text-muted-foreground">Inactive Debtors</span>
             <Building2 size={16} className="text-muted-foreground" />
           </div>
           <p className="mt-1 text-lg font-bold text-foreground font-mono">{inactiveCount}</p>
@@ -165,14 +165,14 @@ export default function PurchaseCreditorsPage() {
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
-        <div className="flex items-center gap-1.5" aria-label="Creditor filter mode">
+        <div className="flex items-center gap-1.5" aria-label="Debtor filter mode">
           <Button
             size="sm"
             type="button"
             variant={filterMode === 'all' ? 'default' : 'outline'}
             onClick={() => setFilterMode('all')}
           >
-            All Creditors ({allSuppliers.length})
+            All Debtors ({allSuppliers.length})
           </Button>
           <Button
             size="sm"
@@ -194,7 +194,7 @@ export default function PurchaseCreditorsPage() {
 
         <div className="flex items-center gap-2">
           <Button size="sm" type="button" onClick={() => setDrawerOpen(true)}>
-            <Plus size={14} className="mr-1" /> Add Creditor
+            <Plus size={14} className="mr-1" /> Add Debtor
           </Button>
           <Button
             size="icon"
@@ -211,7 +211,7 @@ export default function PurchaseCreditorsPage() {
       {/* Main Table */}
       <div className="min-h-0 flex-1">
         <DataTable
-          title="Creditors (Suppliers / Vendors)"
+          title="Debtors (Suppliers / Vendors)"
           description="Registered suppliers and vendor accounts for purchasing."
           columns={columns}
           rows={filteredSuppliers}
@@ -223,7 +223,7 @@ export default function PurchaseCreditorsPage() {
           onPageChange={setPage}
           onSearchChange={setSearch}
           onRefetch={() => void refetch()}
-          searchPlaceholder="Search creditors by name, contact, phone, tax ID…"
+          searchPlaceholder="Search debtors by name, contact, phone, tax ID…"
           onRowClick={(row) => setAccountSupplierId(row.id)}
         />
       </div>
