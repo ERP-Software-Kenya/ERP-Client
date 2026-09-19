@@ -305,6 +305,55 @@ export interface AllocatePurchaseOrderInput {
   notes?: string;
 }
 
+// ── Unpublished Stock Purchase Orders ─────────────────────────────────────────
+
+export interface UnpublishedStockPurchaseOrder {
+  id: string;
+  organizationId?: string;
+  supplierId?: string;
+  branchId?: string;
+  poNumber?: string;
+  status?: PurchaseOrderStatus;
+  expectedAt?: string;
+  receivedAt?: string;
+  totalAmount?: number;
+  amountPaid?: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UnpublishedStockPurchaseItem {
+  id: string;
+  purchaseOrderId?: string;
+  productId?: string;
+  quantityOrdered?: number;
+  quantityReceived?: number;
+  quantityAllocated?: number;
+  unitCost?: number;
+  totalCost?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateUnpublishedStockPOInput {
+  supplierId: string;
+  branchId?: string;
+  expectedAt?: string;
+  notes?: string;
+  items: Array<{ productId: string; quantityOrdered: number; unitCost: number }>;
+}
+
+export interface ReceiveUnpublishedStockPOInput {
+  items: Array<{ purchaseItemId: string; quantityReceived: number }>;
+  notes?: string;
+}
+
+export interface AllocateUnpublishedStockPOInput {
+  allocations: Array<{ purchaseItemId: string; locationId: string; quantity: number }>;
+  notes?: string;
+}
+
 /** Sales bill lifecycle — matches core-apis EBillStatus. */
 export type BillStatus = 'INITIATED' | 'DRAFT' | 'COMPLETED' | 'CANCELLED';
 
