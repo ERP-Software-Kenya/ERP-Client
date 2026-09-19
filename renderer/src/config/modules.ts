@@ -279,6 +279,12 @@ export const MODULES: ModuleGroup[] = [
         path: "/black-stock/reports",
         icon: FileText,
       },
+      {
+        key: "black-stock-purchase-orders",
+        title: "Purchase Orders",
+        path: "/black-stock/purchase-orders",
+        icon: ClipboardList,
+      },
     ],
   },
   {

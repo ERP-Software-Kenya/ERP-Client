@@ -69,6 +69,9 @@ const PageAccessPage = lazy(() => import('./pages/PageAccess'));
 const PendingApprovals = lazy(() => import('./pages/credit-approvals/PendingApprovals'));
 const BlackLedger = lazy(() => import('./pages/credit-approvals/BlackLedger'));
 const BlackStockReports = lazy(() => import('./pages/BlackStockReports'));
+const BlackStockPurchaseOrders = lazy(() => import('./pages/BlackStockPurchaseOrders'));
+const BlackStockPurchaseOrderDetail = lazy(() => import('./pages/BlackStockPurchaseOrderDetail'));
+const BlackStockPurchaseOrderReceive = lazy(() => import('./pages/BlackStockPurchaseOrderReceive'));
 const VehiclesPage = lazy(() => import('./pages/VehiclesPage'));
 const VehicleDetailPage = lazy(() => import('./pages/VehicleDetailPage'));
 const FleetDashboard = lazy(() => import('./pages/Fleet'));
@@ -183,6 +186,9 @@ function App() {
             <Route path="approvals/pending" element={<PendingApprovals />} />
             <Route path="approvals/black-ledger" element={<BlackTabProtectedRoute><BlackLedger /></BlackTabProtectedRoute>} />
             <Route path="black-stock/reports" element={<BlackTabProtectedRoute><BlackStockReports /></BlackTabProtectedRoute>} />
+            <Route path="black-stock/purchase-orders" element={<BlackTabProtectedRoute><BlackStockPurchaseOrders /></BlackTabProtectedRoute>} />
+            <Route path="black-stock/purchase-orders/:id" element={<BlackTabProtectedRoute><BlackStockPurchaseOrderDetail /></BlackTabProtectedRoute>} />
+            <Route path="black-stock/purchase-orders/:id/receive" element={<BlackTabProtectedRoute><BlackStockPurchaseOrderReceive /></BlackTabProtectedRoute>} />
             <Route path="vehicles" element={<VehiclesPage />} />
             <Route path="vehicles/:id" element={<VehicleDetailPage />} />
             <Route path="fleet" element={<FleetDashboard />} />

@@ -17,6 +17,8 @@ import type {
   QuickCharge, CustomerTypeRule,
   Country, State, City,
   CreatePurchaseOrderInput, ReceivePurchaseOrderInput, AllocatePurchaseOrderInput,
+  UnpublishedStockPurchaseOrder, UnpublishedStockPurchaseItem,
+  CreateUnpublishedStockPOInput, ReceiveUnpublishedStockPOInput, AllocateUnpublishedStockPOInput,
   ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
   PageAccessConfig,
@@ -148,6 +150,73 @@ export const PurchaseOrders = {
         queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       },
       onError: (error: Error) => toast.error(error.message || 'Failed to record payment'),
+    });
+  },
+};
+
+// ── Unpublished Stock Purchase Orders ─────────────────────────────────────────
+
+const bspoBase = createResource<UnpublishedStockPurchaseOrder>(
+  '/api/v1/unpublished-stock-purchase-orders',
+  'unpublished-stock-purchase-orders',
+  'Black stock purchase order',
+);
+
+export const UnpublishedStockPurchaseOrders = {
+  ...bspoBase,
+  useCreate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: CreateUnpublishedStockPOInput) =>
+        post<UnpublishedStockPurchaseOrder>('/api/v1/unpublished-stock-purchase-orders', body),
+      onSuccess: () => {
+        toast.success('Black stock purchase order created');
+        queryClient.invalidateQueries({ queryKey: ['unpublished-stock-purchase-orders'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to create purchase order'),
+    });
+  },
+  useGetItems(purchaseOrderId: string | undefined) {
+    return useQuery({
+      queryKey: ['unpublished-stock-purchase-items', 'by-order', purchaseOrderId],
+      queryFn: () =>
+        get<UnpublishedStockPurchaseItem[]>(
+          `/api/v1/unpublished-stock-purchase-items/by-order/${purchaseOrderId as string}`,
+        ),
+      enabled: !!purchaseOrderId,
+    });
+  },
+  useReceive() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: ReceiveUnpublishedStockPOInput }) =>
+        post<UnpublishedStockPurchaseOrder>(
+          `/api/v1/unpublished-stock-purchase-orders/${id}/receive`,
+          body,
+        ),
+      onSuccess: () => {
+        toast.success('Items marked as received');
+        queryClient.invalidateQueries({ queryKey: ['unpublished-stock-purchase-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['unpublished-stock-purchase-items'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to record receipt'),
+    });
+  },
+  useAllocate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: AllocateUnpublishedStockPOInput }) =>
+        post<UnpublishedStockPurchaseOrder>(
+          `/api/v1/unpublished-stock-purchase-orders/${id}/allocate`,
+          body,
+        ),
+      onSuccess: () => {
+        toast.success('Stock allocated to locations');
+        queryClient.invalidateQueries({ queryKey: ['unpublished-stock-purchase-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['unpublished-stock-purchase-items'] });
+        queryClient.invalidateQueries({ queryKey: ['unpublished-stock'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to allocate stock'),
     });
   },
 };
