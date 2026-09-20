@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Mail, Shield, ShieldCheck, ShieldBan, Clock, Calendar, Building2, Tags, Trash2, UserX } from 'lucide-react';
+import { ArrowLeft, Mail, Shield, ShieldCheck, ShieldBan, Clock, Calendar, Building2, Trash2, UserX } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';

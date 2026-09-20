@@ -3,11 +3,9 @@ import {
   FileText,
   Printer,
   Eye,
-  Trash2,
   Boxes,
   TrendingUp,
   Coins,
-  CheckCircle,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { DataTable, type Column } from '../../components/DataTable';
@@ -22,7 +20,6 @@ import {
 } from '../../api';
 import {
   type BlackReportLog,
-  type BlackReportType,
   type GenerateBlackReportInput,
   BLACK_REPORT_TYPE_LABEL,
   BLACK_REPORT_TYPE_FILTER_OPTIONS,

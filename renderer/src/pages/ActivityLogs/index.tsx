@@ -20,7 +20,7 @@ import { ACTIVITY_LOG_ACTIONS, type ActivityLog, type ActivityLogFilters } from 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function actionLabel(action: string): string {
-  const [mod, verb] = action.split('.');
+  const [, verb] = action.split('.');
   if (!verb) return action;
   return `${verb.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}`;
 }

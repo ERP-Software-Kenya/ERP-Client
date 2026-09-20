@@ -1,5 +1,4 @@
 import {
-  type BlackReportType,
   type BlackReportLog,
   type GenerateBlackReportInput,
   BLACK_REPORT_TYPE_LABEL,

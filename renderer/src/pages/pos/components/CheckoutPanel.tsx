@@ -92,8 +92,6 @@ export interface CheckoutPanelProps {
   accentBtnCls: string;
   hasStockIssues?: boolean;
   onOpenCustomerDrawer?: () => void;
-  lastBillDate?: string;
-  lastBillTotal?: number;
 }
 
 export function CheckoutPanel({
@@ -162,8 +160,6 @@ export function CheckoutPanel({
   accentBtnCls,
   hasStockIssues,
   onOpenCustomerDrawer,
-  lastBillDate,
-  lastBillTotal,
 }: CheckoutPanelProps) {
   const [facilitatorSectionOpen, setFacilitatorSectionOpen] = useState(false);
 

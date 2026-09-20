@@ -1,27 +1,22 @@
 export { configureApi, get, post, put, patch, del } from '../../../lib/http';
-import { get, post, put, patch, del, uploadForm } from '../../../lib/http';
-import { createResource, createCreateOnlyResource } from '../../../lib/resource';
+import { get, post, put, del } from '../../../lib/http';
+import { createCreateOnlyResource } from '../../../lib/resource';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type {
-  Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
-  Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, Expense, PurchaseItem,
-  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
-  ProductImage, ProductImageUploadUrl, ProductSupplier,
-  InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
-  UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
-  BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
-  Country, State, City,
-  CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
-  ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
+  Role, UserRole, PlatformUser,
+  ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation,
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
   PageAccessConfig,
-  FleetVehicle, FleetDriver, FleetTrip, FleetMaintenance, FleetExpense,
-  VehicleTypeRef, VehicleBrandRef, FuelTypeRef, MaintenanceTypeRef,
-  SalesSummaryData, RevenueTrendPoint, TopProduct, TopCustomer,
-  PurchaseSummaryData, PurchaseTrendPoint, TopSupplier,
-  InventorySummaryData, StockByLocationPoint,
 } from '../../../types';
+
+const CLERK_USERS_KEY = 'clerk-users';
+const CLERK_INVITATIONS_KEY = 'clerk-invitations';
+const PAGE_ACCESS_KEY = 'page-access';
+
+function withId(res: ClerkUserListResponse): ClerkUserListResponse {
+  return { ...res, data: res.data.map((u) => ({ ...u, id: u.clerkUserId })) };
+}
 
 
 export const Roles = createCreateOnlyResource<Role>('/api/v1/roles', 'roles', 'Role');
@@ -125,7 +120,7 @@ export const ClerkUsers = {
   useRevokeInvitation() {
     const queryClient = useQueryClient();
     return useMutation({
-      mutationFn: (invitationId: string) => del<void>(`/api/v1/users/clerk/invitations/${invitationId}`),
+      mutationFn: (invitationId: string) => del(`/api/v1/users/clerk/invitations/${invitationId}`),
       onSuccess: () => {
         toast.success('Invitation revoked');
         queryClient.invalidateQueries({ queryKey: [CLERK_INVITATIONS_KEY] });

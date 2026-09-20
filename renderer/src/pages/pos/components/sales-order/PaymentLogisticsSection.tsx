@@ -1,7 +1,6 @@
 import type { FleetDriver, PaymentTiming, SaleType } from "../../../../types";
 import type { DeliveryInfo } from "../../checkout";
 import { fmt } from "../../posHelpers";
-import { FormSelect } from "../../../../components/FormSelect";
 
 const PAYMENT_TIMING: Array<{ value: PaymentTiming; label: string }> = [
   { value: "cod", label: "COD" },
@@ -20,11 +19,11 @@ export interface PaymentLogisticsSectionProps {
   partialAmountMissing: boolean;
   notes: string;
   onNotesChange: (v: string) => void;
-  drivers: FleetDriver[];
-  selectedDriverId: string;
-  onDriverSelect: (driverId: string) => void;
-  delivery: DeliveryInfo;
-  onDeliveryChange: (d: DeliveryInfo) => void;
+  drivers?: FleetDriver[];
+  selectedDriverId?: string;
+  onDriverSelect?: (driverId: string) => void;
+  delivery?: DeliveryInfo;
+  onDeliveryChange?: (d: DeliveryInfo) => void;
   saleType?: SaleType;
   blackMarkup?: number;
   facilitatorMode?: "none" | "user" | "name";
@@ -45,11 +44,6 @@ export function PaymentLogisticsSection({
   partialAmountMissing,
   notes,
   onNotesChange,
-  drivers,
-  selectedDriverId,
-  onDriverSelect,
-  delivery,
-  onDeliveryChange,
   saleType,
   blackMarkup = 0,
   facilitatorMode = "none",

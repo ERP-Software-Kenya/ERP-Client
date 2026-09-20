@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import type {
   Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
   Notification, ItemReturn, ReportGenerationLog, GenerateReportInput, Order, OrderQueueItem, Invoice, Customer, CustomerCreditTransaction, CreditTransactionDocument, Expense, PurchaseItem,
-  ActivityLog, PaginatedActivityLogResponse, ActivityLogFilters,
+  PaginatedActivityLogResponse, ActivityLogFilters,
   Role, UserRole, PlatformConfiguration, PlatformUser, Location, Branch,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer, StockTransferRequest,
@@ -33,7 +33,7 @@ import type {
   DashboardAnalyticsParams,
   PackedOrder,
   PurchaseOrderPayment, SupplierAccount,
-  Quotation, CreateQuotationInput, UpdateQuotationInput, ConvertToOrderInput, SendQuotationEmailInput,
+  Quotation, ConvertToOrderInput, SendQuotationEmailInput,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────

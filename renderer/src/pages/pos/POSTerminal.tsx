@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, CreditCard, HelpCircle, Printer, Scan, UserCircle } from "lucide-react";
+import { Check, CreditCard, Printer, Scan, UserCircle } from "lucide-react";
 import { toast } from "sonner";
 import { CustomerDetailDrawer } from "../../components/CustomerDetailDrawer";
-import { BillingSettings, Customers, CreditApprovals, ClerkUsers, FleetDrivers, Inventory, Locations, Products, Suppliers, useUnpublishedStockList, get } from "../../api";
+import { BillingSettings, Customers, CreditApprovals, FleetDrivers, Inventory, Locations, Products, Suppliers, useUnpublishedStockList, get } from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import { useBlackTab } from "../../context/BlackTabContext";
 import type {
   Bill,
-  ClerkUser,
   Customer,
   CustomerType,
   InventoryItem,
@@ -18,7 +17,6 @@ import type {
   Product,
   SaleType,
 } from "../../types";
-import { useDebounce } from "../../hooks/useDebounce";
 import { formatEntityLabel } from "../../lib/entityLabel";
 import {
   createDraftSale,
@@ -34,9 +32,9 @@ import { ReceiptDocument } from "./ReceiptDocument";
 import { DebtorNoteDocument } from "./DebtorNoteDocument";
 import { StatementDocument } from "./StatementDocument";
 import { DeliveryNoteDocument } from "./DeliveryNoteDocument";
-import { downloadSaleDoc, downloadBillPdf, downloadPurchaseOrderPdf } from "./billReceipt";
+import { downloadBillPdf, downloadPurchaseOrderPdf } from "./billReceipt";
 import { HeldSalesPanel } from "./HeldSalesPanel";
-import { fmt, productRate, customerTypeToTier, productTierPrices, totalWeightKg, type BillLine, type ExtraCharge, type Mode, type PriceTier, type PrintDoc } from "./posHelpers";
+import { productRate, customerTypeToTier, productTierPrices, type BillLine, type ExtraCharge, type Mode, type PrintDoc, fmt } from "./posHelpers";
 import {
   buildAllLocationsStockMap,
   buildLocationStockMap,
@@ -47,10 +45,6 @@ import {
   mergeUnpublishedStock,
   saleHasStockIssues,
 } from "./posStock";
-import { PosToolbar } from "./components/PosToolbar";
-import { ProductSearchPanel } from "./components/ProductSearchPanel";
-import { CartTable } from "./components/CartTable";
-import { CheckoutPanel } from "./components/CheckoutPanel";
 import { StepList } from "./components/StepList";
 import { SalesOrderHeader } from "./components/sales-order/SalesOrderHeader";
 import { CustomerInfoSection } from "./components/sales-order/CustomerInfoSection";
@@ -62,7 +56,6 @@ import { PurchaseDocumentDetails } from "./components/purchase-order/PurchaseDoc
 import { PurchaseSupplierInfo } from "./components/purchase-order/PurchaseSupplierInfo";
 import { PurchaseLineItems } from "./components/purchase-order/PurchaseLineItems";
 import { PurchaseStockPayment } from "./components/purchase-order/PurchaseStockPayment";
-import type { QuickChargeTile } from "./components/ProductSearchPanel";
 import { creditSaleRequiresApproval, discountedRate, effectiveDiscountPercent, effectiveSkipOverLimitApproval } from "./effectiveBilling";
 import { GuideModal, type GuideStep } from "../../components/GuideModal";
 
@@ -351,8 +344,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     null,
   );
   const [checkingOut, setCheckingOut] = useState(false);
-  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
-  const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [saleType, setSaleType] = useState<SaleType>(initialSaleType ?? "normal");
   const isBlackSale = initialSaleType === "black";
   const [customerType, setCustomerType] = useState<CustomerType>("regular");
@@ -386,11 +377,8 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
   const [guideOpen, setGuideOpen] = useState(() => mode === "sales" && !localStorage.getItem(GUIDE_KEY));
   const [facilitatorMode, setFacilitatorMode] = useState<'none' | 'user' | 'name'>('none');
-  const [facilitatorUserId, setFacilitatorUserId] = useState("");
   const [facilitatorName, setFacilitatorName] = useState("");
   const [commissionPct, setCommissionPct] = useState("");
-  const [facilitatorSearchVal, setFacilitatorSearchVal] = useState("");
-  const [showFacilitatorSuggestions, setShowFacilitatorSuggestions] = useState(false);
 
   const { user } = useAuth();
   const orgBrand = {
@@ -412,9 +400,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     }
   }, [isBlackSale, isUnlocked, saleType]);
 
-  const debouncedCustomerInfo = useDebounce(customerInfo, 300);
-
-  const { data: locations = [], isLoading: locationsLoading } =
+  const { data: locations = [] } =
     Locations.useList();
   const { data: rawInventory = [] } = Inventory.useList();
   const { data: unpublishedStock = [] } = useUnpublishedStockList(undefined, {
@@ -430,28 +416,12 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     limit: 20,
     search: searchVal.trim() || undefined,
   });
-  const { data: customerSearch } = Customers.useSearch({
-    page: 1,
-    limit: 8,
-    search:
-      mode === "sales" &&
-      debouncedCustomerInfo.trim().length >= 2 &&
-      !customerId
-        ? debouncedCustomerInfo.trim()
-        : undefined,
-    hasCreditLimit: saleType === "credit" ? true : undefined,
-    enabled:
-      mode === "sales" &&
-      debouncedCustomerInfo.trim().length >= 2 &&
-      !customerId,
-  });
   const { data: selectedCustomer, refetch: refetchSelectedCustomer } = Customers.useGet(
     mode === "sales" && customerId ? customerId : undefined,
   );
   const [customerDrawerOpen, setCustomerDrawerOpen] = useState(false);
   const { data: myRejected = [] } = CreditApprovals.useMyRejected(mode === "sales");
   const { data: typeRules = [] } = BillingSettings.useCustomerTypeRules();
-  const { data: orgQuickCharges = [] } = BillingSettings.useQuickCharges({ enabled: true });
   const { data: fleetDrivers = [] } = FleetDrivers.useList(mode === "sales");
 
   const rejectedNotices = useMemo(
@@ -476,20 +446,91 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     setRejectionsExpanded(false);
   };
 
-  const { data: facilitatorSearch } = ClerkUsers.useSearch({
-    page: 1,
-    limit: 8,
-    query: facilitatorSearchVal.trim(),
-    enabled: facilitatorMode === "user" && facilitatorSearchVal.trim().length >= 2 && !facilitatorUserId,
-  });
+    const generateBill = async () => {
+    if (lines.length === 0 || checkingOut || cashShort || partialAmountMissing) return;
+    setCheckingOut(true);
+    setCheckoutResult(null);
+    try {
+      const linePayload = buildLinePayload();
+
+      const supplier = suppliers.find((s) => s.id === supplierId);
+
+      const result =
+        mode === "sales"
+          ? await runSalesCheckout({
+              storeName: stockLocation?.name,
+              locationId: locationId || undefined,
+              locationName: stockLocation?.name,
+              inventory: effectiveInventory,
+              orgId,
+              customerId: customerId.trim() || undefined,
+              paymentMethod: payMethod,
+              paymentReference: paymentReference.trim() || undefined,
+              amountReceived: cashTendered ? Number(cashTendered) : undefined,
+              customerInfo,
+              lines: linePayload,
+              extraCharges,
+              subtotal,
+              taxAmount: totalTax,
+              totalAmount: grandTotal,
+              saleType: isBlackSale ? "black" : saleType,
+              customerType,
+              paymentTiming,
+              partialAmount:
+                paymentTiming === "half" ? Number(partialAmount) : undefined,
+              creditLimit: selectedCustomer?.creditLimit ?? undefined,
+              creditBalance: selectedCustomer?.creditBalance ?? undefined,
+              delivery: deliveryPayload,
+              facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
+              commissionPct: commissionPct ? Number(commissionPct) : undefined,
+              existingBillId: activeDraftBillId ?? undefined,
+              orderReference: orderReference.trim() || undefined,
+              fulfillmentStores: fulfillmentStoreNames.length ? fulfillmentStoreNames : undefined,
+            })
+          : await runPurchaseCheckout({
+              storeName: stockLocation?.name,
+              locationName: stockLocation?.name,
+              inventory: effectiveInventory,
+              orgId,
+              supplierId: supplierId || undefined,
+              supplierName: supplier?.name,
+              supplierRef,
+              lines: linePayload,
+              subtotal,
+              taxAmount: totalTax,
+              totalAmount: grandTotal,
+            });
+
+      setCheckoutResult(result);
+      if (result.primaryOk) {
+        const servedByName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || undefined;
+        const brandedReceipt = { ...result.receipt, ...orgBrand, servedByName };
+        setPrintDoc("receipt");
+        setLastReceipt(brandedReceipt);
+        setSuccess({
+          receipt: brandedReceipt,
+          steps: result.steps,
+          pendingCreditApproval: result.pendingCreditApproval,
+          billId: result.billId,
+        });
+        if (saleType === "credit" && customerId) {
+          void refetchSelectedCustomer();
+        }
+        void queryClient.invalidateQueries({ queryKey: ["inventory"] });
+        void queryClient.invalidateQueries({ queryKey: ["unpublished-stock"] });
+      }
+    } finally {
+      setCheckingOut(false);
+    }
+  };
 
   useEffect(() => {
     searchRef.current?.focus();
   }, [mode]);
 
   // Global POS keyboard shortcuts (sales mode only)
-  const posHotkeys = useRef({ generateBill, generateDisabled, checkingOut, success });
-  posHotkeys.current = { generateBill, generateDisabled, checkingOut, success };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const posHotkeys = useRef<{ generateBill: () => Promise<void>; generateDisabled: boolean; checkingOut: boolean; success: typeof success }>(null as any);
   useEffect(() => {
     if (mode !== "sales") return;
     const handler = (e: KeyboardEvent) => {
@@ -764,20 +805,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     setLines((ls) => ls.map((l) => (l.id === lineId ? { ...l, rate } : l)));
   };
 
-  const handleTierSelect = (lineId: number, tier: PriceTier) => {
-    setLines((ls) =>
-      ls.map((l) => {
-        if (l.id !== lineId) return l;
-        const listRate = l[tier] ?? l.rate;
-        const rate = discountedRate(
-          listRate,
-          effectiveDiscountPercent(selectedCustomer, customerType, typeRules),
-        );
-        return { ...l, activeTier: tier, rate, officialRate: listRate };
-      }),
-    );
-  };
-
   useEffect(() => {
     if (mode !== "sales" || lines.length === 0) return;
     const tier = customerTypeToTier(customerType);
@@ -792,7 +819,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       }),
     );
   }, [customerType, selectedCustomer?.id, typeRules]);
-
 
   const handleDriverSelect = (driverId: string) => {
     setSelectedDriverId(driverId);
@@ -809,12 +835,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     }
   };
 
-  const addQuickCharge = (c: QuickChargeTile) => {
-    setExtraCharges((ec) => [
-      ...ec,
-      { id: Date.now(), label: c.label, amount: c.amount },
-    ]);
-  };
   const removeCharge = (id: number) =>
     setExtraCharges((ec) => ec.filter((c) => c.id !== id));
 
@@ -824,10 +844,8 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const extraTotal = extraCharges.reduce((s, c) => s + c.amount, 0);
   const grandTotal = subtotal + totalTax + extraTotal;
   const blackMarkup = saleType === "black" ? lines.reduce((s, l) => s + (l.rate - l.officialRate) * l.qty, 0) : 0;
-  const saleTotalWeightKg = totalWeightKg(lines);
   const creditLimit = Number(selectedCustomer?.creditLimit ?? 0);
   const creditBalance = Number(selectedCustomer?.creditBalance ?? 0);
-  const creditRemaining = creditLimit - creditBalance;
   const skipOverLimitApproval = effectiveSkipOverLimitApproval(selectedCustomer, customerType, typeRules);
   const creditOverLimit =
     saleType === "credit" &&
@@ -877,10 +895,8 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     setPaymentTiming("cod");
     setPartialAmount("");
     setFacilitatorMode("none");
-    setFacilitatorUserId("");
     setFacilitatorName("");
     setCommissionPct("");
-    setFacilitatorSearchVal("");
     setShowDelivery(false);
     setDelivery({});
     setOrderReference("");
@@ -922,85 +938,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       locationId: l.locationId || undefined,
     }));
 
-  const generateBill = async () => {
-    if (lines.length === 0 || checkingOut || cashShort || partialAmountMissing) return;
-    setCheckingOut(true);
-    setCheckoutResult(null);
-    try {
-      const linePayload = buildLinePayload();
-
-      const supplier = suppliers.find((s) => s.id === supplierId);
-
-      const result =
-        mode === "sales"
-          ? await runSalesCheckout({
-              storeName: stockLocation?.name,
-              locationId: locationId || undefined,
-              locationName: stockLocation?.name,
-              inventory: effectiveInventory,
-              orgId,
-              customerId: customerId.trim() || undefined,
-              paymentMethod: payMethod,
-              paymentReference: paymentReference.trim() || undefined,
-              amountReceived: cashTendered ? Number(cashTendered) : undefined,
-              customerInfo,
-              lines: linePayload,
-              extraCharges,
-              subtotal,
-              taxAmount: totalTax,
-              totalAmount: grandTotal,
-              saleType: isBlackSale ? "black" : saleType,
-              customerType,
-              paymentTiming,
-              partialAmount:
-                paymentTiming === "half" ? Number(partialAmount) : undefined,
-              creditLimit: selectedCustomer?.creditLimit ?? undefined,
-              creditBalance: selectedCustomer?.creditBalance ?? undefined,
-              delivery: deliveryPayload,
-              facilitatorUserId: facilitatorMode === "user" ? facilitatorUserId : undefined,
-              facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
-              commissionPct: commissionPct ? Number(commissionPct) : undefined,
-              existingBillId: activeDraftBillId ?? undefined,
-              orderReference: orderReference.trim() || undefined,
-              fulfillmentStores: fulfillmentStoreNames.length ? fulfillmentStoreNames : undefined,
-            })
-          : await runPurchaseCheckout({
-              storeName: stockLocation?.name,
-              locationName: stockLocation?.name,
-              inventory: effectiveInventory,
-              orgId,
-              supplierId: supplierId || undefined,
-              supplierName: supplier?.name,
-              supplierRef,
-              lines: linePayload,
-              subtotal,
-              taxAmount: totalTax,
-              totalAmount: grandTotal,
-            });
-
-      setCheckoutResult(result);
-      if (result.primaryOk) {
-        const servedByName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || undefined;
-        const brandedReceipt = { ...result.receipt, ...orgBrand, servedByName };
-        setPrintDoc("receipt");
-        setLastReceipt(brandedReceipt);
-        setSuccess({
-          receipt: brandedReceipt,
-          steps: result.steps,
-          pendingCreditApproval: result.pendingCreditApproval,
-          billId: result.billId,
-        });
-        if (saleType === "credit" && customerId) {
-          void refetchSelectedCustomer();
-        }
-        void queryClient.invalidateQueries({ queryKey: ["inventory"] });
-        void queryClient.invalidateQueries({ queryKey: ["unpublished-stock"] });
-      }
-    } finally {
-      setCheckingOut(false);
-    }
-  };
-
   // Reuses the bill-create path (create -> DRAFT) via checkout.ts's createDraftSale,
   // but never calls the COMPLETED transition — the bill stays a resumable draft.
   const holdSale = async () => {
@@ -1031,7 +968,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
         creditLimit: selectedCustomer?.creditLimit ?? undefined,
         creditBalance: selectedCustomer?.creditBalance ?? undefined,
         delivery: deliveryPayload,
-        facilitatorUserId: facilitatorMode === "user" ? facilitatorUserId : undefined,
         facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
         commissionPct: commissionPct ? Number(commissionPct) : undefined,
         existingBillId: activeDraftBillId ?? undefined,
@@ -1054,12 +990,12 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       const bill = await get<Bill>(`/api/v1/bills/${billId}`);
       const items = bill.items ?? [];
       const products = await Promise.all(
-        items.map((it) =>
+        items.map((it: { productId: string }) =>
           get<Product>(`/api/v1/products/${it.productId}`).catch(() => null),
         ),
       );
       setLines(
-        items.map((it, idx) => {
+        items.map((it: { productId: string; quantity: number; unitPrice: number; taxRate?: number }, idx: number) => {
           const p = products[idx];
           return {
             id: ++lineIdSeq,
@@ -1070,7 +1006,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
             name: p?.name || "Item",
             qty: it.quantity,
             rate: it.unitPrice,
-            taxPct: it.taxRate,
+            taxPct: it.taxRate ?? 0,
             unitLabel: p?.unit || "pcs",
             officialRate: p ? productRate(p, mode) : it.unitPrice,
           };
@@ -1136,19 +1072,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     if (c.creditLimit != null && Number(c.creditLimit) > 0) {
       setSaleType("credit");
     }
-    setShowCustomerSuggestions(false);
-  };
-
-  const handleCustomerCreated = (customer: Customer) => {
-    setCustomerId(customer.id);
-    setCustomerInfo(
-      formatEntityLabel({ name: customer.name, phone: customer.phone, id: customer.id }),
-    );
-    setCustomerType((customer.customerType as CustomerType) || "new");
-    if (customer.creditLimit != null && Number(customer.creditLimit) > 0) {
-      setSaleType("credit");
-    }
-    setShowCreateCustomer(false);
   };
 
   const handleClearCustomer = () => {
@@ -1165,25 +1088,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     setCustomerInfo(v);
     setCustomerId("");
   };
-
-  const handleFacilitatorUserSelect = (u: ClerkUser) => {
-    setFacilitatorUserId(u.id);
-    setFacilitatorSearchVal(`${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email);
-    setShowFacilitatorSuggestions(false);
-  };
-
-  const accentCls =
-    mode === "sales"
-      ? {
-          btn: "bg-primary hover:bg-primary/90",
-          light: "bg-primary/10 text-primary border-primary/30",
-          badge: "bg-primary/15 text-primary",
-        }
-      : {
-          btn: "bg-orange-500 hover:bg-orange-600",
-          light: "bg-orange-50 text-orange-700 border-orange-200",
-          badge: "bg-orange-100 text-orange-700",
-        };
 
   const modeShellCls =
     mode === "sales" && saleType === "credit"
@@ -1222,6 +1126,8 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     hasStockIssues ||
     (mode === "sales" && !locationId) ||
     (mode === "purchase" && !supplierId);
+
+  posHotkeys.current = { generateBill, generateDisabled, checkingOut, success };
 
   const holdDisabled =
     lines.length === 0 || holding || partialAmountMissing || !locationId;
@@ -1427,12 +1333,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       ) : (
         /* ── Purchase screen — form-based redesign ── */
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <PurchaseOrderHeader
-            onCancel={voidBill}
-            onSubmit={() => void generateBill()}
-            generateDisabled={generateDisabled}
-            checkingOut={checkingOut}
-          />
+          <PurchaseOrderHeader />
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
             {/* Row 1: Document Details + Supplier Info */}
@@ -1486,10 +1387,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
               onPayMethodChange={setPayMethod}
               cashTendered={cashTendered}
               onCashTenderedChange={setCashTendered}
-              generateDisabled={generateDisabled}
-              checkingOut={checkingOut}
-              onSubmit={() => void generateBill()}
-              onCancel={voidBill}
             />
           </div>
 

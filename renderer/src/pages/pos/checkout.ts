@@ -292,7 +292,7 @@ export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftS
     input.customerInfo?.trim() ||
     (input.customerId ? undefined : 'Walk-in');
   const receipt: PosReceipt = {
-    ref: localRef('POS'),
+    ref: localRef(input.saleType === 'black' ? 'BLK' : 'POS'),
     mode: 'sales',
     storeName: input.storeName ?? input.locationName,
     partyLabel:

@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { CheckCircle2, AlertCircle, XCircle, Clock, PackageCheck, Send, Building2, Store } from 'lucide-react';
 import { DataTable, Column } from '../../components/DataTable';
 import { FormDrawer, Field } from '../../components/FormDrawer';
-import { ResourceSelect } from '../../components/ResourceSelect';
 import { SearchableSelect } from '../../components/SearchableSelect';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
