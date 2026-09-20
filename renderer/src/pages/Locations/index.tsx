@@ -53,7 +53,6 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function LocationsPage() {
-  const { isAdmin } = useSession();
   const { pathname } = useLocation();
   const { isSuperAdmin } = useSession();
   const warehouseOnly = pathname.startsWith('/warehouse');

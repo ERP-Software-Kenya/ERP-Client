@@ -18,18 +18,15 @@ import {
   FileText,
   ArrowLeft,
   Loader2,
-  CheckCircle2,
   GitBranch,
-  Send,
   Eye,
   ShoppingCart,
   UserPlus,
-  Search,
 } from 'lucide-react';
 import QuickCustomerModal from './QuickCustomerModal';
 import QuotationPreviewModal from './QuotationPreviewModal';
 import ConvertQuotationModal from './ConvertQuotationModal';
-import type { Customer, Product, Quotation, QuotationItem } from '../../types';
+import type { Product, QuotationItem } from '../../types';
 
 interface BuilderItemRow {
   productId: string;
@@ -62,7 +59,7 @@ export default function QuotationBuilder() {
 
   // Queries
   const quoteId = isEditing ? id : undefined;
-  const { data: quotation, isLoading: isQuoteLoading } = Quotations.useGet(quoteId);
+  const { data: quotation } = Quotations.useGet(quoteId);
   const { data: revisions } = Quotations.useRevisions(quoteId);
   const { data: locationsData } = Locations.useList();
   const { data: customersData } = Customers.useSearch({ search: customerSearch, limit: 10, enabled: showCustomerDropdown });
@@ -206,7 +203,7 @@ export default function QuotationBuilder() {
     setItems((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleSave = async (status?: string) => {
+  const handleSave = async () => {
     if (!selectedLocationId) {
       toast.error('Please select a branch location');
       return;

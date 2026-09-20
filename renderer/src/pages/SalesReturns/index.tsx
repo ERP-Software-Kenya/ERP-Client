@@ -31,12 +31,6 @@ interface LineDraft {
 
 const EMPTY_LINE: LineDraft = { quantity: '', condition: 'restock', reason: '' };
 
-const CONDITION_LABELS: Record<SalesReturnItemCondition, string> = {
-  restock: 'Restock',
-  damaged: 'Damaged',
-  unpublished_restock: 'Unpublished Restock',
-};
-
 function formatDateTime(value?: string | null): string {
   if (!value) return '—';
   return new Date(value).toLocaleString(undefined, {

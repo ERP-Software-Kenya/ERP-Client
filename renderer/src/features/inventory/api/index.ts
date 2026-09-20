@@ -1,27 +1,21 @@
 export { configureApi, get, post, put, patch, del } from '../../../lib/http';
-import { get, post, put, patch, del, uploadForm } from '../../../lib/http';
-import { createResource, createCreateOnlyResource } from '../../../lib/resource';
+import { get, post, put, del, uploadForm } from '../../../lib/http';
+import { createResource } from '../../../lib/resource';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import type {
-  Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
-  Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, Expense, PurchaseItem,
-  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
+  Product, ItemReturn, Location,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
-  BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
-  Country, State, City,
-  CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
-  ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
-  InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
-  PageAccessConfig,
-  FleetVehicle, FleetDriver, FleetTrip, FleetMaintenance, FleetExpense,
-  VehicleTypeRef, VehicleBrandRef, FuelTypeRef, MaintenanceTypeRef,
-  SalesSummaryData, RevenueTrendPoint, TopProduct, TopCustomer,
-  PurchaseSummaryData, PurchaseTrendPoint, TopSupplier,
-  InventorySummaryData, StockByLocationPoint,
 } from '../../../types';
+
+export interface ProductSupplierLinkBody {
+  supplierId: string;
+  isDefault?: boolean;
+  unitCost?: number;
+  leadTimeDays?: number;
+  minOrderQty?: number;
+}
 
 
 export const Products = createResource<Product>('/api/v1/products', 'products', 'Product');
@@ -350,14 +344,4 @@ export function useRemoveLocationImage() {
     mutationFn: (locationId: string) => del(`/api/v1/locations/${locationId}/image`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['locations'] }),
   });
-}
-
-// ── Clerk User Management ───────────────────────────────────────────────────
-
-const CLERK_USERS_KEY       = 'clerk-users';
-const CLERK_INVITATIONS_KEY = 'clerk-invitations';
-
-/** Backend returns clerkUserId only — add `id` so rows satisfy DataTable's `{ id: string }`. */
-function withId(res: ClerkUserListResponse): ClerkUserListResponse {
-  return { ...res, data: res.data.map((u) => ({ ...u, id: u.clerkUserId })) };
 }

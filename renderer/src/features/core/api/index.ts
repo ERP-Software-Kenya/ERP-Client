@@ -1,23 +1,11 @@
 export { configureApi, get, post, put, patch, del } from '../../../lib/http';
-import { get, post, put, patch, del, uploadForm } from '../../../lib/http';
+import { get, put } from '../../../lib/http';
 import { createResource, createCreateOnlyResource } from '../../../lib/resource';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import type {
-  Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
-  Notification, ItemReturn, ReportGenerationLog, Order, Invoice, Customer, Expense, PurchaseItem,
-  ActivityLog, Role, UserRole, PlatformConfiguration, PlatformUser, Location,
-  ProductImage, ProductImageUploadUrl, ProductSupplier,
-  InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
-  UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
-  BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
+  Organization, Category, PaymentTransaction, Notification,
+  ReportGenerationLog, ActivityLog, PlatformConfiguration, InventoryItem,
   Country, State, City,
-  CreatePurchaseOrderInput, ReceivePurchaseOrderInput,
-  ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
-  InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
-  PageAccessConfig,
-  FleetVehicle, FleetDriver, FleetTrip, FleetMaintenance, FleetExpense,
-  VehicleTypeRef, VehicleBrandRef, FuelTypeRef, MaintenanceTypeRef,
   SalesSummaryData, RevenueTrendPoint, TopProduct, TopCustomer,
   PurchaseSummaryData, PurchaseTrendPoint, TopSupplier,
   InventorySummaryData, StockByLocationPoint,
@@ -95,14 +83,6 @@ export function useNextSku(name: string) {
     queryFn: () => get<{ sku: string }>(`/api/v1/products/next-sku?name=${encodeURIComponent(name)}`),
     enabled: name.trim().length > 0,
   });
-}
-
-interface ProductSupplierLinkBody {
-  supplierId: string;
-  isDefault?: boolean;
-  unitCost?: number;
-  leadTimeDays?: number;
-  minOrderQty?: number;
 }
 
 export function useListCountries() {

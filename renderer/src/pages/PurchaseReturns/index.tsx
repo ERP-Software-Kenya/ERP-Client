@@ -147,14 +147,6 @@ export default function PurchaseReturnsPage() {
     [locations],
   );
 
-  const locationLabel = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const location of locations) {
-      map.set(location.id, location.type ? `${location.name} (${location.type})` : location.name);
-    }
-    return map;
-  }, [locations]);
-
   const inventoryByProductLocation = useMemo(() => {
     const map = new Map<string, InventoryItem>();
     for (const item of inventory) {

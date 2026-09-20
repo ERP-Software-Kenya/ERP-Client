@@ -8,11 +8,10 @@ import { Bills, Customers, Locations } from '../../api';
 import { BillViewDrawer } from '../Bills/BillViewDrawer';
 import { formatEntityLabel, truncateId } from '../../lib/entityLabel';
 import { loadErrorMessage } from '../../lib/api-error';
-import { useBlackTab } from '../../context/BlackTabContext';
 import type { Bill, BillStatus, SaleType } from '../../types';
 
 const STATUS_FILTERS: Array<BillStatus | 'ALL'> = ['ALL', 'COMPLETED', 'DRAFT', 'INITIATED', 'CANCELLED'];
-const SALE_TYPE_FILTERS: Array<SaleType | 'ALL'> = ['ALL', 'normal', 'credit', 'black'];
+const SALE_TYPE_FILTERS: Array<SaleType | 'ALL'> = ['ALL', 'normal', 'credit'];
 
 import { money, moneyOrZero, extractRef, formatPayment } from './salesHelpers';
 
@@ -63,33 +62,20 @@ export default function SalesListPage() {
   const customers = customersPage?.items ?? [];
 
   const filters = useMemo(() => {
-    const f: Record<string, string> = {};
+    const f: Record<string, string> = { saleTypeNot: 'black' };
     if (statusFilter !== 'ALL') f.status = statusFilter;
     if (locationFilter) f.locationId = locationFilter;
-    return Object.keys(f).length ? f : undefined;
+    return f;
   }, [statusFilter, locationFilter]);
 
   const { data, isLoading, isError, error, refetch } = Bills.useSearch({ filters });
   const listError = isError ? loadErrorMessage(error, 'sales') : null;
   const allRows = listError ? [] : (data?.items ?? []);
 
-  const { isUnlocked } = useBlackTab();
-
-  useEffect(() => {
-    if (!isUnlocked && saleTypeFilter === 'black') {
-      setSaleTypeFilter('ALL');
-    }
-  }, [isUnlocked, saleTypeFilter]);
-
-  const availableSaleTypeFilters = useMemo(() => {
-    return SALE_TYPE_FILTERS.filter((t) => isUnlocked || t !== 'black');
-  }, [isUnlocked]);
+  const availableSaleTypeFilters = SALE_TYPE_FILTERS;
 
   const rows = useMemo(() => {
-    let r = allRows;
-    if (!isUnlocked) {
-      r = r.filter((b) => (b.saleType ?? 'normal') !== 'black');
-    }
+    let r = allRows.filter((b) => (b.saleType ?? 'normal') !== 'black');
     if (saleTypeFilter !== 'ALL') {
       r = r.filter((b) => (b.saleType ?? 'normal') === saleTypeFilter);
     }
@@ -104,7 +90,7 @@ export default function SalesListPage() {
       r = r.filter((b) => b.createdAt && new Date(b.createdAt) <= to);
     }
     return r;
-  }, [allRows, saleTypeFilter, dateFrom, dateTo, isUnlocked]);
+  }, [allRows, saleTypeFilter, dateFrom, dateTo]);
 
   const locationName = useMemo(() => {
     const m = new Map<string, string>();

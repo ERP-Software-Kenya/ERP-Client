@@ -1,6 +1,5 @@
 import { CreditApprovals } from "../../api";
 import { CheckCircle2, Loader2, HandCoins } from "lucide-react";
-import { formatEntityLabel } from "../../lib/entityLabel";
 
 export default function BlackLedger() {
   const { data, isLoading } = CreditApprovals.useBlackLedger();

@@ -19,10 +19,6 @@ export interface PurchaseStockPaymentProps {
   onPayMethodChange: (m: PosPayMethod) => void;
   cashTendered: string;
   onCashTenderedChange: (v: string) => void;
-  generateDisabled: boolean;
-  checkingOut: boolean;
-  onSubmit: () => void;
-  onCancel: () => void;
 }
 
 export function PurchaseStockPayment({
@@ -35,10 +31,6 @@ export function PurchaseStockPayment({
   onPayMethodChange,
   cashTendered,
   onCashTenderedChange,
-  generateDisabled,
-  checkingOut,
-  onSubmit,
-  onCancel,
 }: PurchaseStockPaymentProps) {
   return (
     <div className="grid grid-cols-2 gap-4">

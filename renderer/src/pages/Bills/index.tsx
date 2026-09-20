@@ -68,24 +68,6 @@ function formatDate(d: string | null | undefined): string {
   });
 }
 
-function formatDateTime(d: string | null | undefined): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function isSameDay(d1: Date, d2: Date): boolean {
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
-}
-
 function exportBillsCsv(rows: Bill[], customerName: Map<string, string>, locationName: Map<string, string>) {
   const headers = [
     'Bill #',
@@ -148,10 +130,10 @@ export default function BillsPage() {
   const customers = customersPage?.items ?? [];
 
   const filters = useMemo(() => {
-    const next: Record<string, string> = {};
+    const next: Record<string, string> = { saleTypeNot: 'black' };
     if (statusFilter !== 'ALL') next.status = statusFilter;
     if (locationFilter) next.locationId = locationFilter;
-    return Object.keys(next).length ? next : undefined;
+    return next;
   }, [statusFilter, locationFilter]);
 
   const { data, isLoading, isError, error, refetch } = Bills.useSearch({ filters });
@@ -160,7 +142,7 @@ export default function BillsPage() {
   const allBillRows = listError ? [] : (data?.items ?? []);
 
   const billRows = useMemo(() => {
-    let rows = allBillRows;
+    let rows = allBillRows.filter((r) => (r.saleType ?? 'normal') !== 'black');
     if (dateFrom) {
       const from = new Date(dateFrom);
       from.setHours(0, 0, 0, 0);

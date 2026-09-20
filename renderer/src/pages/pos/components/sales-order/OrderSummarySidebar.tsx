@@ -9,7 +9,7 @@ export interface OrderSummarySidebarProps {
   extraTotal: number;
   discountAmount: number;
   previousBalance: number;
-  grandTotal: number;
+  grandTotal?: number;
   payMethod: PosPayMethod;
   onPayMethodChange: (m: PosPayMethod) => void;
   cashTendered: string;
@@ -26,7 +26,7 @@ export interface OrderSummarySidebarProps {
   onCompleteSale: () => void;
   onPrintBill: () => void;
   onDeliveryNote: () => void;
-  onShareToDriver: () => void;
+  onShareToDriver?: () => void;
   hasReceipt: boolean;
   hasDriver: boolean;
 }
@@ -44,7 +44,6 @@ export function OrderSummarySidebar({
   extraTotal,
   discountAmount,
   previousBalance,
-  grandTotal,
   payMethod,
   onPayMethodChange,
   cashTendered,
@@ -61,7 +60,6 @@ export function OrderSummarySidebar({
   onCompleteSale,
   onPrintBill,
   onDeliveryNote,
-  onShareToDriver,
   hasReceipt,
   hasDriver,
 }: OrderSummarySidebarProps) {

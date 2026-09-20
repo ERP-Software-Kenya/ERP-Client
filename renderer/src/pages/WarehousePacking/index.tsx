@@ -8,7 +8,7 @@ import { FormSelect } from '../../components/FormSelect';
 import { Button } from '../../components/ui/button';
 import { useAuth } from '../../context/AuthContext';
 import { usePagination } from '../../hooks/usePagination';
-import type { Order, OrderQueueItem, PackedOrder } from '../../types';
+import type { OrderQueueItem, PackedOrder } from '../../types';
 
 type Tab = 'to-pack' | 'ready-for-pickup';
 

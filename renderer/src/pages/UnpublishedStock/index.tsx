@@ -585,38 +585,43 @@ export default function UnpublishedStockPage() {
                   {stagingList.map((item: UnpublishedStock) => {
                     const isSelected = item.id === activeId;
                     return (
-                      <button
+                      <div
                         key={item.id}
-                        type="button"
-                        onClick={() => handleSelectRecord(item)}
-                        className={`flex w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/8 ring-1 ring-inset ring-primary/30' : ''}`}
+                        className={`flex w-full items-center transition-colors hover:bg-muted/50 ${isSelected ? 'bg-primary/8 ring-1 ring-inset ring-primary/30' : ''}`}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">
-                            {productMap.get(item.productId) ?? formatEntityLabel({ id: item.productId })}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {locationMap.get(item.locationId) ?? formatEntityLabel({ id: item.locationId })}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold tabular-nums text-foreground">{item.quantityOnHand}</p>
-                          <p className="text-xs text-muted-foreground">on hand</p>
-                        </div>
                         <button
                           type="button"
-                          title="Copy record ID"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void navigator.clipboard.writeText(item.id);
-                            toast.success('Record ID copied');
-                          }}
-                          className="shrink-0 rounded p-1 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                          onClick={() => handleSelectRecord(item)}
+                          className="flex min-w-0 flex-1 items-center gap-4 py-3 pl-5 pr-2 text-left"
                         >
-                          <Copy size={12} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {productMap.get(item.productId) ?? formatEntityLabel({ id: item.productId })}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {locationMap.get(item.locationId) ?? formatEntityLabel({ id: item.locationId })}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold tabular-nums text-foreground">{item.quantityOnHand}</p>
+                            <p className="text-xs text-muted-foreground">on hand</p>
+                          </div>
                         </button>
-                        {isSelected && <CheckCircle2 size={14} className="shrink-0 text-primary" />}
-                      </button>
+                        <div className="flex items-center gap-2 py-3 pl-2 pr-5">
+                          <button
+                            type="button"
+                            title="Copy record ID"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(item.id);
+                              toast.success('Record ID copied');
+                            }}
+                            className="shrink-0 rounded p-1 text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            <Copy size={12} />
+                          </button>
+                          {isSelected && <CheckCircle2 size={14} className="shrink-0 text-primary" />}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>

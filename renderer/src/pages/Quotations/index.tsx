@@ -9,9 +9,6 @@ import {
   Search,
   Eye,
   ShoppingCart,
-  GitBranch,
-  Download,
-  Filter,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import QuotationPreviewModal from './QuotationPreviewModal';

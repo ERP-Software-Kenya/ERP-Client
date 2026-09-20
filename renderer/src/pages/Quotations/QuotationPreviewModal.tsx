@@ -3,7 +3,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Quotations } from '../../api';
 import { toast } from 'sonner';
-import { X, Download, Mail, Printer, Loader2, FileText, Send } from 'lucide-react';
+import { X, Download, Mail, Loader2, FileText, Send } from 'lucide-react';
 import type { Quotation } from '../../types';
 
 interface QuotationPreviewModalProps {
@@ -24,7 +24,7 @@ export default function QuotationPreviewModal({
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [recipientEmail, setRecipientEmail] = useState(quotation.customer?.email ?? '');
   const [subject, setSubject] = useState(`Quotation ${quotation.quoteNumber} from ${companyName}`);
-  const [body, setBody] = useState(
+  const [body] = useState(
     `<p>Dear ${quotation.customer?.name ?? 'Valued Customer'},</p><p>Please find attached our quotation <strong>${quotation.quoteNumber}</strong> for your review.</p><p>Total Amount (Tax Inclusive): <strong>₹${Number(quotation.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></p><p>Thank you for your business!</p>`,
   );
   const [isDownloading, setIsDownloading] = useState(false);
