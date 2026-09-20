@@ -136,6 +136,7 @@ export interface Product {
   reorderPoint?: number;
   manufacturer?: string;
   packSize?: number;
+  weightKg?: number;
   isActive?: boolean;
   createdAt?: string;
 }

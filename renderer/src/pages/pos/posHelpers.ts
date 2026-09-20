@@ -27,6 +27,8 @@ export interface BillLine {
   manufacturer?: string;
   /** Product pack size — units per pack, null when sold individually */
   packSize?: number;
+  /** Gross weight per base unit in kg — null when not set on the product */
+  weightKg?: number;
 }
 
 export function customerTypeToTier(ct: CustomerType | string): PriceTier {
@@ -82,14 +84,17 @@ export function lineTotal(l: BillLine) {
   return l.qty * l.rate + lineTax(l);
 }
 
-/** Sums qty for kg/gram lines only (gram normalized to kg); other units have no known weight yet. */
+/** Weight in kg for a single cart line. kg/gram unit products: qty IS the weight. All others: qty × stored weightKg. */
+export function lineWeightKg(line: BillLine): number {
+  const unit = line.unitLabel?.toLowerCase();
+  if (unit === "kg") return line.qty;
+  if (unit === "gram") return line.qty / 1000;
+  return line.qty * (line.weightKg ?? 0);
+}
+
+/** Total gross weight in kg for all cart lines. */
 export function totalWeightKg(lines: BillLine[]): number {
-  return lines.reduce((sum, l) => {
-    const unit = l.unitLabel?.toLowerCase();
-    if (unit === "kg") return sum + l.qty;
-    if (unit === "gram") return sum + l.qty / 1000;
-    return sum;
-  }, 0);
+  return lines.reduce((sum, l) => sum + lineWeightKg(l), 0);
 }
 
 /** Big-customer sales print a formal sales invoice; every other customer type prints a thermal receipt. */

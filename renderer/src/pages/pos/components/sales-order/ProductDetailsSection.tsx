@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type RefObject } from "react";
 import { AlertCircle, LayoutList, Minus, Plus, Scan, Trash2 } from "lucide-react";
 import type { Location, Product, SaleType } from "../../../../types";
 import type { CheckoutResult } from "../../checkout";
-import { fmt, lineTotal, type BillLine, type ExtraCharge } from "../../posHelpers";
+import { fmt, lineTotal, lineWeightKg, type BillLine, type ExtraCharge } from "../../posHelpers";
 import type { StockInfo } from "../../posStock";
 import { FormSelect } from "../../../../components/FormSelect";
 import { StockBadge } from "../StockBadge";
@@ -236,7 +236,9 @@ export function ProductDetailsSection({
                         <span className="ml-auto text-muted-foreground">▾</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-sm text-muted-foreground tabular-nums">0.00</td>
+                    <td className="px-3 py-2.5 text-sm text-muted-foreground tabular-nums">
+                      {lineWeightKg(line) > 0 ? lineWeightKg(line).toFixed(2) : "—"}
+                    </td>
                     <td className="px-3 py-2.5">
                       {saleType === "black" ? (
                         <input
