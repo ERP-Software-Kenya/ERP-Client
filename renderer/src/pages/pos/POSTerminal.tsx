@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Printer } from "lucide-react";
+import { Check, CreditCard, HelpCircle, Printer, Scan, UserCircle } from "lucide-react";
 import { toast } from "sonner";
 import { CustomerDetailDrawer } from "../../components/CustomerDetailDrawer";
 import { BillingSettings, Customers, CreditApprovals, ClerkUsers, FleetDrivers, Inventory, Locations, Products, Suppliers, useUnpublishedStockList, get } from "../../api";
@@ -64,6 +64,34 @@ import { PurchaseLineItems } from "./components/purchase-order/PurchaseLineItems
 import { PurchaseStockPayment } from "./components/purchase-order/PurchaseStockPayment";
 import type { QuickChargeTile } from "./components/ProductSearchPanel";
 import { creditSaleRequiresApproval, discountedRate, effectiveDiscountPercent, effectiveSkipOverLimitApproval } from "./effectiveBilling";
+import { GuideModal, type GuideStep } from "../../components/GuideModal";
+
+const GUIDE_KEY = "guide-sales-v1";
+
+const DEFAULT_CUSTOMER_NAME  = (import.meta.env.VITE_DEFAULT_CUSTOMER_NAME  as string | undefined) ?? "";
+const DEFAULT_CUSTOMER_PHONE = (import.meta.env.VITE_DEFAULT_CUSTOMER_PHONE as string | undefined) ?? "";
+const DEFAULT_CUSTOMER_LABEL = [DEFAULT_CUSTOMER_NAME, DEFAULT_CUSTOMER_PHONE].filter(Boolean).join(" · ");
+
+const GUIDE_STEPS: GuideStep[] = [
+  {
+    icon: <Scan size={16} />,
+    title: "Search and add products",
+    description:
+      "Type a product name, SKU, or barcode in the search bar — it's always focused. Use ↑ ↓ to navigate results and Enter to add to the cart. Repeat for every item.",
+  },
+  {
+    icon: <UserCircle size={16} />,
+    title: "Set the customer",
+    description:
+      "Press F2 to jump to the customer field and search registered accounts. For a quick cash sale, press F3 to fill in the default walk-in customer instantly.",
+  },
+  {
+    icon: <CreditCard size={16} />,
+    title: "Enter payment and complete",
+    description:
+      "Press F5 to jump to the Amount Received field. Enter the cash amount, then press F8 to complete the transaction. Press Enter on the receipt to start the next sale.",
+  },
+];
 
 let lineIdSeq = 100;
 
@@ -92,6 +120,12 @@ function BillSuccessModal({
   creditLimit?: number;
   billId?: string;
 }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
   const hasGaps = steps.some(
     (s) => s.status === "failed" || s.status === "skipped",
   );
@@ -275,8 +309,9 @@ function BillSuccessModal({
           )}
           <button
             type="button"
+            autoFocus
             onClick={onClose}
-            className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+            className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50"
           >
             {pendingCreditApproval
               ? "New sale"
@@ -346,7 +381,10 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   // ponytail: fulfillment routing removed — will be per-line when needed
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  const customerInputRef = useRef<HTMLInputElement>(null);
+  const cashTenderedRef = useRef<HTMLInputElement>(null);
 
+  const [guideOpen, setGuideOpen] = useState(() => mode === "sales" && !localStorage.getItem(GUIDE_KEY));
   const [facilitatorMode, setFacilitatorMode] = useState<'none' | 'user' | 'name'>('none');
   const [facilitatorUserId, setFacilitatorUserId] = useState("");
   const [facilitatorName, setFacilitatorName] = useState("");
@@ -447,6 +485,31 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
   useEffect(() => {
     searchRef.current?.focus();
+  }, [mode]);
+
+  // Global POS keyboard shortcuts (sales mode only)
+  const posHotkeys = useRef({ generateBill, generateDisabled, checkingOut, success });
+  posHotkeys.current = { generateBill, generateDisabled, checkingOut, success };
+  useEffect(() => {
+    if (mode !== "sales") return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        customerInputRef.current?.focus();
+      } else if (e.key === "F3") {
+        e.preventDefault();
+        if (DEFAULT_CUSTOMER_LABEL) handleCustomerInfoChange(DEFAULT_CUSTOMER_LABEL);
+      } else if (e.key === "F5") {
+        e.preventDefault();
+        cashTenderedRef.current?.focus();
+      } else if (e.key === "F8") {
+        e.preventDefault();
+        const h = posHotkeys.current;
+        if (!h.generateDisabled && !h.checkingOut && !h.success) void h.generateBill();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
   }, [mode]);
 
   useEffect(() => {
@@ -640,7 +703,12 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       ]);
     }
     setSearchVal("");
-    searchRef.current?.focus();
+    // Don't steal focus if the user is actively typing in another input (e.g. customer name, cash amount)
+    const active = document.activeElement;
+    const isForeignInput =
+      (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) &&
+      active !== searchRef.current;
+    if (!isForeignInput) searchRef.current?.focus();
   };
 
   const handleAddBtn = () => {
@@ -1223,6 +1291,15 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       )}
       {mode === "sales" ? (
         <>
+          <GuideModal
+            open={guideOpen}
+            onClose={() => { localStorage.setItem(GUIDE_KEY, "1"); setGuideOpen(false); }}
+            title="Welcome to Sales Billing"
+            description="Create invoices and record payments — entirely from the keyboard. No mouse required."
+            steps={GUIDE_STEPS}
+            tip="Save a sale mid-way with Save Draft and pick it back up from Held Sales at any time."
+          />
+
           <SalesOrderHeader
             onHoldSale={() => void holdSale()}
             holding={holding}
@@ -1231,6 +1308,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
             onCompleteSale={() => void generateBill()}
             generateDisabled={generateDisabled}
             checkingOut={checkingOut}
+            onOpenGuide={() => setGuideOpen(true)}
           />
 
           <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -1257,6 +1335,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
                 locations={locations}
                 locationId={locationId}
                 onLocationChange={setLocationId}
+                customerInputRef={customerInputRef}
               />
 
               <ProductDetailsSection
@@ -1341,6 +1420,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
               onShareToDriver={shareToDriver}
               hasReceipt={!!lastReceipt || !!success}
               hasDriver={!!selectedDriverId}
+              cashTenderedRef={cashTenderedRef}
             />
           </div>
         </>

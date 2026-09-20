@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { LayoutDashboard, Printer, Truck } from "lucide-react";
 import type { SaleType } from "../../../../types";
 import type { PosPayMethod } from "../../checkout";
@@ -29,6 +30,7 @@ export interface OrderSummarySidebarProps {
   onShareToDriver: () => void;
   hasReceipt: boolean;
   hasDriver: boolean;
+  cashTenderedRef?: RefObject<HTMLInputElement>;
 }
 
 const PAY_METHOD_LABELS: Array<{ value: PosPayMethod; label: string }> = [
@@ -64,6 +66,7 @@ export function OrderSummarySidebar({
   onShareToDriver,
   hasReceipt,
   hasDriver,
+  cashTenderedRef,
 }: OrderSummarySidebarProps) {
   const taxRateLabel = subtotal > 0 && totalTax > 0 ? ` (VAT ${((totalTax / subtotal) * 100).toFixed(0)}%)` : "";
   const amountPaid = cashTendered !== "" && !isNaN(Number(cashTendered)) ? Number(cashTendered) : 0;
@@ -151,8 +154,12 @@ export function OrderSummarySidebar({
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Amount Received</label>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                Amount Received
+                <kbd className="rounded bg-muted px-1 py-0.5 text-[9px] font-semibold text-muted-foreground/70">F5</kbd>
+              </label>
               <input
+                ref={cashTenderedRef}
                 type="number"
                 value={cashTendered}
                 onChange={(e) => onCashTenderedChange(e.target.value)}
@@ -194,6 +201,9 @@ export function OrderSummarySidebar({
               : hasDriver
                 ? "Share to Driver"
                 : "Complete Transaction"}
+          {!checkingOut && (
+            <kbd className="ml-1 rounded bg-white/20 px-1 py-0.5 text-[9px] font-semibold">F8</kbd>
+          )}
         </button>
 
         <div className="grid grid-cols-2 gap-2">
@@ -214,6 +224,14 @@ export function OrderSummarySidebar({
             <Truck size={12} /> Delivery Note
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-center gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-1.5">
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/60">Shortcuts</span>
+        <span className="text-[9px] text-muted-foreground/60"><kbd className="rounded bg-muted px-1 font-semibold">F2</kbd> Customer</span>
+        <span className="text-[9px] text-muted-foreground/60"><kbd className="rounded bg-muted px-1 font-semibold">F3</kbd> Walk-in</span>
+        <span className="text-[9px] text-muted-foreground/60"><kbd className="rounded bg-muted px-1 font-semibold">F5</kbd> Cash</span>
+        <span className="text-[9px] text-muted-foreground/60"><kbd className="rounded bg-muted px-1 font-semibold">F8</kbd> Complete</span>
       </div>
     </aside>
   );

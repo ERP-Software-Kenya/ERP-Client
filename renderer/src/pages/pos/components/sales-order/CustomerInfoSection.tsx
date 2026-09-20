@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import { UserCircle } from "lucide-react";
 import type { Customer, CustomerType, Location, SaleType } from "../../../../types";
 import { CustomerPicker } from "../../../../components/CustomerPicker";
@@ -9,6 +10,10 @@ const CUSTOMER_TYPES: Array<{ value: CustomerType; label: string }> = [
   { value: "shop", label: "Shop" },
   { value: "big_customer", label: "Company" },
 ];
+
+const DEFAULT_NAME  = (import.meta.env.VITE_DEFAULT_CUSTOMER_NAME  as string | undefined) ?? "";
+const DEFAULT_PHONE = (import.meta.env.VITE_DEFAULT_CUSTOMER_PHONE as string | undefined) ?? "";
+const DEFAULT_LABEL = [DEFAULT_NAME, DEFAULT_PHONE].filter(Boolean).join(" · ");
 
 export interface CustomerInfoSectionProps {
   saleRef: string;
@@ -27,6 +32,7 @@ export interface CustomerInfoSectionProps {
   isBlackSale?: boolean;
   canCreateBlackSale?: boolean;
   creditBalance: number;
+  customerInputRef?: RefObject<HTMLInputElement>;
   billedBy: string;
   transactionDate: string;
   onTransactionDateChange: (v: string) => void;
@@ -55,7 +61,10 @@ export function CustomerInfoSection({
   locations,
   locationId,
   onLocationChange,
+  customerInputRef,
 }: CustomerInfoSectionProps) {
+  const isDefaultSelected = !customerId && customerInfo === DEFAULT_LABEL;
+
   return (
     <section className="flex-shrink-0 pl-6 pr-2 pt-3 pb-1.5">
       <div className="rounded-xl border border-border bg-card shadow-sm">
@@ -98,18 +107,39 @@ export function CustomerInfoSection({
               </select>
             </Field>
 
-            <Field label="Customer Name">
+            <div>
+              <div className="mb-1 flex items-center justify-between gap-1">
+                <div className="flex items-center gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">Customer Name</label>
+                  <span title="F2 to focus" className="flex h-3.5 w-3.5 cursor-default items-center justify-center rounded-full bg-muted-foreground/25 text-[9px] font-bold text-muted-foreground leading-none select-none">!</span>
+                </div>
+                {DEFAULT_NAME && (
+                  <button
+                    type="button"
+                    onClick={() => onCustomerInfoChange(DEFAULT_LABEL)}
+                    className={`flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-semibold transition ${
+                      isDefaultSelected
+                        ? "border-primary/40 bg-primary/10 text-primary"
+                        : "border-border bg-muted/50 text-muted-foreground hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+                    }`}
+                  >
+                    <kbd className="text-[8px]">F3</kbd>
+                    {DEFAULT_NAME}
+                  </button>
+                )}
+              </div>
               <CustomerPicker
+                ref={customerInputRef}
                 customerId={customerId}
                 onSelect={onCustomerSelect}
                 onClear={onClearCustomer}
                 value={customerInfo}
                 onChange={onCustomerInfoChange}
-                placeholder={saleType === "credit" ? "Search creditor…" : "Enter customer name…"}
+                placeholder={saleType === "credit" ? "Search creditor…" : "Enter customer name or press F3…"}
                 creditOnly={saleType === "credit"}
                 customerType={customerType}
               />
-            </Field>
+            </div>
           </div>
 
           {/* Row 2: Date | Billed By | Store | Invoice Number | Reference */}

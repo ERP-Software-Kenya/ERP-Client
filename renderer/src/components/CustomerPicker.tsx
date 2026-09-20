@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { User, X } from "lucide-react";
 import { Customers } from "../api";
 import { useDebounce } from "../hooks/useDebounce";
@@ -43,7 +43,7 @@ export interface CustomerPickerProps {
  * and selected-customer chip with clear. Works in both controlled
  * (value/onChange) and uncontrolled modes.
  */
-export function CustomerPicker({
+export const CustomerPicker = forwardRef<HTMLInputElement, CustomerPickerProps>(function CustomerPicker({
   customerId,
   onSelect,
   onClear,
@@ -57,11 +57,12 @@ export function CustomerPicker({
   onChange: controlledOnChange,
   initialCreateName,
   disabled = false,
-}: CustomerPickerProps) {
+}: CustomerPickerProps, ref) {
   const [internalValue, setInternalValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => inputRef.current!, []);
 
   const isControlled = controlledValue !== undefined;
   const searchText = isControlled ? controlledValue : internalValue;
@@ -235,4 +236,4 @@ export function CustomerPicker({
       )}
     </div>
   );
-}
+});

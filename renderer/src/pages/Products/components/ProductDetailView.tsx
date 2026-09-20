@@ -250,6 +250,12 @@ export function ProductDetailView({ productId, categoryName, allSuppliers, onClo
                     </span>
                   </InfoField>
 
+                  <InfoField label="Weight per Unit">
+                    <span className="text-sm font-medium">
+                      {product?.weightKg != null ? `${product.weightKg} kg` : '—'}
+                    </span>
+                  </InfoField>
+
                   <InfoField label="Barcode">
                     {product?.barcode ? (
                       <code className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
