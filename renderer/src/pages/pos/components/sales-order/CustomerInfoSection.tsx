@@ -24,7 +24,8 @@ export interface CustomerInfoSectionProps {
   onCustomerTypeChange: (t: CustomerType) => void;
   saleType: SaleType;
   onSaleTypeChange: (t: SaleType) => void;
-  canCreateBlackSale: boolean;
+  isBlackSale?: boolean;
+  canCreateBlackSale?: boolean;
   creditBalance: number;
   billedBy: string;
   transactionDate: string;
@@ -47,7 +48,7 @@ export function CustomerInfoSection({
   onCustomerTypeChange,
   saleType,
   onSaleTypeChange,
-  canCreateBlackSale,
+  isBlackSale,
   billedBy,
   transactionDate,
   onTransactionDateChange,
@@ -55,12 +56,6 @@ export function CustomerInfoSection({
   locationId,
   onLocationChange,
 }: CustomerInfoSectionProps) {
-  const saleTypeOptions: Array<{ value: SaleType; label: string }> = [
-    { value: "normal", label: "Normal" },
-    { value: "credit", label: "Credit" },
-    ...(canCreateBlackSale ? [{ value: "black" as SaleType, label: "Black" }] : []),
-  ];
-
   return (
     <section className="flex-shrink-0 pl-6 pr-2 pt-3 pb-1.5">
       <div className="rounded-xl border border-border bg-card shadow-sm">
@@ -73,17 +68,20 @@ export function CustomerInfoSection({
           {/* Row 1: Transaction Type | Customer Status | Customer Name */}
           <div className="grid gap-3 grid-cols-1 md:grid-cols-[1fr_1fr_2fr]">
             <Field label="Transaction Type">
-              <select
-                value={saleType}
-                onChange={(e) => onSaleTypeChange(e.target.value as SaleType)}
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
-              >
-                {saleTypeOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
+              {isBlackSale ? (
+                <div className="flex h-9 items-center rounded-lg border border-border bg-muted px-3 text-sm font-semibold text-foreground">
+                  Black
+                </div>
+              ) : (
+                <select
+                  value={saleType}
+                  onChange={(e) => onSaleTypeChange(e.target.value as SaleType)}
+                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="credit">Credit</option>
+                </select>
+              )}
             </Field>
 
             <Field label="Customer Status" hint="Change customer type to adjust price">

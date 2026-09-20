@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Check, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { CustomerDetailDrawer } from "../../components/CustomerDetailDrawer";
-import { BillingSettings, Customers, CreditApprovals, ClerkUsers, FleetDrivers, Inventory, Locations, Products, Suppliers } from "../../api";
+import { BillingSettings, Customers, CreditApprovals, ClerkUsers, FleetDrivers, Inventory, Locations, Products, Suppliers, useUnpublishedStockList } from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import { useBlackTab } from "../../context/BlackTabContext";
 import type {
@@ -11,6 +12,7 @@ import type {
   ClerkUser,
   Customer,
   CustomerType,
+  InventoryItem,
   Location,
   PaymentTiming,
   Product,
@@ -291,6 +293,7 @@ function BillSuccessModal({
 }
 
 export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; initialSaleType?: SaleType }) {
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [locationId, setLocationId] = useState("");
   const [lines, setLines] = useState<BillLine[]>([]);
@@ -318,6 +321,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [showCreateCustomer, setShowCreateCustomer] = useState(false);
   const [saleType, setSaleType] = useState<SaleType>(initialSaleType ?? "normal");
+  const isBlackSale = initialSaleType === "black";
   const [customerType, setCustomerType] = useState<CustomerType>("regular");
   const [paymentTiming, setPaymentTiming] = useState<PaymentTiming>("cod");
   const [partialAmount, setPartialAmount] = useState("");
@@ -367,16 +371,17 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     );
 
   useEffect(() => {
-    if (!isUnlocked && saleType === "black") {
+    if (!isBlackSale && !isUnlocked && saleType === "black") {
       setSaleType("normal");
     }
-  }, [isUnlocked, saleType]);
+  }, [isBlackSale, isUnlocked, saleType]);
 
   const debouncedCustomerInfo = useDebounce(customerInfo, 300);
 
   const { data: locations = [], isLoading: locationsLoading } =
     Locations.useList();
   const { data: inventory = [] } = Inventory.useList();
+  const { data: unpublishedStock = [] } = useUnpublishedStockList();
   const { data: suppliers = [] } = Suppliers.useList(mode === "purchase");
   const { data: productSearch } = Products.useSearch({
     page: 1,
@@ -451,14 +456,41 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   );
   const orgId = stockLocation?.organizationId;
 
+  const effectiveInventory = useMemo(() => {
+    if (!unpublishedStock.length) return inventory;
+    const map = new Map<string, InventoryItem>();
+    for (const inv of inventory) {
+      map.set(`${inv.locationId}:${inv.productId}`, { ...inv });
+    }
+    for (const unp of unpublishedStock) {
+      const key = `${unp.locationId}:${unp.productId}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.quantityUnpublished = Number(unp.quantityOnHand ?? 0);
+      } else {
+        map.set(key, {
+          id: unp.id,
+          organizationId: unp.organizationId,
+          locationId: unp.locationId,
+          productId: unp.productId,
+          quantityOnHand: 0,
+          quantityReserved: 0,
+          quantityUnpublished: Number(unp.quantityOnHand ?? 0),
+          reorderLevel: 0,
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [inventory, unpublishedStock]);
+
   const stockMap = useMemo(
-    () => buildLocationStockMap(inventory, locationId),
-    [inventory, locationId],
+    () => buildLocationStockMap(effectiveInventory, locationId),
+    [effectiveInventory, locationId],
   );
 
   const allStockMaps = useMemo(
-    () => buildAllLocationsStockMap(inventory),
-    [inventory],
+    () => buildAllLocationsStockMap(effectiveInventory),
+    [effectiveInventory],
   );
 
   const getProductStock = useCallback(
@@ -508,17 +540,42 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     if (mode === "sales") {
       const stock = getProductStock(p.id, locationId);
       const inCart = cartQtyForProduct(lines, p.id, undefined, locationId);
-      if (!stock.found) {
-        toast.error("No stock record at this location — add inventory first");
-        return;
-      }
-      if (stock.available <= 0) {
-        toast.error(
-          saleType === "black"
-            ? "No black stock available for this product"
-            : "Out of stock at this location",
-        );
-        return;
+      if (!stock.found || stock.available <= 0) {
+        let otherLocName = "";
+        let otherQty = 0;
+        for (const loc of locations) {
+          if (loc.id === locationId) continue;
+          const otherStock = getProductStock(p.id, loc.id);
+          if (otherStock.available > 0) {
+            otherLocName = loc.name;
+            otherQty = otherStock.available;
+            break;
+          }
+        }
+        if (!stock.found) {
+          if (otherLocName) {
+            toast.error(
+              `No stock at ${stockLocation?.name ?? "selected store"} — ${otherQty} available at ${otherLocName}. Switch store to sell.`,
+            );
+          } else {
+            toast.error("No stock record at this location — add inventory first");
+          }
+          return;
+        }
+        if (stock.available <= 0) {
+          if (otherLocName) {
+            toast.error(
+              `Out of stock at ${stockLocation?.name ?? "selected store"} — ${otherQty} available at ${otherLocName}. Switch store to sell.`,
+            );
+          } else {
+            toast.error(
+              saleType === "black"
+                ? "No black stock available for this product"
+                : "Out of stock at this location",
+            );
+          }
+          return;
+        }
       }
       const room = stock.available - inCart;
       if (room <= 0) {
@@ -738,7 +795,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     setCashTendered("");
     setPaymentReference("");
     setCheckoutResult(null);
-    setSaleType("normal");
+    setSaleType(initialSaleType ?? "normal");
     setCustomerType("regular");
     setPaymentTiming("cod");
     setPartialAmount("");
@@ -803,7 +860,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
               storeName: stockLocation?.name,
               locationId: locationId || undefined,
               locationName: stockLocation?.name,
-              inventory,
+              inventory: effectiveInventory,
               orgId,
               customerId: customerId.trim() || undefined,
               paymentMethod: payMethod,
@@ -815,7 +872,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
               subtotal,
               taxAmount: totalTax,
               totalAmount: grandTotal,
-              saleType,
+              saleType: isBlackSale ? "black" : saleType,
               customerType,
               paymentTiming,
               partialAmount:
@@ -833,7 +890,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
           : await runPurchaseCheckout({
               storeName: stockLocation?.name,
               locationName: stockLocation?.name,
-              inventory,
+              inventory: effectiveInventory,
               orgId,
               supplierId: supplierId || undefined,
               supplierName: supplier?.name,
@@ -859,6 +916,8 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
         if (saleType === "credit" && customerId) {
           void refetchSelectedCustomer();
         }
+        void queryClient.invalidateQueries({ queryKey: ["inventory"] });
+        void queryClient.invalidateQueries({ queryKey: ["unpublished-stock"] });
       }
     } finally {
       setCheckingOut(false);
@@ -876,7 +935,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
         storeName: stockLocation?.name,
         locationId: locationId || undefined,
         locationName: stockLocation?.name,
-        inventory,
+        inventory: effectiveInventory,
         orgId,
         customerId: customerId.trim() || undefined,
         paymentMethod: payMethod,
@@ -888,7 +947,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
         subtotal,
         taxAmount: totalTax,
         totalAmount: grandTotal,
-        saleType,
+        saleType: isBlackSale ? "black" : saleType,
         customerType,
         paymentTiming,
         partialAmount: paymentTiming === "half" ? Number(partialAmount) : undefined,
@@ -945,8 +1004,16 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
         bill.walkInName ||
           (bill.customerId ? `Customer ${bill.customerId.slice(0, 8)}…` : ""),
       );
+      if (isBlackSale && bill.saleType !== "black") {
+        toast.error("Cannot resume a normal sale in Black Sale mode");
+        return;
+      }
+      if (!isBlackSale && bill.saleType === "black") {
+        toast.error("Cannot resume a black sale in Normal Sale mode");
+        return;
+      }
       if (bill.locationId) setLocationId(bill.locationId);
-      setSaleType((bill.saleType as SaleType) || "normal");
+      setSaleType((bill.saleType as SaleType) || (isBlackSale ? "black" : "normal"));
       setCustomerType((bill.customerType as CustomerType) || "regular");
       setPaymentTiming((bill.paymentTiming as PaymentTiming) || "cod");
       setPartialAmount(
@@ -1173,7 +1240,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
                 onCustomerTypeChange={setCustomerType}
                 saleType={saleType}
                 onSaleTypeChange={setSaleType}
-                canCreateBlackSale={canCreateBlackSale}
+                isBlackSale={isBlackSale}
                 creditBalance={creditBalance}
                 billedBy={`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || user?.email || "Admin"}
                 transactionDate={transactionDate}
@@ -1386,6 +1453,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
       {showHeldSales && (
         <HeldSalesPanel
+          isBlackSale={isBlackSale}
           onClose={() => setShowHeldSales(false)}
           onResume={(bill) => void resumeSale(bill.id)}
         />

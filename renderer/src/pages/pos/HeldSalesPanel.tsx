@@ -6,16 +6,20 @@ import { fmt } from "./posHelpers";
 interface Props {
   onResume: (bill: Bill) => void;
   onClose: () => void;
+  isBlackSale?: boolean;
 }
 
-export function HeldSalesPanel({ onResume, onClose }: Props) {
+export function HeldSalesPanel({ onResume, onClose, isBlackSale }: Props) {
   const { data: billsPage, isLoading } = Bills.useSearch({
     page: 1,
     limit: 20,
     filters: { status: "DRAFT" },
   });
 
-  const drafts = billsPage?.items || [];
+  const allDrafts = billsPage?.items || [];
+  const drafts = allDrafts.filter((b) =>
+    isBlackSale ? b.saleType === "black" : b.saleType !== "black",
+  );
 
   return (
     <div className="absolute top-0 right-0 h-full w-80 bg-card border-l border-border shadow-2xl flex flex-col z-50 animate-in slide-in-from-right-10">

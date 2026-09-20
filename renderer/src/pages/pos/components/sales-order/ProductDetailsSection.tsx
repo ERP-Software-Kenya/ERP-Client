@@ -116,6 +116,16 @@ export function ProductDetailsSection({
               <div className="absolute z-30 mt-1 w-full rounded-lg border border-border bg-card shadow-lg">
                 {suggestions.map((p, idx) => {
                   const stock = getStockInfo(p.id);
+                  let otherLocHint = "";
+                  if (!stock.found || stock.available <= 0) {
+                    for (const loc of locations) {
+                      const other = getStockInfo(p.id, loc.id);
+                      if (other.available > 0) {
+                        otherLocHint = `${loc.name}: ${other.available}`;
+                        break;
+                      }
+                    }
+                  }
                   return (
                     <button
                       key={p.id}
@@ -127,6 +137,11 @@ export function ProductDetailsSection({
                         <span className="font-medium">{p.name}</span>
                         {p.sku && (
                           <span className="ml-2 font-mono text-[10px] text-muted-foreground">{p.sku}</span>
+                        )}
+                        {otherLocHint && (
+                          <span className="ml-2 rounded bg-amber-500/10 px-1 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                            {otherLocHint}
+                          </span>
                         )}
                       </div>
                       <StockBadge info={stock} saleType={saleType} />
