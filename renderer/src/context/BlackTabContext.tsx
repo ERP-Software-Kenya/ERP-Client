@@ -10,6 +10,8 @@ type BlackTabContextType = {
 
 const BlackTabContext = createContext<BlackTabContextType | null>(null);
 
+const STORAGE_KEY = 'black-tab-unlocked';
+
 const BLACK_ROUTES = [
   '/unpublished-stock',
   '/black-ledger',
