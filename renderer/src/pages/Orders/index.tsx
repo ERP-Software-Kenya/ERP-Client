@@ -82,7 +82,7 @@ function SuccessBanner({ order, fulfillmentMode, fulfillmentLocationLabel, onNew
         </p>
         {order.totalAmount != null && (
           <p className="text-lg font-bold text-primary">
-            ${Number(order.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            KSh {Number(order.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
         )}
       </div>

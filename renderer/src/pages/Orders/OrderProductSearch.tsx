@@ -74,7 +74,7 @@ export function OrderProductSearch({ onAddProduct }: OrderProductSearchProps): R
                   <p className="truncate text-xs font-semibold text-foreground">{p.name}</p>
                   <p className="font-mono text-[10px] text-muted-foreground">{p.sku ?? p.id.slice(0, 8)}</p>
                   <p className="mt-0.5 text-[10px] font-semibold text-primary">
-                    ${Number(p.retailPrice ?? 0).toFixed(2)}
+                    KSh {Number(p.retailPrice ?? 0).toFixed(2)}
                   </p>
                 </div>
               </button>

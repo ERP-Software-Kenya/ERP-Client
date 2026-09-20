@@ -501,7 +501,7 @@ export function VehicleDetailView({ vehicleId }: Props) {
                           <td style={{ padding: '0.8rem 1rem', color: 'var(--color-foreground)' }}>{row.location}</td>
                           <td style={{ padding: '0.8rem 1rem', fontFamily: 'monospace', color: 'var(--color-foreground)' }}>{row.gallons} gal</td>
                           <td style={{ padding: '0.8rem 1rem', fontFamily: 'monospace', color: '#4ade80', fontWeight: 600 }}>
-                            ${row.cost.toFixed(2)}
+                            KSh {row.cost.toFixed(2)}
                           </td>
                         </tr>
                       ))}

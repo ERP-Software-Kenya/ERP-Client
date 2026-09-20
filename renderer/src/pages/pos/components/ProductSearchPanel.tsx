@@ -194,7 +194,7 @@ export function ProductSearchPanel({
                 <span
                   className={`block text-[10px] font-mono ${c.amount < 0 ? "text-red-500" : "text-muted-foreground"}`}
                 >
-                  {c.amount < 0 ? "-" : "+"}${Math.abs(c.amount)}
+                  {c.amount < 0 ? "-" : "+"}{fmt(Math.abs(c.amount))}
                 </span>
               </button>
             ))}
