@@ -1,4 +1,4 @@
-import { Archive, Check, Save } from "lucide-react";
+import { Archive, Check, HelpCircle, Save } from "lucide-react";
 
 export interface SalesOrderHeaderProps {
   onHoldSale: () => void;
@@ -8,6 +8,7 @@ export interface SalesOrderHeaderProps {
   onCompleteSale: () => void;
   generateDisabled: boolean;
   checkingOut: boolean;
+  onOpenGuide: () => void;
 }
 
 export function SalesOrderHeader({
@@ -18,6 +19,7 @@ export function SalesOrderHeader({
   onCompleteSale,
   generateDisabled,
   checkingOut,
+  onOpenGuide,
 }: SalesOrderHeaderProps) {
   return (
     <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-6 py-4">
@@ -27,6 +29,14 @@ export function SalesOrderHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={onOpenGuide}
+          title="Open guide"
+          className="flex items-center justify-center rounded-lg border border-border p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          <HelpCircle size={15} />
+        </button>
         <button
           type="button"
           onClick={onShowHeldSales}
