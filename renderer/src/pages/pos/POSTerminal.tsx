@@ -635,6 +635,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
           locationId: locationId || undefined,
           manufacturer: p.manufacturer,
           packSize: p.packSize,
+          weightKg: p.weightKg,
         },
       ]);
     }

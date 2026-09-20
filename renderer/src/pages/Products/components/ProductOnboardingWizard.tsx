@@ -243,6 +243,7 @@ function Step2Panel({
   name, setName, sku, barcode, setBarcode,
   unit, setUnit, description, setDescription,
   manufacturer, setManufacturer, packSize, setPackSize,
+  weightKg, setWeightKg,
 }: {
   name: string; setName: (v: string) => void;
   sku: string;
@@ -251,6 +252,7 @@ function Step2Panel({
   description: string; setDescription: (v: string) => void;
   manufacturer: string; setManufacturer: (v: string) => void;
   packSize: string; setPackSize: (v: string) => void;
+  weightKg: string; setWeightKg: (v: string) => void;
 }) {
   return (
     <SectionCard title="Product Details" icon={<CheckCircle2 size={15} className="text-primary" />}
@@ -300,7 +302,7 @@ function Step2Panel({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <FieldLabel>Manufacturer / Brand</FieldLabel>
             <Input
@@ -318,6 +320,17 @@ function Step2Panel({
               value={packSize}
               onChange={(e) => setPackSize(e.target.value)}
               placeholder="Leave blank if sold individually"
+            />
+          </div>
+          <div>
+            <FieldLabel>Weight per unit (kg)</FieldLabel>
+            <Input
+              type="number"
+              min="0"
+              step="0.001"
+              value={weightKg}
+              onChange={(e) => setWeightKg(e.target.value)}
+              placeholder="e.g. 0.5 for 500g"
             />
           </div>
         </div>
@@ -602,6 +615,7 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
   const [description, setDescription] = useState(editingProduct?.description ?? '');
   const [manufacturer, setManufacturer] = useState(editingProduct?.manufacturer ?? '');
   const [packSize, setPackSize] = useState(editingProduct?.packSize != null ? String(editingProduct.packSize) : '');
+  const [weightKg, setWeightKg] = useState(editingProduct?.weightKg != null ? String(editingProduct.weightKg) : '');
   // Step 3
   const [costPrice, setCostPrice]         = useState(editingProduct?.costPrice != null ? String(editingProduct.costPrice) : '');
   const [retailPrice, setRetailPrice]     = useState(editingProduct?.retailPrice != null ? String(editingProduct.retailPrice) : '');
@@ -686,6 +700,7 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
           description: description || undefined,
           manufacturer: manufacturer || undefined,
           packSize: packSize ? Number(packSize) : undefined,
+          weightKg: weightKg ? Number(weightKg) : undefined,
         });
         pid = created.id;
         setProductId(pid);
@@ -701,6 +716,7 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
             description: description || undefined,
             manufacturer: manufacturer || undefined,
             packSize: packSize ? Number(packSize) : undefined,
+            weightKg: weightKg ? Number(weightKg) : undefined,
           },
         });
       }
@@ -805,6 +821,7 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
               description={description} setDescription={setDescription}
               manufacturer={manufacturer} setManufacturer={setManufacturer}
               packSize={packSize} setPackSize={setPackSize}
+              weightKg={weightKg} setWeightKg={setWeightKg}
             />
           )}
           {step === 2 && (
