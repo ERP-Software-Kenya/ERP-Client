@@ -1971,6 +1971,21 @@ export function useListBranchProductPrices(params: {
   });
 }
 
+/** Fetches all branch product prices in a single call for POS price resolution. */
+export function useListBranchProductPricesAll(branchId: string | undefined): ReturnType<typeof useQuery<ProductBranchPricesPage>> {
+  return useQuery<ProductBranchPricesPage>({
+    queryKey: ['product-branch-prices-all', branchId],
+    queryFn: () =>
+      get<ProductBranchPricesPage>('/api/v1/product-branch-prices', {
+        branchId,
+        page: 1,
+        perPage: 9999,
+      }),
+    enabled: !!branchId,
+    staleTime: 60_000,
+  });
+}
+
 interface UpsertBranchProductPriceBody {
   costPrice?: number | null;
   retailPrice?: number | null;

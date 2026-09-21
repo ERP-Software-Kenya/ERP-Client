@@ -1,4 +1,4 @@
-import type { CustomerType, Product } from "../../types";
+import type { CustomerType, Product, ProductBranchPrice } from "../../types";
 
 export type Mode = "sales" | "purchase";
 export type PrintDoc = "receipt" | "debtor" | "statement" | "delivery";
@@ -63,6 +63,17 @@ export function productTierPrices(p: Product) {
     p2: tierPriceFromProduct(p, "p2"),
     p3: tierPriceFromProduct(p, "p3"),
     p4: tierPriceFromProduct(p, "p4"),
+  };
+}
+
+/** Returns tier prices with branch-level overrides applied. Non-null branch prices take precedence over org prices. */
+export function branchAwareTierPrices(p: Product, bp: ProductBranchPrice | null | undefined) {
+  if (!bp) return productTierPrices(p);
+  return {
+    p1: bp.retailPrice    !== null && bp.retailPrice    !== undefined ? bp.retailPrice    : tierPriceFromProduct(p, "p1"),
+    p2: bp.loyaltyPrice   !== null && bp.loyaltyPrice   !== undefined ? bp.loyaltyPrice   : tierPriceFromProduct(p, "p2"),
+    p3: bp.wholesalePrice !== null && bp.wholesalePrice !== undefined ? bp.wholesalePrice : tierPriceFromProduct(p, "p3"),
+    p4: bp.transferPrice  !== null && bp.transferPrice  !== undefined ? bp.transferPrice  : tierPriceFromProduct(p, "p4"),
   };
 }
 
