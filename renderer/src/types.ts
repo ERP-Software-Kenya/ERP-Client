@@ -93,9 +93,31 @@ export interface Branch {
   phone?: string;
   userId?: string;
   isActive: boolean;
+  isMain?: boolean;
   locationIds?: string[];
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface ProductBranchPrice {
+  id: string;
+  branchId: string;
+  productId: string;
+  productName: string;
+  sku?: string;
+  costPrice: number | null;
+  retailPrice: number | null;
+  loyaltyPrice: number | null;
+  wholesalePrice: number | null;
+  transferPrice: number | null;
+}
+
+export interface ProductBranchPricesPage {
+  items: ProductBranchPrice[];
+  page: number;
+  perPage: number;
+  totalCount: number;
+  totalPages: number;
 }
 
 // Verified against core-apis source (categories.controller.ts, create/update-category.request.ts,

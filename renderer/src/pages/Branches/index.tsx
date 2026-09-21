@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { MoreHorizontal } from 'lucide-react';
-import { Branches, Locations, patch } from '../../api';
+import { Branches, Locations, patch, useCopyMainBranchPrices } from '../../api';
 import { DataTable, type Column } from '../../components/DataTable';
 import { FormDrawer, Field } from '../../components/FormDrawer';
 import { BranchViewDrawer } from './BranchViewDrawer';
@@ -34,19 +34,22 @@ const EMPTY: FormState = {
   phone: '',
 };
 
-export default function BranchesPage() {
+export default function BranchesPage(): React.JSX.Element {
   const { isAdmin } = useSession();
   const { page, setPage, debouncedSearch, setSearch } = usePagination();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Branch | null>(null);
   const [viewRow, setViewRow] = useState<Branch | null>(null);
   const [inactiveTarget, setInactiveTarget] = useState<Branch | null>(null);
+  const [setMainTarget, setSetMainTarget] = useState<Branch | null>(null);
+  const [pricingTarget, setPricingTarget] = useState<Branch | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
 
   const { data, isLoading, error, refetch } = Branches.useSearch({ page, search: debouncedSearch });
   const { data: locations = [] } = Locations.useList();
   const createMutation = Branches.useCreate();
   const updateMutation = Branches.useUpdate();
+  const copyPricesMutation = useCopyMainBranchPrices();
 
   const locationName = useMemo(
     () => new Map(locations.map((l: Location) => [l.id, l.name])),
@@ -54,7 +57,20 @@ export default function BranchesPage() {
   );
 
   const columns: Column<Branch>[] = [
-    { key: 'name', label: 'Branch', render: (r) => <span className="font-medium">{r.name}</span> },
+    {
+      key: 'name',
+      label: 'Branch',
+      render: (r) => (
+        <span className="font-medium flex items-center gap-2">
+          {r.name}
+          {r.isMain && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30">
+              MAIN
+            </span>
+          )}
+        </span>
+      ),
+    },
     {
       key: 'locationIds',
       label: 'Locations',
@@ -88,6 +104,11 @@ export default function BranchesPage() {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setViewRow(r)}>View</DropdownMenuItem>
             <DropdownMenuItem onClick={() => openEdit(r)}>Update</DropdownMenuItem>
+            {isAdmin && !r.isMain && (
+              <DropdownMenuItem onClick={() => setSetMainTarget(r)}>
+                Set as Main Branch
+              </DropdownMenuItem>
+            )}
             {r.isActive && (
               <DropdownMenuItem className="text-destructive" onClick={() => setInactiveTarget(r)}>
                 Inactive
@@ -99,19 +120,19 @@ export default function BranchesPage() {
     },
   ];
 
-  const closeDrawer = () => {
+  const closeDrawer = (): void => {
     setDrawerOpen(false);
     setEditing(null);
     setForm(EMPTY);
   };
 
-  const openCreate = () => {
+  const openCreate = (): void => {
     setEditing(null);
     setForm(EMPTY);
     setDrawerOpen(true);
   };
 
-  const openEdit = (row: Branch) => {
+  const openEdit = (row: Branch): void => {
     setEditing(row);
     setForm({
       name: row.name ?? '',
@@ -123,7 +144,7 @@ export default function BranchesPage() {
     setDrawerOpen(true);
   };
 
-  const handleSubmit = (ev: React.FormEvent) => {
+  const handleSubmit = (ev: React.FormEvent): void => {
     ev.preventDefault();
     if (!form.name.trim()) return;
     const body = {
@@ -135,17 +156,24 @@ export default function BranchesPage() {
     };
     if (editing) {
       updateMutation.mutate(
-        { id: editing.id, ...body },
+        { id: editing.id, body },
         { onSuccess: () => { void refetch(); closeDrawer(); } },
       );
     } else {
       createMutation.mutate(body, {
-        onSuccess: () => { void refetch(); closeDrawer(); },
+        onSuccess: (newBranch) => {
+          void refetch();
+          closeDrawer();
+          const hasMain = (data?.items ?? []).some((b) => b.isMain);
+          if (hasMain) {
+            setPricingTarget(newBranch);
+          }
+        },
       });
     }
   };
 
-  const confirmInactive = async () => {
+  const confirmInactive = async (): Promise<void> => {
     if (!inactiveTarget) return;
     try {
       await patch<Branch>(`/api/v1/branches/${inactiveTarget.id}/inactive`, {});
@@ -154,6 +182,18 @@ export default function BranchesPage() {
       void refetch();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to deactivate branch');
+    }
+  };
+
+  const confirmSetMain = async (): Promise<void> => {
+    if (!setMainTarget) return;
+    try {
+      await patch<Branch>(`/api/v1/branches/${setMainTarget.id}/set-main`, {});
+      toast.success(`"${setMainTarget.name}" is now the main branch`);
+      setSetMainTarget(null);
+      void refetch();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to set main branch');
     }
   };
 
@@ -228,6 +268,32 @@ export default function BranchesPage() {
         description={`"${inactiveTarget?.name ?? ''}" will be marked inactive.`}
         confirmLabel="Inactive"
         onConfirm={() => void confirmInactive()}
+      />
+
+      <ConfirmDialog
+        open={setMainTarget != null}
+        onOpenChange={(open) => { if (!open) setSetMainTarget(null); }}
+        title="Set as main branch?"
+        description={`"${setMainTarget?.name ?? ''}" will become the main branch. Product prices from this branch will be used as the reference for new branches.`}
+        confirmLabel="Set as Main"
+        confirmVariant="default"
+        onConfirm={() => void confirmSetMain()}
+      />
+
+      <ConfirmDialog
+        open={pricingTarget != null}
+        onOpenChange={(open) => { if (!open) setPricingTarget(null); }}
+        title="Copy main branch prices?"
+        description={`Do you want to copy product prices from the main branch to "${pricingTarget?.name ?? ''}" now? You can always set them later from the Branch Pricing page.`}
+        confirmLabel="Yes, copy now"
+        confirmVariant="default"
+        isPending={copyPricesMutation.isPending}
+        onConfirm={() => {
+          if (!pricingTarget) return;
+          copyPricesMutation.mutate(pricingTarget.id, {
+            onSuccess: () => setPricingTarget(null),
+          });
+        }}
       />
     </div>
   );
