@@ -7,14 +7,14 @@ import { toast } from 'sonner';
 import {
   Products, Suppliers,
   useCategoryParents, useLinkProductSupplier, useNextSku, useProductSuppliers,
-  useUnlinkProductSupplier, useUploadProductImage,
+  useUnlinkProductSupplier, useUploadProductImage, useListTaxes,
 } from '../../../api';
 import { useDebounce } from '../../../hooks/useDebounce';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import type { Category, Product, ProductSupplier, ProductUnit, Supplier } from '../../../types';
+import type { Category, Product, ProductSupplier, ProductUnit, Supplier, Tax } from '../../../types';
 import { cn } from '../../../lib/utils';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -151,9 +151,11 @@ function CurrencyInput({ label, value, onChange, hint, showMargin, margin }: {
 // ── Step 1: Media & Category ───────────────────────────────────────────────────
 
 function Step1Panel({
-  catId, setCatId, categories, pendingImgs, fileInputRef, onFilePick, onRemovePending,
+  catId, setCatId, categories, taxId, setTaxId, taxes,
+  pendingImgs, fileInputRef, onFilePick, onRemovePending,
 }: {
   catId: string; setCatId: (v: string) => void; categories: Category[];
+  taxId: string; setTaxId: (v: string) => void; taxes: Tax[];
   pendingImgs: PendingImg[]; fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFilePick: (f: FileList | null) => void; onRemovePending: (id: string) => void;
 }) {
@@ -209,7 +211,7 @@ function Step1Panel({
         )}
       </SectionCard>
 
-      {/* Category */}
+      {/* Category & Tax */}
       <SectionCard title="Classification" icon={<Link2 size={15} className="text-primary" />}>
         <div className="space-y-4">
           <div>
@@ -222,6 +224,22 @@ function Step1Panel({
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.name ?? cat.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <FieldLabel>Tax Rate</FieldLabel>
+            <Select value={taxId || '__none__'} onValueChange={(v) => setTaxId(v === '__none__' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="No Tax (0%)" />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={4}>
+                <SelectItem value="__none__">No Tax (0%)</SelectItem>
+                {taxes.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name} ({t.rate}%)
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -607,6 +625,7 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
 
   // Step 1
   const [catId, setCatId]       = useState(editingProduct?.categoryId ?? '');
+  const [taxId, setTaxId]       = useState(editingProduct?.taxId ?? '');
   // Step 2
   const [name, setName]         = useState(editingProduct?.name ?? '');
   const [sku, setSku]           = useState(editingProduct?.sku ?? '');
@@ -637,6 +656,7 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
   const linkSupMutation     = useLinkProductSupplier(productId ?? undefined);
   const unlinkSupMutation   = useUnlinkProductSupplier(productId ?? undefined);
   const { data: categories }       = useCategoryParents();
+  const { data: activeTaxes }      = useListTaxes(true);
   const { data: suppliers }        = Suppliers.useList();
   const { data: productSuppliers, refetch: refetchSups } = useProductSuppliers(productId ?? undefined);
 
@@ -727,7 +747,7 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
   const handleStep2Next = async () => {
     if (!productId) return;
     try {
-      await updateMutation.mutateAsync({ id: productId, body: { categoryId: catId || undefined } });
+      await updateMutation.mutateAsync({ id: productId, body: { categoryId: catId || undefined, taxId: taxId || undefined } });
       for (const img of pendingImgs) {
         await uploadImgMutation.mutateAsync({ productId, file: img.file });
       }
@@ -828,6 +848,8 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
             <Step1Panel
               catId={catId} setCatId={setCatId}
               categories={categories ?? []}
+              taxId={taxId} setTaxId={setTaxId}
+              taxes={activeTaxes ?? []}
               pendingImgs={pendingImgs}
               fileInputRef={fileInputRef}
               onFilePick={handleFilePick}

@@ -288,6 +288,12 @@ export const MODULES: ModuleGroup[] = [
         icon: FolderTree,
       },
       {
+        key: "taxes",
+        title: "Taxes",
+        path: "/taxes",
+        icon: Percent,
+      },
+      {
         key: "product-logs",
         title: "Product Logs",
         path: "/product-logs",

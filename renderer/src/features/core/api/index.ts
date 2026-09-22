@@ -9,12 +9,23 @@ import type {
   SalesSummaryData, RevenueTrendPoint, TopProduct, TopCustomer,
   PurchaseSummaryData, PurchaseTrendPoint, TopSupplier,
   InventorySummaryData, StockByLocationPoint,
+  Tax,
 } from '../../../types';
 
 
 export const Organizations = createResource<Organization>('/api/v1/organizations', 'organizations', 'Organization');
 
 export const Categories = createResource<Category>('/api/v1/categories', 'categories', 'Category');
+
+export const Taxes = createResource<Tax>('/api/v1/taxes', 'taxes', 'Tax');
+
+export function useListTaxes(isActive?: boolean) {
+  return useQuery<Tax[]>({
+    queryKey: ['taxes', 'list', isActive],
+    queryFn: () => get<Tax[]>('/api/v1/taxes/list', isActive !== undefined ? { isActive } : undefined),
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 export const PaymentTransactions = createResource<PaymentTransaction>('/api/v1/payment-transactions', 'payment-transactions', 'Payment');
 

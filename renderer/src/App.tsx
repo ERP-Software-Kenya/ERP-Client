@@ -90,6 +90,7 @@ const PurchaseBilling = lazy(() => import('./pages/pos/PurchaseBilling'));
 const Quotations = lazy(() => import('./pages/Quotations'));
 const QuotationBuilder = lazy(() => import('./pages/Quotations/QuotationBuilder'));
 const BranchPricing = lazy(() => import('./pages/BranchPricing'));
+const TaxesPage = lazy(() => import('./pages/Taxes'));
 
 function RouteFallback() {
   return (
@@ -145,6 +146,7 @@ function App() {
             <Route path="branches" element={<Branches />} />
             <Route path="branch-pricing" element={<BranchPricing />} />
             <Route path="categories" element={<Categories />} />
+            <Route path="taxes" element={<TaxesPage />} />
             <Route path="suppliers" element={<Suppliers />} />
             <Route path="purchase-orders" element={<PurchaseOrders />} />
             <Route path="purchase-orders/:id" element={<PurchaseOrderDetail />} />

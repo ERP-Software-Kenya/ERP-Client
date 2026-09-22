@@ -134,6 +134,19 @@ export interface Category {
   updatedAt?: string;
 }
 
+// ── Tax ───────────────────────────────────────────────────────────────────────
+
+export interface Tax {
+  id: string;
+  organizationId?: string;
+  name: string;
+  rate: number;
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 // Verified 2026-07-26 against core-apis source (products.controller.ts,
 // create/update-product.request.ts): fields are camelCase and there is no
 // snake_case conversion layer in api.ts, so these names must match the wire
@@ -159,6 +172,8 @@ export interface Product {
   manufacturer?: string;
   packSize?: number;
   weightKg?: number;
+  taxId?: string;
+  tax?: Tax;
   isActive?: boolean;
   createdAt?: string;
 }
