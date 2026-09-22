@@ -4,9 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, CreditCard, Printer, Scan, UserCircle } from "lucide-react";
 import { toast } from "sonner";
 import { CustomerDetailDrawer } from "../../components/CustomerDetailDrawer";
-import { BillingSettings, Customers, CreditApprovals, FleetDrivers, Inventory, Locations, Products, Suppliers, useUnpublishedStockList, get } from "../../api";
+import { BillingSettings, Customers, CreditApprovals, FleetDrivers, Inventory, Locations, Products, Suppliers, useUnpublishedStockList, useListBranchProductPricesAll, get } from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import { useBlackTab } from "../../context/BlackTabContext";
+import { useSession } from "../../context/SessionContext";
 import type {
   Bill,
   Customer,
@@ -15,6 +16,7 @@ import type {
   Location,
   PaymentTiming,
   Product,
+  ProductBranchPrice,
   SaleType,
 } from "../../types";
 import { formatEntityLabel } from "../../lib/entityLabel";
@@ -34,7 +36,7 @@ import { StatementDocument } from "./StatementDocument";
 import { DeliveryNoteDocument } from "./DeliveryNoteDocument";
 import { downloadBillPdf, downloadPurchaseOrderPdf } from "./billReceipt";
 import { HeldSalesPanel } from "./HeldSalesPanel";
-import { productRate, customerTypeToTier, productTierPrices, type BillLine, type ExtraCharge, type Mode, type PrintDoc, fmt } from "./posHelpers";
+import { productRate, customerTypeToTier, productTierPrices, branchAwareTierPrices, type BillLine, type ExtraCharge, type Mode, type PrintDoc, fmt } from "./posHelpers";
 import {
   buildAllLocationsStockMap,
   buildLocationStockMap,
@@ -381,6 +383,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const [commissionPct, setCommissionPct] = useState("");
 
   const { user } = useAuth();
+  const { branchId } = useSession();
   const orgBrand = {
     orgName: user?.organization?.name,
     logoUrl: user?.organization?.logoUrl,
@@ -423,6 +426,12 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const { data: myRejected = [] } = CreditApprovals.useMyRejected(mode === "sales");
   const { data: typeRules = [] } = BillingSettings.useCustomerTypeRules();
   const { data: fleetDrivers = [] } = FleetDrivers.useList(mode === "sales");
+  const { data: branchPricesPage } = useListBranchProductPricesAll(branchId);
+  const branchPriceMap = useMemo<Map<string, ProductBranchPrice>>(() => {
+    const map = new Map<string, ProductBranchPrice>();
+    for (const bp of branchPricesPage?.items ?? []) map.set(bp.productId, bp);
+    return map;
+  }, [branchPricesPage]);
 
   const rejectedNotices = useMemo(
     () => myRejected.filter((r) => !dismissedRejectionIds.includes(r.id)),
@@ -700,7 +709,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       }
     }
 
-    const tiers = productTierPrices(p);
+    const tiers = branchAwareTierPrices(p, branchPriceMap.get(p.id));
     const tier = customerTypeToTier(customerType);
     const listRate = tiers[tier];
     const rate =

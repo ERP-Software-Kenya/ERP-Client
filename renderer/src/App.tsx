@@ -89,6 +89,7 @@ const BlackSaleBilling = lazy(() => import('./pages/pos/BlackSaleBilling'));
 const PurchaseBilling = lazy(() => import('./pages/pos/PurchaseBilling'));
 const Quotations = lazy(() => import('./pages/Quotations'));
 const QuotationBuilder = lazy(() => import('./pages/Quotations/QuotationBuilder'));
+const BranchPricing = lazy(() => import('./pages/BranchPricing'));
 
 function RouteFallback() {
   return (
@@ -142,6 +143,7 @@ function App() {
             <Route path="warehouse" element={<Locations />} />
             <Route path="warehouse/packing" element={<WarehousePacking />} />
             <Route path="branches" element={<Branches />} />
+            <Route path="branch-pricing" element={<BranchPricing />} />
             <Route path="categories" element={<Categories />} />
             <Route path="suppliers" element={<Suppliers />} />
             <Route path="purchase-orders" element={<PurchaseOrders />} />

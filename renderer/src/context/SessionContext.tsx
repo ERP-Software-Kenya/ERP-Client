@@ -35,6 +35,8 @@ export interface SessionContextValue {
   isBranchManager: boolean;
   /** True for any role that can see admin-only pages. */
   isAdmin: boolean;
+  /** Set when the logged-in user is assigned to a specific branch. */
+  branchId?: string;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -96,6 +98,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       isOrgAdmin,
       isBranchManager,
       isAdmin,
+      branchId: raw?.branchId,
       logout,
       refresh,
     };

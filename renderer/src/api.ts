@@ -34,6 +34,7 @@ import type {
   PackedOrder,
   PurchaseOrderPayment, SupplierAccount,
   Quotation, ConvertToOrderInput, SendQuotationEmailInput,
+  ProductBranchPrice, ProductBranchPricesPage,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -1949,6 +1950,75 @@ export const PageAccess = {
     });
   },
 };
+
+// ── Product Branch Prices ─────────────────────────────────────────────────────
+
+export function useListBranchProductPrices(params: {
+  branchId: string;
+  page?: number;
+  search?: string;
+}): ReturnType<typeof useQuery<ProductBranchPricesPage>> {
+  return useQuery<ProductBranchPricesPage>({
+    queryKey: ['product-branch-prices', params.branchId, params.page ?? 1, params.search ?? ''],
+    queryFn: () =>
+      get<ProductBranchPricesPage>('/api/v1/product-branch-prices', {
+        branchId: params.branchId,
+        page: params.page ?? 1,
+        search: params.search ?? '',
+      }),
+    enabled: !!params.branchId,
+    staleTime: 30_000,
+  });
+}
+
+/** Fetches all branch product prices in a single call for POS price resolution. */
+export function useListBranchProductPricesAll(branchId: string | undefined): ReturnType<typeof useQuery<ProductBranchPricesPage>> {
+  return useQuery<ProductBranchPricesPage>({
+    queryKey: ['product-branch-prices-all', branchId],
+    queryFn: () =>
+      get<ProductBranchPricesPage>('/api/v1/product-branch-prices', {
+        branchId,
+        page: 1,
+        perPage: 9999,
+      }),
+    enabled: !!branchId,
+    staleTime: 60_000,
+  });
+}
+
+interface UpsertBranchProductPriceBody {
+  costPrice?: number | null;
+  retailPrice?: number | null;
+  loyaltyPrice?: number | null;
+  wholesalePrice?: number | null;
+  transferPrice?: number | null;
+}
+
+export function useUpsertBranchProductPrice(): ReturnType<typeof useMutation<ProductBranchPrice, Error, { branchId: string; productId: string; body: UpsertBranchProductPriceBody }>> {
+  const queryClient = useQueryClient();
+  return useMutation<ProductBranchPrice, Error, { branchId: string; productId: string; body: UpsertBranchProductPriceBody }>({
+    mutationFn: ({ branchId, productId, body }) =>
+      patch<ProductBranchPrice>(`/api/v1/product-branch-prices/${branchId}/products/${productId}`, body),
+    onSuccess: (_data, { branchId }) => {
+      toast.success('Prices saved');
+      void queryClient.invalidateQueries({ queryKey: ['product-branch-prices', branchId] });
+    },
+    onError: (err: Error) => toast.error(err.message || 'Failed to save prices'),
+  });
+}
+
+export function useCopyMainBranchPrices(): ReturnType<typeof useMutation<void, Error, string>> {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: (branchId: string) =>
+      post<void>(`/api/v1/product-branch-prices/${branchId}/copy-from-main`, {}),
+    onSuccess: (_data, branchId) => {
+      toast.success('Prices copied from main branch');
+      void queryClient.invalidateQueries({ queryKey: ['product-branch-prices', branchId] });
+    },
+    onError: (err: Error) => toast.error(err.message || 'Failed to copy prices'),
+  });
+}
 
 export * from './features/auth/api';
 export * from './features/inventory/api';
