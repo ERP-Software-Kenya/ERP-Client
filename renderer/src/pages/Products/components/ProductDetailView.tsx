@@ -255,6 +255,16 @@ export function ProductDetailView({ productId, categoryName, allSuppliers, onClo
                     </span>
                   </InfoField>
 
+                  <InfoField label="Tax">
+                    <span className="text-sm font-medium">
+                      {product?.tax
+                        ? `${product.tax.name} (${product.tax.rate}%)`
+                        : product?.taxId
+                          ? product.taxId
+                          : 'No Tax (0%)'}
+                    </span>
+                  </InfoField>
+
                   <InfoField label="Barcode">
                     {product?.barcode ? (
                       <code className="rounded bg-muted px-2 py-0.5 font-mono text-xs">

@@ -736,7 +736,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
           name: p.name || "Unnamed product",
           qty: addQty,
           rate,
-          taxPct: 0,
+          taxPct: p.tax?.rate ?? 0,
           unitLabel: p.unit || "pcs",
           officialRate: listRate,
           p1: tiers.p1,

@@ -307,7 +307,7 @@ export default function BillDetail() {
                   <th className="py-2 pr-2">Product</th>
                   <th className="py-2 pr-2">Qty</th>
                   <th className="py-2 pr-2">Price</th>
-                  <th className="py-2 pr-2">Tax %</th>
+                  <th className="py-2 pr-2">Tax</th>
                   <th className="py-2 pr-2">Line total</th>
                   {isInitiated && <th className="py-2"> </th>}
                 </tr>
@@ -323,7 +323,7 @@ export default function BillDetail() {
                     </td>
                     <td className="py-2 pr-2">{item.quantity}</td>
                     <td className="py-2 pr-2">{money(item.unitPrice)}</td>
-                    <td className="py-2 pr-2">{item.taxRate}</td>
+                    <td className="py-2 pr-2">{item.taxRate > 0 ? `${item.taxRate}%` : '—'}</td>
                     <td className="py-2 pr-2">{money(item.lineTotal)}</td>
                     {isInitiated && (
                       <td className="py-2">
