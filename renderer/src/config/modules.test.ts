@@ -29,6 +29,10 @@ describe('Navigation MODULES configuration', () => {
   it('resolves correct pageKey for paths', () => {
     expect(pageKeyForPath('/sales/debtors')).toBe('creditors-ac');
     expect(pageKeyForPath('/purchase/creditors')).toBe('debtors-ac');
+    expect(pageKeyForPath('/warehouse')).toBe('warehouses');
+    expect(pageKeyForPath('/warehouse/packing')).toBe('warehouse-packing');
+    expect(pageKeyForPath('/fleet')).toBe('fleet-dashboard');
+    expect(pageKeyForPath('/fleet/vehicles')).toBe('fleet-vehicles');
   });
 
   it('contains pending-approvals uniquely under Sales group and no duplicate Approvals group', () => {
