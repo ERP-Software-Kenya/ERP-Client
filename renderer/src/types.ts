@@ -172,8 +172,8 @@ export interface Product {
   manufacturer?: string;
   packSize?: number;
   weightKg?: number;
-  taxId?: string;
-  tax?: Tax;
+  taxId?: string | null;
+  tax?: Tax | null;
   isActive?: boolean;
   createdAt?: string;
 }
@@ -1607,4 +1607,3 @@ export interface SendQuotationEmailInput {
   body: string;
   pdfBase64?: string;
 }
-

@@ -747,7 +747,7 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
   const handleStep2Next = async () => {
     if (!productId) return;
     try {
-      await updateMutation.mutateAsync({ id: productId, body: { categoryId: catId || undefined, taxId: taxId || undefined } });
+      await updateMutation.mutateAsync({ id: productId, body: { categoryId: catId || undefined, taxId: taxId || null } });
       for (const img of pendingImgs) {
         await uploadImgMutation.mutateAsync({ productId, file: img.file });
       }
