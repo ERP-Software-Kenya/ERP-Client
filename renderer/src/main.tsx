@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 import { ThemeProvider } from './context/ThemeContext';
+import { NetworkProvider } from './context/NetworkContext';
+import { NetworkStatusGate } from './components/NetworkStatusGate';
 import { AuthProvider } from './context/AuthContext';
 import { SessionProvider } from './context/SessionContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -21,14 +23,18 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeProvider defaultTheme="light" storageKey="erp-theme">
-      <AuthProvider>
-        <SessionProvider>
-          <QueryClientProvider client={queryClient}>
-            <App />
-            <Toaster richColors position="top-right" />
-          </QueryClientProvider>
-        </SessionProvider>
-      </AuthProvider>
+      <NetworkProvider>
+        <NetworkStatusGate>
+          <AuthProvider>
+            <SessionProvider>
+              <QueryClientProvider client={queryClient}>
+                <App />
+                <Toaster richColors position="top-right" />
+              </QueryClientProvider>
+            </SessionProvider>
+          </AuthProvider>
+        </NetworkStatusGate>
+      </NetworkProvider>
     </ThemeProvider>
   </React.StrictMode>
 );

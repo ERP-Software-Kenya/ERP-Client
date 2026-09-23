@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import { existsSync, readFileSync } from 'fs';
 import * as path from 'path';
-import { app, BrowserWindow, dialog, Menu, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, Menu, ipcMain, net } from 'electron';
 import { version as APP_VERSION } from '../../package.json';
 import { initSettingsStore, loadSettings, saveSettings } from './settings-store';
 import { initAutoUpdater } from './auto-updater';
@@ -48,13 +48,17 @@ const isDev = process.env.NODE_ENV === 'development';
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
+  process.exit(0);
 }
+
 app.on('second-instance', () => {
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
     mainWindow.focus();
   }
 });
+
 
 let appIpcRegistered = false;
 
@@ -63,6 +67,16 @@ function registerAppIpc(): void {
   appIpcRegistered = true;
 
   ipcMain.handle('app:get-version', () => APP_VERSION);
+  ipcMain.handle('app:is-online', () => {
+    try {
+      return net.isOnline();
+    } catch {
+      return true;
+    }
+  });
+  ipcMain.handle('app:quit', () => {
+    app.quit();
+  });
 
   ipcMain.handle('app:get-update-settings', () => {
     const s = loadSettings();

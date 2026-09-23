@@ -7,6 +7,8 @@ export type UpdateSettingsPayload = {
 
 const electronAPI = {
   getAppVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,
+  isOnline: () => ipcRenderer.invoke('app:is-online') as Promise<boolean>,
+  quitApp: () => ipcRenderer.invoke('app:quit') as Promise<void>,
 
   getUpdateSettings: () =>
     ipcRenderer.invoke('app:get-update-settings') as Promise<UpdateSettingsPayload>,

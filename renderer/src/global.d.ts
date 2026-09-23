@@ -9,6 +9,8 @@ declare global {
   interface Window {
     electronAPI: {
       getAppVersion: () => Promise<string>;
+      isOnline?: () => Promise<boolean>;
+      quitApp?: () => Promise<void>;
       getUpdateSettings: () => Promise<UpdateSettings>;
       saveUpdateSettings: (
         settings: Partial<UpdateSettings>,

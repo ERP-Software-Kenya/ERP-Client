@@ -89,9 +89,16 @@ async function retryingFetch(
   makeHeaders: () => Promise<Record<string, string>>,
   init: Omit<RequestInit, 'headers'> = {},
 ): Promise<Response> {
-  const resp = await fetch(url, { ...init, headers: await makeHeaders() });
-  if (resp.status !== 401) return resp;
-  return fetch(url, { ...init, headers: await makeHeaders() });
+  try {
+    const resp = await fetch(url, { ...init, headers: await makeHeaders() });
+    if (resp.status !== 401) return resp;
+    return fetch(url, { ...init, headers: await makeHeaders() });
+  } catch (error) {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      document.dispatchEvent(new CustomEvent('network:offline'));
+    }
+    throw error;
+  }
 }
 
 export async function get<T>(path: string, params?: QueryParams): Promise<T> {

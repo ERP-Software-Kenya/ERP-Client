@@ -1,7 +1,7 @@
-import { useState, Fragment } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { MODULES } from '../../config/modules';
+import { MODULES, pageKeyForPath } from '../../config/modules';
 import { getAppInitial, getAppName } from '../../lib/branding';
 import { cn } from '../../lib/utils';
 import { Tooltip } from '../ui/tooltip';
@@ -12,6 +12,10 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
   const location = useLocation();
   const { canAccess, isLoading } = usePageAccess();
   const { isUnlocked } = useBlackTab();
+
+  const activeKey = pageKeyForPath(location.pathname);
+  const isItemActive = (item: { key: string; path: string }) =>
+    Boolean(activeKey ? item.key === activeKey : item.path === location.pathname);
 
   const isBlackItem = (key: string, path: string) => {
     return key.includes('black') || key === 'unpublished-stock' || path.includes('black');
@@ -34,9 +38,16 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
   }).filter((group) => group.items.length > 0);
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
-    const active = MODULES.find((g) => g.items.some((i) => i.path === location.pathname));
+    const active = MODULES.find((g) => g.items.some(isItemActive));
     return new Set(active ? [active.label] : MODULES.map((g) => g.label));
   });
+
+  useEffect(() => {
+    const active = MODULES.find((g) => g.items.some(isItemActive));
+    if (active) {
+      setOpenGroups((prev) => (prev.has(active.label) ? prev : new Set(prev).add(active.label)));
+    }
+  }, [activeKey, location.pathname]);
 
   const toggleGroup = (label: string) => {
     setOpenGroups((prev) => {
@@ -78,7 +89,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
           </div>
         ) : visibleModules.map((group) => {
           const isOpen = openGroups.has(group.label);
-          const isGroupActive = group.items.some((i) => !i.disabled && i.path === location.pathname);
+          const isGroupActive = group.items.some((i) => !i.disabled && isItemActive(i));
           const GroupIcon = group.icon;
 
           return (
@@ -130,10 +141,14 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
                       );
                     }
 
+                    const isActive = isItemActive(item);
+
                     const link = (
                       <NavLink
                         to={item.path}
-                        className={({ isActive }) =>
+                        end
+                        aria-current={isActive ? 'page' : undefined}
+                        className={() =>
                           cn(
                             "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
                             isActive ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",

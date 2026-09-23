@@ -89,6 +89,7 @@ const GUIDE_STEPS: GuideStep[] = [
 ];
 
 let lineIdSeq = 100;
+let pendingDraftPromise: Promise<{ billId?: string }> | null = null;
 
 function printReceipt() {
   window.print();
@@ -323,6 +324,9 @@ function BillSuccessModal({
 export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; initialSaleType?: SaleType }) {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const autoHeldKey = `pos_auto_held_bill_${initialSaleType ?? "normal"}`;
+  const resumeBillId = searchParams.get("resumeBillId");
+
   const [locationId, setLocationId] = useState("");
   const [lines, setLines] = useState<BillLine[]>([]);
   const [searchVal, setSearchVal] = useState("");
@@ -894,6 +898,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     setExtraCharges([]);
     setCustomerInfo("");
     setCustomerId("");
+    setSupplierId("");
     setSupplierRef("");
     setSearchVal("");
     setCashTendered("");
@@ -912,10 +917,12 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     setSelectedDriverId("");
     setPrintDoc("receipt");
     setActiveDraftBillId(null);
+    sessionStorage.removeItem(autoHeldKey);
   };
 
   const closeSuccess = () => {
     setSuccess(null);
+    sessionStorage.removeItem(autoHeldKey);
     voidBill();
     searchRef.current?.focus();
   };
@@ -949,40 +956,42 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
   // Reuses the bill-create path (create -> DRAFT) via checkout.ts's createDraftSale,
   // but never calls the COMPLETED transition — the bill stays a resumable draft.
+  const buildSaleDraftPayload = (): Parameters<typeof createDraftSale>[0] => ({
+    storeName: stockLocation?.name,
+    locationId: locationId || undefined,
+    locationName: stockLocation?.name,
+    inventory: effectiveInventory,
+    orgId,
+    customerId: customerId.trim() || undefined,
+    paymentMethod: payMethod,
+    paymentReference: paymentReference.trim() || undefined,
+    amountReceived: cashTendered ? Number(cashTendered) : undefined,
+    customerInfo,
+    lines: buildLinePayload(),
+    extraCharges,
+    subtotal,
+    taxAmount: totalTax,
+    totalAmount: grandTotal,
+    saleType: isBlackSale ? "black" : saleType,
+    customerType,
+    paymentTiming,
+    partialAmount: paymentTiming === "half" ? Number(partialAmount) : undefined,
+    creditLimit: selectedCustomer?.creditLimit ?? undefined,
+    creditBalance: selectedCustomer?.creditBalance ?? undefined,
+    delivery: deliveryPayload,
+    facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
+    commissionPct: commissionPct ? Number(commissionPct) : undefined,
+    existingBillId: activeDraftBillId ?? undefined,
+    orderReference: orderReference.trim() || undefined,
+    fulfillmentStores: fulfillmentStoreNames.length ? fulfillmentStoreNames : undefined,
+  });
+
   const holdSale = async () => {
     if (lines.length === 0 || holding || partialAmountMissing || !locationId) return;
     setHolding(true);
     setCheckoutResult(null);
     try {
-      const result = await createDraftSale({
-        storeName: stockLocation?.name,
-        locationId: locationId || undefined,
-        locationName: stockLocation?.name,
-        inventory: effectiveInventory,
-        orgId,
-        customerId: customerId.trim() || undefined,
-        paymentMethod: payMethod,
-        paymentReference: paymentReference.trim() || undefined,
-        amountReceived: cashTendered ? Number(cashTendered) : undefined,
-        customerInfo,
-        lines: buildLinePayload(),
-        extraCharges,
-        subtotal,
-        taxAmount: totalTax,
-        totalAmount: grandTotal,
-        saleType: isBlackSale ? "black" : saleType,
-        customerType,
-        paymentTiming,
-        partialAmount: paymentTiming === "half" ? Number(partialAmount) : undefined,
-        creditLimit: selectedCustomer?.creditLimit ?? undefined,
-        creditBalance: selectedCustomer?.creditBalance ?? undefined,
-        delivery: deliveryPayload,
-        facilitatorName: facilitatorMode === "name" ? facilitatorName : undefined,
-        commissionPct: commissionPct ? Number(commissionPct) : undefined,
-        existingBillId: activeDraftBillId ?? undefined,
-        orderReference: orderReference.trim() || undefined,
-        fulfillmentStores: fulfillmentStoreNames.length ? fulfillmentStoreNames : undefined,
-      });
+      const result = await createDraftSale(buildSaleDraftPayload());
       if (result.billId) {
         toast.success(`Sale held as draft — ${result.receipt.ref}`);
         voidBill();
@@ -993,6 +1002,46 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       setHolding(false);
     }
   };
+
+  const autoHoldPayloadRef = useRef<{
+    shouldHold: boolean;
+    payload: Parameters<typeof createDraftSale>[0];
+  }>({
+    shouldHold: false,
+    payload: {} as Parameters<typeof createDraftSale>[0],
+  });
+
+  autoHoldPayloadRef.current = {
+    shouldHold:
+      mode === "sales" &&
+      !success &&
+      lines.length > 0 &&
+      Boolean(locationId) &&
+      !partialAmountMissing,
+    payload: buildSaleDraftPayload(),
+  };
+
+  useEffect(() => {
+    return () => {
+      const { shouldHold, payload } = autoHoldPayloadRef.current;
+      if (shouldHold) {
+        const promise = createDraftSale(payload)
+          .then((res) => {
+            if (res.billId) {
+              sessionStorage.setItem(autoHeldKey, res.billId);
+            }
+            return res;
+          })
+          .catch(() => ({ billId: undefined }));
+        pendingDraftPromise = promise;
+        promise.finally(() => {
+          if (pendingDraftPromise === promise) {
+            pendingDraftPromise = null;
+          }
+        });
+      }
+    };
+  }, [autoHeldKey]);
 
   const resumeSale = async (billId: string) => {
     try {
@@ -1041,8 +1090,15 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       setPartialAmount(
         bill.partialAmount != null ? String(bill.partialAmount) : "",
       );
+      if (bill.paymentMethod) setPayMethod(bill.paymentMethod as PosPayMethod);
+      if (bill.notes) setStockNotes(bill.notes);
+      if (bill.facilitatorName) {
+        setFacilitatorName(bill.facilitatorName);
+        setFacilitatorMode("name");
+      }
       setShowHeldSales(false);
       setActiveDraftBillId(bill.id);
+      sessionStorage.setItem(autoHeldKey, bill.id);
       toast.success(`Resumed ${bill.billNumber}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to resume sale");
@@ -1051,7 +1107,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
   const resumeSaleRef = useRef(resumeSale);
   resumeSaleRef.current = resumeSale;
-  const resumeBillId = searchParams.get("resumeBillId");
   useEffect(() => {
     if (mode !== "sales" || !resumeBillId) return;
     let cancelled = false;
@@ -1071,6 +1126,32 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       cancelled = true;
     };
   }, [mode, resumeBillId, setSearchParams]);
+
+  useEffect(() => {
+    if (mode !== "sales" || resumeBillId) return;
+    let cancelled = false;
+    const restoreAutoHeld = async () => {
+      let targetId: string | null = null;
+      if (pendingDraftPromise) {
+        try {
+          const res = await pendingDraftPromise;
+          targetId = res?.billId ?? null;
+        } catch {
+          // ignore
+        }
+      }
+      if (!targetId) {
+        targetId = sessionStorage.getItem(autoHeldKey);
+      }
+      if (targetId && !cancelled) {
+        await resumeSaleRef.current(targetId);
+      }
+    };
+    void restoreAutoHeld();
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, resumeBillId, autoHeldKey]);
 
   const handleCustomerSelect = (c: Customer) => {
     setCustomerId(c.id);
