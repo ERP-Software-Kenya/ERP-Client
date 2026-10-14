@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { SetBranchPriceDialog } from './SetBranchPriceDialog';
 import type { Branch, ProductBranchPrice } from '../../types';
+import { formatMoney } from '../../lib/format-money';
 
 const PAGE_SIZE = 15;
 
@@ -14,7 +15,7 @@ type StatusFilter = 'all' | 'set' | 'not_set';
 
 function PriceCell({ val }: { val: number | null }): React.JSX.Element {
   if (val == null) return <span className="text-muted-foreground">—</span>;
-  return <span>{Number(val).toFixed(2)}</span>;
+  return <span>{formatMoney(Number(val))}</span>;
 }
 
 function StatusBadge({ isSet }: { isSet: boolean }): React.JSX.Element {

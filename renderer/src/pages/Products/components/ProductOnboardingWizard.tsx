@@ -14,6 +14,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { formatMoney, getCurrencyCode } from '../../../lib/format-money';
 import type { Category, Product, ProductSupplier, ProductUnit, Supplier, Tax } from '../../../types';
 import { cn } from '../../../lib/utils';
 
@@ -127,7 +128,7 @@ function CurrencyInput({ label, value, onChange, hint, showMargin, margin }: {
     <div className="space-y-1.5">
       <FieldLabel>{label}</FieldLabel>
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">KSh</span>
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">{getCurrencyCode()}</span>
         <Input
           type="number"
           step="0.01"
@@ -517,7 +518,7 @@ function Step4Panel({
                       </span>
                     )}
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {link.unitCost != null && `Cost KSh ${link.unitCost}`}
+                      {link.unitCost != null && `Cost ${formatMoney(Number(link.unitCost))}`}
                       {link.leadTimeDays != null && ` · Lead ${link.leadTimeDays}d`}
                       {link.minOrderQty != null && ` · MOQ ${link.minOrderQty}`}
                     </div>

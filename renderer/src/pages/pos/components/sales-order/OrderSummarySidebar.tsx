@@ -30,7 +30,7 @@ export interface OrderSummarySidebarProps {
   onShareToDriver?: () => void;
   hasReceipt: boolean;
   hasDriver: boolean;
-  cashTenderedRef?: RefObject<HTMLInputElement>;
+  cashTenderedRef?: RefObject<HTMLInputElement | null>;
 }
 
 const PAY_METHOD_LABELS: Array<{ value: PosPayMethod; label: string }> = [

@@ -5,6 +5,7 @@ import { Quotations } from '../../api';
 import { toast } from 'sonner';
 import { X, Download, Mail, Loader2, FileText, Send } from 'lucide-react';
 import type { Quotation } from '../../types';
+import { formatMoney, getCurrencyCode } from '../../lib/format-money';
 
 interface QuotationPreviewModalProps {
   isOpen: boolean;
@@ -12,6 +13,15 @@ interface QuotationPreviewModalProps {
   quotation: Quotation;
   companyName?: string;
   onEmailSent?: () => void;
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 export default function QuotationPreviewModal({
@@ -25,7 +35,7 @@ export default function QuotationPreviewModal({
   const [recipientEmail, setRecipientEmail] = useState(quotation.customer?.email ?? '');
   const [subject, setSubject] = useState(`Quotation ${quotation.quoteNumber} from ${companyName}`);
   const [body] = useState(
-    `<p>Dear ${quotation.customer?.name ?? 'Valued Customer'},</p><p>Please find attached our quotation <strong>${quotation.quoteNumber}</strong> for your review.</p><p>Total Amount (Tax Inclusive): <strong>₹${Number(quotation.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></p><p>Thank you for your business!</p>`,
+    `<p>Dear ${escapeHtml(quotation.customer?.name ?? 'Valued Customer')},</p><p>Please find attached our quotation <strong>${escapeHtml(quotation.quoteNumber)}</strong> for your review.</p><p>Total Amount (Tax Inclusive): <strong>${formatMoney(Number(quotation.totalAmount))}</strong></p><p>Thank you for your business!</p>`,
   );
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -41,14 +51,14 @@ export default function QuotationPreviewModal({
         <tr>
           <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: center;">${idx + 1}</td>
           <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px;">
-            <div style="font-weight: 600;">${item.product?.name ?? 'Product'}</div>
-            ${item.product?.sku ? `<div style="font-size: 10px; color: #64748b;">SKU: ${item.product.sku}</div>` : ''}
+            <div style="font-weight: 600;">${escapeHtml(item.product?.name ?? 'Product')}</div>
+            ${item.product?.sku ? `<div style="font-size: 10px; color: #64748b;">SKU: ${escapeHtml(item.product.sku)}</div>` : ''}
           </td>
           <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: right;">${item.quantity}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: right;">₹${Number(item.unitPriceInclusive).toFixed(2)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: right;">${formatMoney(Number(item.unitPriceInclusive))}</td>
           <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: right;">${item.taxRate}%</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: right;">₹${Number(item.taxAmount).toFixed(2)}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: right; font-weight: 600;">₹${Number(item.lineTotal).toFixed(2)}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: right;">${formatMoney(Number(item.taxAmount))}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; text-align: right; font-weight: 600;">${formatMoney(Number(item.lineTotal))}</td>
         </tr>`,
       )
       .join('');
@@ -58,7 +68,7 @@ export default function QuotationPreviewModal({
       <html>
       <head>
         <meta charset="utf-8" />
-        <title>Quotation ${quotation.quoteNumber}</title>
+        <title>Quotation ${escapeHtml(quotation.quoteNumber)}</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #0f172a; margin: 0; padding: 24px; }
           .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; }
@@ -77,15 +87,15 @@ export default function QuotationPreviewModal({
       <body>
         <div class="header">
           <div>
-            <div class="company-title">${companyName}</div>
+            <div class="company-title">${escapeHtml(companyName)}</div>
             <div style="font-size: 12px; color: #64748b; margin-top: 4px;">
-              ${quotation.location?.name ?? 'Branch Location'}<br />
-              ${quotation.location?.address ?? ''}
+              ${escapeHtml(quotation.location?.name ?? 'Branch Location')}<br />
+              ${escapeHtml(quotation.location?.address ?? '')}
             </div>
           </div>
           <div style="text-align: right;">
             <div style="font-size: 20px; font-weight: 800; color: #0284c7;">ESTIMATE / QUOTATION</div>
-            <div style="font-size: 14px; font-weight: 700; margin-top: 4px;">${quotation.quoteNumber}</div>
+            <div style="font-size: 14px; font-weight: 700; margin-top: 4px;">${escapeHtml(quotation.quoteNumber)}</div>
             <div style="font-size: 12px; color: #64748b;">Version ${quotation.versionNumber}</div>
             <div style="margin-top: 6px;"><span class="badge">${quotation.status}</span></div>
           </div>
@@ -94,11 +104,11 @@ export default function QuotationPreviewModal({
         <div class="meta-grid">
           <div class="meta-col">
             <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; margin-bottom: 4px;">Quotation For:</div>
-            <div style="font-size: 14px; font-weight: 700;">${quotation.customer?.name ?? 'Customer'}</div>
-            ${quotation.customer?.phone ? `<div style="font-size: 12px; color: #475569;">Ph: ${quotation.customer.phone}</div>` : ''}
-            ${quotation.customer?.email ? `<div style="font-size: 12px; color: #475569;">Email: ${quotation.customer.email}</div>` : ''}
-            ${quotation.customer?.gstin ? `<div style="font-size: 12px; color: #475569;">GSTIN: ${quotation.customer.gstin}</div>` : ''}
-            ${quotation.customer?.address ? `<div style="font-size: 12px; color: #475569;">${quotation.customer.address}</div>` : ''}
+            <div style="font-size: 14px; font-weight: 700;">${escapeHtml(quotation.customer?.name ?? 'Customer')}</div>
+            ${quotation.customer?.phone ? `<div style="font-size: 12px; color: #475569;">Ph: ${escapeHtml(quotation.customer.phone)}</div>` : ''}
+            ${quotation.customer?.email ? `<div style="font-size: 12px; color: #475569;">Email: ${escapeHtml(quotation.customer.email)}</div>` : ''}
+            ${quotation.customer?.gstin ? `<div style="font-size: 12px; color: #475569;">GSTIN: ${escapeHtml(quotation.customer.gstin)}</div>` : ''}
+            ${quotation.customer?.address ? `<div style="font-size: 12px; color: #475569;">${escapeHtml(quotation.customer.address)}</div>` : ''}
           </div>
           <div class="meta-col" style="text-align: right;">
             <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748b; margin-bottom: 4px;">Quote Details:</div>
@@ -116,8 +126,8 @@ export default function QuotationPreviewModal({
               <th style="text-align: right; width: 60px;">Qty</th>
               <th style="text-align: right; width: 100px;">Rate (Inc)</th>
               <th style="text-align: right; width: 70px;">Tax %</th>
-              <th style="text-align: right; width: 90px;">Tax (₹)</th>
-              <th style="text-align: right; width: 110px;">Total (₹)</th>
+              <th style="text-align: right; width: 90px;">Tax (${getCurrencyCode()})</th>
+              <th style="text-align: right; width: 110px;">Total (${getCurrencyCode()})</th>
             </tr>
           </thead>
           <tbody>
@@ -128,15 +138,15 @@ export default function QuotationPreviewModal({
         <div class="totals-box">
           <div class="totals-row">
             <span>Taxable Base:</span>
-            <span>₹${Number(quotation.subtotal).toFixed(2)}</span>
+            <span>${formatMoney(Number(quotation.subtotal))}</span>
           </div>
           <div class="totals-row">
             <span>Total GST Amount:</span>
-            <span>₹${Number(quotation.taxAmount).toFixed(2)}</span>
+            <span>${formatMoney(Number(quotation.taxAmount))}</span>
           </div>
           <div class="totals-row totals-grand">
             <span>Grand Total:</span>
-            <span>₹${Number(quotation.totalAmount).toFixed(2)}</span>
+            <span>${formatMoney(Number(quotation.totalAmount))}</span>
           </div>
         </div>
 
@@ -144,7 +154,7 @@ export default function QuotationPreviewModal({
           quotation.notes
             ? `<div class="notes">
                 <strong>Notes & Terms:</strong><br />
-                ${quotation.notes.replace(/\n/g, '<br />')}
+                ${escapeHtml(quotation.notes).replace(/\n/g, '<br />')}
               </div>`
             : ''
         }
@@ -381,8 +391,8 @@ export default function QuotationPreviewModal({
                     <th className="p-2 text-right w-14">Qty</th>
                     <th className="p-2 text-right w-24">Rate (Inc)</th>
                     <th className="p-2 text-right w-16">Tax %</th>
-                    <th className="p-2 text-right w-20">Tax (₹)</th>
-                    <th className="p-2 text-right w-24">Total (₹)</th>
+                    <th className="p-2 text-right w-20">Tax ({getCurrencyCode()})</th>
+                    <th className="p-2 text-right w-24">Total ({getCurrencyCode()})</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -394,10 +404,10 @@ export default function QuotationPreviewModal({
                         {item.product?.sku && <div className="text-[10px] text-slate-400">SKU: {item.product.sku}</div>}
                       </td>
                       <td className="p-2 text-right">{item.quantity}</td>
-                      <td className="p-2 text-right">₹{Number(item.unitPriceInclusive).toFixed(2)}</td>
+                      <td className="p-2 text-right">{formatMoney(Number(item.unitPriceInclusive))}</td>
                       <td className="p-2 text-right text-slate-500">{item.taxRate}%</td>
-                      <td className="p-2 text-right text-slate-500">₹{Number(item.taxAmount).toFixed(2)}</td>
-                      <td className="p-2 text-right font-bold text-slate-900">₹{Number(item.lineTotal).toFixed(2)}</td>
+                      <td className="p-2 text-right text-slate-500">{formatMoney(Number(item.taxAmount))}</td>
+                      <td className="p-2 text-right font-bold text-slate-900">{formatMoney(Number(item.lineTotal))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -409,15 +419,15 @@ export default function QuotationPreviewModal({
               <div className="w-64 space-y-1.5 border-t border-slate-200 pt-2 text-right">
                 <div className="flex justify-between text-slate-600">
                   <span>Taxable Subtotal:</span>
-                  <span>₹{Number(quotation.subtotal).toFixed(2)}</span>
+                  <span>{formatMoney(Number(quotation.subtotal))}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
                   <span>Total GST:</span>
-                  <span>₹{Number(quotation.taxAmount).toFixed(2)}</span>
+                  <span>{formatMoney(Number(quotation.taxAmount))}</span>
                 </div>
                 <div className="flex justify-between text-sm font-extrabold text-slate-900 border-t-2 border-slate-900 pt-1.5 mt-1">
                   <span>Grand Total (Inc):</span>
-                  <span>₹{Number(quotation.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <span>{formatMoney(Number(quotation.totalAmount))}</span>
                 </div>
               </div>
             </div>

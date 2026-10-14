@@ -2,6 +2,7 @@ import { ShoppingCart, CheckCircle2, Loader2, Package, User, MapPin } from 'luci
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Button } from '../../components/ui/button';
 import type { Quotation } from '../../types';
+import { formatMoney } from '../../lib/format-money';
 
 interface ConvertQuotationModalProps {
   open: boolean;
@@ -77,7 +78,7 @@ export default function ConvertQuotationModal({
           <div className="flex items-center justify-between pt-0.5">
             <span className="font-bold text-foreground">Grand Total (Tax-Inc.)</span>
             <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">
-              ₹{Number(quotation.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              {formatMoney(Number(quotation.totalAmount))}
             </span>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import type { PosReceipt } from './checkout';
 import { isBigCustomer } from './posHelpers';
+import { formatMoney } from '../../lib/format-money';
 
 export type SaleDocKind = 'receipt' | 'debtor' | 'statement' | 'delivery';
 
@@ -12,7 +13,7 @@ function esc(s: string) {
 }
 
 function fmt(n: number) {
-  return `KSh ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatMoney(n);
 }
 
 function fmtDate(iso: string) {

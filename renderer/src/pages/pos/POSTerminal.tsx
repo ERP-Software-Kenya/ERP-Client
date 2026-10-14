@@ -36,7 +36,7 @@ import { StatementDocument } from "./StatementDocument";
 import { DeliveryNoteDocument } from "./DeliveryNoteDocument";
 import { downloadBillPdf, downloadPurchaseOrderPdf } from "./billReceipt";
 import { HeldSalesPanel } from "./HeldSalesPanel";
-import { productRate, customerTypeToTier, productTierPrices, branchAwareTierPrices, type BillLine, type ExtraCharge, type Mode, type PrintDoc, fmt } from "./posHelpers";
+import { productRate, customerTypeToTier, branchAwareTierPrices, type BillLine, type ExtraCharge, type Mode, type PrintDoc, fmt } from "./posHelpers";
 import {
   buildAllLocationsStockMap,
   buildLocationStockMap,
@@ -409,6 +409,10 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
   const { data: locations = [] } =
     Locations.useList();
+  const stockLocation = useMemo(
+    () => locations.find((location: Location) => location.id === locationId),
+    [locations, locationId],
+  );
   const { data: rawInventory = [] } = Inventory.useList();
   const { data: unpublishedStock = [] } = useUnpublishedStockList(undefined, {
     enabled: canCreateBlackSale,
@@ -430,18 +434,11 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const { data: myRejected = [] } = CreditApprovals.useMyRejected(mode === "sales");
   const { data: typeRules = [] } = BillingSettings.useCustomerTypeRules();
   const { data: fleetDrivers = [] } = FleetDrivers.useList(mode === "sales");
-
-  // Compute the effective branch early so the price query uses the right branch.
-  // session.branchId is set for branch managers; for org admins it is undefined —
-  // fall back to the branch that owns the currently selected location.
-  const stockLocation = useMemo(
-    () => locations.find((l: Location) => l.id === locationId),
-    [locations, locationId],
-  );
+  // Branch managers are locked to their session branch. Organization admins use
+  // the branch that owns the selected stock location.
   const orgId = stockLocation?.organizationId;
-  const effectiveBranchId = stockLocation?.branchId ?? branchId;
-
-  const { data: branchPricesPage } = useListBranchProductPricesAll(effectiveBranchId);
+  const pricingBranchId = branchId ?? stockLocation?.branchId;
+  const { data: branchPricesPage } = useListBranchProductPricesAll(pricingBranchId);
   const branchPriceMap = useMemo<Map<string, ProductBranchPrice>>(() => {
     const map = new Map<string, ProductBranchPrice>();
     for (const bp of branchPricesPage?.items ?? []) map.set(bp.productId, bp);

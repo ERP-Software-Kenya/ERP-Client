@@ -6,6 +6,7 @@ import { Input } from '../../../components/ui/input';
 import { FormSelect } from '../../../components/FormSelect';
 import { FleetMaintenanceApi, FleetVehicles, MaintenanceTypes } from '../../../api';
 import type { FleetMaintenance } from '../../../types';
+import { getCurrencyCode } from '../../../lib/format-money';
 
 const STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'] as const;
 
@@ -154,7 +155,7 @@ export default function FleetMaintenancePage(): React.JSX.Element {
               required
             />
           </Field>
-          <Field label="Cost (₹)" required>
+          <Field label={`Cost (${getCurrencyCode()})`} required>
             <Input
               type="number"
               min="0"

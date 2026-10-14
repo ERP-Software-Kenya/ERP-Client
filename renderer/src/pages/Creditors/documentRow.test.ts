@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { docNumber, formatSignedAmount, signedAmountLabel, typeFilterToApi } from './documentRow';
+import { configureCurrencyCode } from '../../lib/format-money';
 
 describe('docNumber', () => {
   it('prefers bill number then short id', () => {
@@ -18,9 +19,10 @@ describe('signedAmountLabel', () => {
 
 describe('formatSignedAmount', () => {
   it('places the sign before the formatted currency amount', () => {
-    expect(formatSignedAmount(-50)).toBe('-KSh 50.00');
-    expect(formatSignedAmount(50)).toBe('+KSh 50.00');
-    expect(formatSignedAmount(0)).toBe('KSh 0.00');
+    configureCurrencyCode('USD');
+    expect(formatSignedAmount(-50)).toBe('-$50.00');
+    expect(formatSignedAmount(50)).toBe('+$50.00');
+    expect(formatSignedAmount(0)).toBe('$0.00');
   });
 });
 

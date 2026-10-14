@@ -2,17 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Info, ShoppingBag, Store, Truck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { BillingSettings, Customers, FleetDrivers, Inventory, Locations, Orders, Products } from '../../api';
+import { BillingSettings, Customers, FleetDrivers, Inventory, Locations, Orders, Products, useListBranchProductPricesAll } from '../../api';
 import { patch } from '../../lib/http';
 import { useAuth } from '../../context/AuthContext';
 import { useBlackTab } from '../../context/BlackTabContext';
 import { useDebounce } from '../../hooks/useDebounce';
 import { formatEntityLabel } from '../../lib/entityLabel';
-import type { Customer, CustomerType, FulfillmentMode, Order, Product, SaleType } from '../../types';
+import { formatMoney } from '../../lib/format-money';
+import type { Customer, CustomerType, FulfillmentMode, Order, Product, ProductBranchPrice, SaleType } from '../../types';
 import type { DeliveryInfo, PosPayMethod } from '../pos/checkout';
 import {
   customerTypeToTier,
-  productTierPrices,
+  branchAwareTierPrices,
   type BillLine,
   type ExtraCharge,
 } from '../pos/posHelpers';
@@ -82,7 +83,7 @@ function SuccessBanner({ order, fulfillmentMode, fulfillmentLocationLabel, onNew
         </p>
         {order.totalAmount != null && (
           <p className="text-lg font-bold text-primary">
-            KSh {Number(order.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {formatMoney(Number(order.totalAmount))}
           </p>
         )}
       </div>
@@ -229,6 +230,17 @@ export default function OrdersPage(): React.JSX.Element {
   const { data: selectedCustomer } = Customers.useGet(customerId || undefined);
   const createMutation = Orders.useCreate();
 
+  const sellingLocation = useMemo(
+    () => locations.find((location) => location.id === locationId),
+    [locations, locationId],
+  );
+  const { data: branchPricesPage } = useListBranchProductPricesAll(sellingLocation?.branchId);
+  const branchPriceMap = useMemo(() => {
+    const prices = new Map<string, ProductBranchPrice>();
+    for (const price of branchPricesPage?.items ?? []) prices.set(price.productId, price);
+    return prices;
+  }, [branchPricesPage]);
+
   const stockMap = useMemo(
     () => buildLocationStockMap(inventory, fulfillmentLocationId || locationId),
     [inventory, fulfillmentLocationId, locationId],
@@ -267,7 +279,7 @@ export default function OrdersPage(): React.JSX.Element {
     if (stock.available <= 0) { toast.error('Out of stock at this location'); return; }
     const room = stock.available - inCart;
     if (room <= 0) { toast.error(`Already at max stock (${stock.available} available)`); return; }
-    const tiers = productTierPrices(p);
+    const tiers = branchAwareTierPrices(p, branchPriceMap.get(p.id));
     const tier = customerTypeToTier(customerType);
     const rate = discountedRate(tiers[tier], effectiveDiscountPercent(selectedCustomer, customerType, typeRules));
     const existing = lines.find((l) => l.productId === p.id);
@@ -489,6 +501,10 @@ export default function OrdersPage(): React.JSX.Element {
                 onRateChange={handleRateChange}
                 onRemoveLine={(id) => setLines((ls) => ls.filter((l) => l.id !== id))}
                 onRemoveCharge={() => undefined}
+                onLineLocationChange={(lineId, nextLocationId) =>
+                  setLines((current) => current.map((line) => line.id === lineId ? { ...line, locationId: nextLocationId } : line))
+                }
+                locations={sellingLocation ? [sellingLocation] : []}
                 storeCode={stockLocation?.name?.slice(0, 1).toUpperCase()}
                 checkoutResult={null}
                 showCheckoutFailureBanner={false}

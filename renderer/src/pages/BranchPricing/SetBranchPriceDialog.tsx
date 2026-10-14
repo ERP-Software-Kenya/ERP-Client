@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { useUpsertBranchProductPrice } from '../../api';
 import type { ProductBranchPrice } from '../../types';
+import { getCurrencyCode } from '../../lib/format-money';
 
 interface Props {
   price: ProductBranchPrice | null;
@@ -98,7 +99,7 @@ export function SetBranchPriceDialog({ price, branchName, onClose }: Props): Rea
                   {label}
                 </Label>
                 <div className="flex items-center gap-1.5">
-                  <span className="min-w-[28px] text-xs text-muted-foreground">KSh</span>
+                  <span className="min-w-[28px] text-xs text-muted-foreground">{getCurrencyCode()}</span>
                   <Input
                     id={key}
                     type="number"

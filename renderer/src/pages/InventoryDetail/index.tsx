@@ -7,6 +7,7 @@ import { SimpleTable } from '../../components/SimpleTable';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { formatMoney } from '../../lib/format-money';
 import {
   Inventory,
   Products,
@@ -181,7 +182,7 @@ export default function InventoryDetailPage() {
         <Stat label="On hand" value={item.quantityOnHand} />
         <Stat label="Reserved" value={item.quantityReserved} />
         <Stat label="Available" value={available} />
-        <Stat label="Avg cost" value={item.averageCost != null ? `KSh ${item.averageCost.toFixed(2)}` : '—'} />
+        <Stat label="Avg cost" value={item.averageCost != null ? formatMoney(item.averageCost) : '—'} />
       </div>
 
       <div className="grid gap-4 text-sm lg:grid-cols-3">

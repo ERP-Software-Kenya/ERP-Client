@@ -1,4 +1,5 @@
 import type { CustomerType, Product, ProductBranchPrice } from "../../types";
+import { formatMoney } from '../../lib/format-money';
 
 export type Mode = "sales" | "purchase";
 export type PrintDoc = "receipt" | "debtor" | "statement" | "delivery";
@@ -84,7 +85,7 @@ export interface ExtraCharge {
 }
 
 export function fmt(n: number) {
-  return `KSh ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatMoney(n);
 }
 
 export function lineTax(l: BillLine) {

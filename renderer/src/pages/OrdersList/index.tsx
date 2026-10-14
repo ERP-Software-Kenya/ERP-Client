@@ -7,6 +7,7 @@ import { FormSelect } from '../../components/FormSelect';
 import { Customers, Locations, Orders } from '../../api';
 import { usePagination } from '../../hooks/usePagination';
 import type { FulfillmentMode, Order } from '../../types';
+import { formatMoney } from '../../lib/format-money';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pending',
@@ -19,7 +20,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 function money(n: number | undefined | null): string {
   if (n == null || Number.isNaN(Number(n))) return '—';
-  return `KSh ${Number(n).toFixed(2)}`;
+  return formatMoney(Number(n));
 }
 
 function formatDate(d: string | null | undefined): string {

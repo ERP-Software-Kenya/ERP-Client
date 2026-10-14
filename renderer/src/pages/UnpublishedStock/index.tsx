@@ -47,6 +47,7 @@ import { useSession } from '../../context/SessionContext';
 import { usePagination } from '../../hooks/usePagination';
 import { formatEntityLabel } from '../../lib/entityLabel';
 import { cn } from '../../lib/utils';
+import { formatMoney } from '../../lib/format-money';
 import type { UnpublishedStock, UnpublishedStockMovement, PlatformUser } from '../../types';
 
 const GUIDE_KEY = 'guide-unpublished-stock-v2';
@@ -204,7 +205,7 @@ export default function UnpublishedStockPage() {
 
   const productMap = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of products ?? []) m.set(p.id, p.name);
+    for (const p of products ?? []) m.set(p.id, p.name ?? 'Unnamed product');
     return m;
   }, [products]);
 
@@ -350,15 +351,12 @@ export default function UnpublishedStockPage() {
     {
       key: 'averageCost',
       label: 'Avg Cost',
-      render: (r) => (r.averageCost != null ? `KSh ${Number(r.averageCost).toFixed(2)}` : '—'),
+      render: (r) => (r.averageCost != null ? formatMoney(Number(r.averageCost)) : '—'),
     },
     {
       key: 'value',
       label: 'Staged Value',
-      render: (r) =>
-        `KSh ${(Number(r.quantityOnHand || 0) * Number(r.averageCost || 0)).toLocaleString(undefined, {
-          maximumFractionDigits: 0,
-        })}`,
+      render: (r) => formatMoney(Number(r.quantityOnHand || 0) * Number(r.averageCost || 0)),
     },
     { key: 'binLocation', label: 'Bin', render: (r) => r.binLocation || '—' },
   ];
@@ -557,7 +555,7 @@ export default function UnpublishedStockPage() {
             <StatCard
               icon={<DollarSign size={18} />}
               label="Staging Value"
-              value={`KSh ${browseTotals.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+              value={formatMoney(browseTotals.value)}
               colorClass="bg-amber-500/15 text-amber-700 dark:text-amber-400"
             />
           </div>

@@ -3,6 +3,7 @@ import { get, post, put, patch, del, uploadForm, getBlob } from './lib/http';
 import { createResource, createCreateOnlyResource } from './lib/resource';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { formatMoney } from './lib/format-money';
 import type {
   Organization, Category, Product, Supplier, PurchaseOrder, Bill, PaymentTransaction,
   Notification, ItemReturn, ReportGenerationLog, GenerateReportInput, Order, OrderQueueItem, Invoice, Customer, CustomerCreditTransaction, CreditTransactionDocument, Expense, PurchaseItem,
@@ -13,12 +14,15 @@ import type {
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
   BillStatus, PaymentMethod, CreateBillItemInput, UpdateBillInput,
   CreateSalesReturnInput, SalesReturn, CreatePurchaseReturnInput, PurchaseReturn,
+  PurchaseReturnRefundResult, RecordPurchaseReturnRefundInput,
   CreditApprovalRequest, CommissionPayable,
-  QuickCharge, CustomerTypeRule,
+  QuickCharge, CustomerTypeRule, OrganizationFinancialSettings, UpdateOrganizationFinancialSettings,
   Country, State, City,
   CreatePurchaseOrderInput, ReceivePurchaseOrderInput, AllocatePurchaseOrderInput,
-  UnpublishedStockPurchaseOrder, UnpublishedStockPurchaseItem,
+  UnpublishedStockPurchaseOrder,
   CreateUnpublishedStockPOInput, ReceiveUnpublishedStockPOInput, AllocateUnpublishedStockPOInput,
+  CreateUnpublishedStockPurchaseReturnInput, BlackPurchaseReturnResult,
+  BlackPurchaseReturnRefundResult, RecordBlackPurchaseReturnRefundInput,
   ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
   PageAccessConfig,
@@ -33,7 +37,7 @@ import type {
   DashboardAnalyticsParams,
   PackedOrder,
   PurchaseOrderPayment, SupplierAccount,
-  Quotation, ConvertToOrderInput, SendQuotationEmailInput,
+  Quotation, CreateQuotationInput, UpdateQuotationInput, ConvertToOrderInput, SendQuotationEmailInput,
   ProductBranchPrice, ProductBranchPricesPage,
 } from './types';
 
@@ -181,9 +185,9 @@ export const UnpublishedStockPurchaseOrders = {
     return useQuery({
       queryKey: ['unpublished-stock-purchase-items', 'by-order', purchaseOrderId],
       queryFn: () =>
-        get<UnpublishedStockPurchaseItem[]>(
-          `/api/v1/unpublished-stock-purchase-items/by-order/${purchaseOrderId as string}`,
-        ),
+        get<UnpublishedStockPurchaseOrder>(
+          `/api/v1/unpublished-stock-purchase-orders/${purchaseOrderId as string}`,
+        ).then((purchaseOrder) => purchaseOrder.items ?? []),
       enabled: !!purchaseOrderId,
     });
   },
@@ -218,6 +222,35 @@ export const UnpublishedStockPurchaseOrders = {
         queryClient.invalidateQueries({ queryKey: ['unpublished-stock'] });
       },
       onError: (error: Error) => toast.error(error.message || 'Failed to allocate stock'),
+    });
+  },
+  useCreateReturn() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: CreateUnpublishedStockPurchaseReturnInput }) =>
+        post<BlackPurchaseReturnResult>(`/api/v1/unpublished-stock-purchase-orders/${id}/returns`, body),
+      onSuccess: (_result, { id }) => {
+        toast.success('Black stock returned to supplier');
+        queryClient.invalidateQueries({ queryKey: ['unpublished-stock-purchase-orders', id] });
+        queryClient.invalidateQueries({ queryKey: ['unpublished-stock-purchase-items'] });
+        queryClient.invalidateQueries({ queryKey: ['unpublished-stock'] });
+        queryClient.invalidateQueries({ queryKey: ['black-ledger'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to return black stock'),
+    });
+  },
+  useRecordReturnRefund() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, returnId, body }: { id: string; returnId: string; body: RecordBlackPurchaseReturnRefundInput }) =>
+        post<BlackPurchaseReturnRefundResult>(`/api/v1/unpublished-stock-purchase-orders/${id}/returns/${returnId}/refunds`, body),
+      onSuccess: () => {
+        toast.success('Supplier refund recorded in the black ledger');
+        queryClient.invalidateQueries({ queryKey: ['black-ledger'] });
+        queryClient.invalidateQueries({ queryKey: ['unpublished-stock-purchase-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to record supplier refund'),
     });
   },
 };
@@ -417,6 +450,20 @@ export const PurchaseReturns = {
       onError: (error: Error) => toast.error(error.message || 'Failed to cancel purchase return'),
     });
   },
+  useRecordRefund() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: RecordPurchaseReturnRefundInput }) =>
+        post<PurchaseReturnRefundResult>(`/api/v1/purchase-returns/${id}/refunds`, body),
+      onSuccess: (result) => {
+        toast.success(`Supplier refund recorded. Outstanding credit: ${formatMoney(result.outstandingCredit)}`);
+        queryClient.invalidateQueries({ queryKey: ['purchase-returns'] });
+        queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+        queryClient.invalidateQueries({ queryKey: ['suppliers'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to record supplier refund'),
+    });
+  },
 };
 
 const notificationsBase = createResource<Notification>('/api/v1/notifications', 'notifications', 'Notification');
@@ -492,6 +539,26 @@ const quotationsBase = createResource<Quotation>('/api/v1/quotations', 'quotatio
 
 export const Quotations = {
   ...quotationsBase,
+  useCreate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: CreateQuotationInput) => post<Quotation>('/api/v1/quotations', body),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ['quotations'] }),
+      onError: (error: Error) => toast.error(error.message || 'Failed to create quotation'),
+    });
+  },
+  useUpdate() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: ({ id, body }: { id: string; body: UpdateQuotationInput }) =>
+        put<Quotation>(`/api/v1/quotations/${id}`, body),
+      onSuccess: (updated) => {
+        queryClient.setQueryData(['quotations', updated.id], updated);
+        queryClient.invalidateQueries({ queryKey: ['quotations'] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to update quotation'),
+    });
+  },
   useRevisions(id: string | undefined) {
     return useQuery({
       queryKey: ['quotations', id, 'revisions'],
@@ -799,6 +866,24 @@ export const CreditApprovals = {
 };
 
 export const BillingSettings = {
+  useOrganizationSettings() {
+    return useQuery({
+      queryKey: ['billing-settings', 'organization'],
+      queryFn: () => get<OrganizationFinancialSettings>('/api/v1/billing-settings/organization'),
+    });
+  },
+  useUpdateOrganizationSettings() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: UpdateOrganizationFinancialSettings) =>
+        patch<OrganizationFinancialSettings>('/api/v1/billing-settings/organization', body),
+      onSuccess: (settings) => {
+        queryClient.setQueryData(['billing-settings', 'organization'], settings);
+        toast.success('Organization settings saved');
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to save organization settings'),
+    });
+  },
   useQuickCharges(opts?: { enabled?: boolean }) {
     return useQuery({
       queryKey: ['billing-settings', 'quick-charges', opts?.enabled ?? 'all'],

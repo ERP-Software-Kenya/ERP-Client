@@ -8,6 +8,7 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { useUpdateProductPrice } from '../../../api';
 import type { Product } from '../../../types';
+import { getCurrencyCode } from '../../../lib/format-money';
 
 interface Props {
   product: Product | null;
@@ -55,11 +56,11 @@ export function SetPriceDialog({ product, onClose }: Props) {
   }
 
   const fields: Array<{ key: keyof typeof form; label: string; prefix: string }> = [
-    { key: 'retailPrice',    label: 'Retail Price',    prefix: 'KSh' },
-    { key: 'costPrice',      label: 'Cost Price',      prefix: 'KSh' },
-    { key: 'loyaltyPrice',   label: 'Loyalty Price',   prefix: 'KSh' },
-    { key: 'wholesalePrice', label: 'Wholesale Price', prefix: 'KSh' },
-    { key: 'transferPrice',  label: 'Transfer Price',  prefix: 'KSh' },
+    { key: 'retailPrice',    label: 'Retail Price',    prefix: getCurrencyCode() },
+    { key: 'costPrice',      label: 'Cost Price',      prefix: getCurrencyCode() },
+    { key: 'loyaltyPrice',   label: 'Loyalty Price',   prefix: getCurrencyCode() },
+    { key: 'wholesalePrice', label: 'Wholesale Price', prefix: getCurrencyCode() },
+    { key: 'transferPrice',  label: 'Transfer Price',  prefix: getCurrencyCode() },
     { key: 'reorderPoint',   label: 'Reorder Point',   prefix: 'Qty' },
   ];
 

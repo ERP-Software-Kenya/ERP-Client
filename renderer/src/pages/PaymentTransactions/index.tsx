@@ -10,6 +10,7 @@ import { useSession } from '../../context/SessionContext';
 import { usePagination } from '../../hooks/usePagination';
 import { formatEntityLabel } from '../../lib/entityLabel';
 import { loadErrorMessage } from '../../lib/api-error';
+import { formatMoney } from '../../lib/format-money';
 import type { PaymentTransaction } from '../../types';
 
 const STATUS_FILTERS = ['ALL', 'PENDING', 'COMPLETED', 'FAILED'] as const;
@@ -109,7 +110,7 @@ export default function PaymentTransactionsPage() {
     {
       key: 'amount',
       label: 'Amount',
-      render: (row) => (row.amount != null ? `KSh ${Number(row.amount).toFixed(2)}` : '—'),
+      render: (row) => (row.amount != null ? formatMoney(Number(row.amount)) : '—'),
     },
     { key: 'status', label: 'Status' },
   ];

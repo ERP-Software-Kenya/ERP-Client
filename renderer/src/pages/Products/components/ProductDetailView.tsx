@@ -13,11 +13,12 @@ import {
   useProductLogsByProduct,
 } from '../../../api';
 import type { Product, Supplier } from '../../../types';
+import { formatMoney, getCurrencyCode } from '../../../lib/format-money';
 
 // ── Formatters ──────────────────────────────────────────────────────────────
 
 function fmtCurrency(n: number) {
-  return 'KSh ' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatMoney(n);
 }
 
 function fmtDate(d: string | Date | undefined) {
@@ -302,7 +303,7 @@ export function ProductDetailView({ productId, categoryName, allSuppliers, onClo
                   <h2 className="text-sm font-semibold">Pricing &amp; Stock</h2>
                 </div>
                 <span className="rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground tracking-wide">
-                  CURRENCY: KES (KSh)
+                  CURRENCY: {getCurrencyCode()}
                 </span>
               </div>
 
@@ -509,7 +510,7 @@ export function ProductDetailView({ productId, categoryName, allSuppliers, onClo
                   {suppliers.map((link) => {
                     const sup = allSuppliers.find((s) => s.id === link.supplierId);
                     const details = [
-                      link.unitCost != null && `Cost KSh ${link.unitCost}`,
+                      link.unitCost != null && `Cost ${formatMoney(Number(link.unitCost))}`,
                       link.leadTimeDays != null && `Lead ${link.leadTimeDays}d`,
                       link.minOrderQty != null && `MOQ ${link.minOrderQty}`,
                     ].filter(Boolean).join(' · ');

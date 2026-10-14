@@ -2,8 +2,9 @@ export { configureApi, get, post, put, patch, del } from '../../../lib/http';
 import { get, post, put, del, uploadForm } from '../../../lib/http';
 import { createResource } from '../../../lib/resource';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import type {
-  Product, ItemReturn, Location,
+  Category, Product, ItemReturn, Location,
   ProductImage, ProductImageUploadUrl, ProductSupplier,
   InventoryItem, StockMovement, StockMovementOp, StockOperationBody, StockTransfer,
   UnpublishedStock, UnpublishedStockMovement, ProductLog, PaginatedResponse,
@@ -32,7 +33,7 @@ export const Inventory = {
   useByProduct(productId: string | undefined) {
     return useQuery({
       queryKey: ['inventory', 'by-product', productId],
-      queryFn: () => get<InventoryItem[]>(`/api/v1/inventory/by-product/${productId}`),
+      queryFn: () => get<InventoryItem[]>('/api/v1/inventory/list', { productId: productId as string }),
       enabled: !!productId,
     });
   },

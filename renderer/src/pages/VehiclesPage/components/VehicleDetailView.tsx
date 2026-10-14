@@ -8,6 +8,7 @@ import {
 import { toast } from 'sonner';
 import { MOCK_STORE, VehicleModal } from './VehiclesView';
 import type { Vehicle, VehicleMaintenance } from '../../../types';
+import { formatMoney } from '../../../lib/format-money';
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 const MOCK_VEHICLES: Record<string, Vehicle & { maintenance: VehicleMaintenance[]; routeLogs: { date: string; route: string; distance: string; duration: string }[]; fuelTx: { date: string; location: string; gallons: number; cost: number }[] }> = {
@@ -421,7 +422,7 @@ export function VehicleDetailView({ vehicleId }: Props) {
                           <td style={{ padding: '0.8rem 1rem', fontWeight: 600, color: 'var(--color-foreground)' }}>{row.service_type}</td>
                           <td style={{ padding: '0.8rem 1rem', color: 'var(--color-muted-foreground)', fontSize: '0.8rem' }}>{row.provider}</td>
                           <td style={{ padding: '0.8rem 1rem', fontFamily: 'monospace', color: 'var(--color-foreground)' }}>
-                            {row.cost === 0 ? 'KSh 0.00' : `KSh ${row.cost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                            {formatMoney(row.cost)}
                           </td>
                           <td style={{ padding: '0.8rem 1rem' }}>
                             <span style={{ background: sc.bg, color: sc.text, padding: '2px 8px', borderRadius: 4, fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -501,7 +502,7 @@ export function VehicleDetailView({ vehicleId }: Props) {
                           <td style={{ padding: '0.8rem 1rem', color: 'var(--color-foreground)' }}>{row.location}</td>
                           <td style={{ padding: '0.8rem 1rem', fontFamily: 'monospace', color: 'var(--color-foreground)' }}>{row.gallons} gal</td>
                           <td style={{ padding: '0.8rem 1rem', fontFamily: 'monospace', color: '#4ade80', fontWeight: 600 }}>
-                            KSh {row.cost.toFixed(2)}
+                            {formatMoney(row.cost)}
                           </td>
                         </tr>
                       ))}

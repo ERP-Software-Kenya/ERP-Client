@@ -10,6 +10,7 @@ import { truncateId } from "../../lib/entityLabel";
 import { loadErrorMessage } from "../../lib/api-error";
 import type { PurchaseOrder, PurchaseOrderStatus } from "../../types";
 import type { ExtraAction } from "../../components/RowActionsMenu";
+import { formatMoney } from '../../lib/format-money';
 
 const STATUS_STYLES: Record<PurchaseOrderStatus, string> = {
   draft:                "bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300",
@@ -94,7 +95,7 @@ export default function PurchaseOrdersPage() {
       label: "Total",
       render: (row) =>
         row.totalAmount != null
-          ? `KSh ${Number(row.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          ? formatMoney(Number(row.totalAmount))
           : "—",
     },
     {

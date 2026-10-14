@@ -10,6 +10,7 @@ import { SetPriceDialog } from './components/SetPriceDialog';
 import { Categories, Products, Suppliers } from '../../api';
 import { usePagination } from '../../hooks/usePagination';
 import { formatEntityLabel } from '../../lib/entityLabel';
+import { formatMoney } from '../../lib/format-money';
 import type { Product } from '../../types';
 
 
@@ -61,7 +62,7 @@ export default function ProductsPage() {
     {
       key: 'retailPrice',
       label: 'Retail Price',
-      render: (row) => `KSh ${Number(row.retailPrice || 0).toFixed(2)}`,
+      render: (row) => formatMoney(Number(row.retailPrice || 0)),
     },
     { key: 'unit', label: 'Unit' },
     {

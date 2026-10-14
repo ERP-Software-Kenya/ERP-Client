@@ -7,7 +7,7 @@ import type {
   Role, UserRole, PlatformUser,
   ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation,
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
-  PageAccessConfig,
+  PageAccessConfig, EInvitationStatus,
 } from '../../../types';
 
 const CLERK_USERS_KEY = 'clerk-users';

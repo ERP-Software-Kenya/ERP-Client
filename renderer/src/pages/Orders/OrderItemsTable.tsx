@@ -1,4 +1,5 @@
 import { Minus, Package, Plus, ShoppingCart, Trash2 } from 'lucide-react';
+import { formatMoney } from '../../lib/format-money';
 
 export interface OrderLineItem {
   id: number;
@@ -15,7 +16,7 @@ interface OrderItemsTableProps {
 }
 
 function fmt(n: number): string {
-  return `KSh ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatMoney(n);
 }
 
 export function OrderItemsTable({ items, onQtyChange, onRemove }: OrderItemsTableProps): React.JSX.Element {

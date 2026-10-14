@@ -8,6 +8,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { formatMoney } from '../../lib/format-money';
 import { DataTable, type Column } from '../../components/DataTable';
 import { FilterDropdown } from '../../components/FilterDropdown';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -157,12 +158,12 @@ export default function BlackStockReportsPage(): React.ReactElement {
 
   const totalBlackSales = useMemo(() => {
     const sum = bills.reduce((acc, b) => acc + Number(b.totalAmount || 0), 0);
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(sum);
+    return formatMoney(sum);
   }, [bills]);
 
   const totalBlackMarkup = useMemo(() => {
     const sum = bills.reduce((acc, b) => acc + Number(b.blackAmount || 0), 0);
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(sum);
+    return formatMoney(sum);
   }, [bills]);
 
   // Handle generation
@@ -203,7 +204,7 @@ export default function BlackStockReportsPage(): React.ReactElement {
     return filteredReports.slice(start, start + pageSize);
   }, [filteredReports, page]);
 
-  const columns: Column<BlackReportLog>[] = useMemo(
+  const columns = useMemo<Column<BlackReportLog>[]>(
     () => [
       {
         key: 'reportName',
@@ -426,14 +427,14 @@ export default function BlackStockReportsPage(): React.ReactElement {
         title="Delete Generated Report"
         description={`Are you sure you want to delete "${deleteTarget?.reportName}"? This will remove it from your report history.`}
         confirmLabel="Delete"
-        destructive
+        confirmVariant="destructive"
         onConfirm={() => {
           if (deleteTarget) {
             setReports((prev) => prev.filter((r) => r.id !== deleteTarget.id));
             setDeleteTarget(null);
           }
         }}
-        onCancel={() => setDeleteTarget(null)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
       />
     </div>
   );

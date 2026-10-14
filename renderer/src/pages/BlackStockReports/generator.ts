@@ -4,9 +4,10 @@ import {
   BLACK_REPORT_TYPE_LABEL,
 } from './constants';
 import type { Location, Product, UnpublishedStock, Bill, CommissionPayable } from '../../types';
+import { formatMoney } from '../../lib/format-money';
 
 function inr(num: number): string {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(num);
+  return formatMoney(num);
 }
 
 function fmtDate(dStr: string): string {

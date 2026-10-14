@@ -10,6 +10,7 @@ import { ViewDrawer } from '../../components/ViewDrawer';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { FormSelect } from '../../components/FormSelect';
+import { formatMoney } from '../../lib/format-money';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import {
   ItemReturns,
@@ -224,7 +225,7 @@ export default function ItemReturnsPage() {
     {
       key: 'totalAmount',
       label: 'Total',
-      render: (row) => `KSh ${Number(row.totalAmount || 0).toFixed(2)}`,
+      render: (row) => formatMoney(Number(row.totalAmount || 0)),
     },
     { key: 'status', label: 'Status' },
     {

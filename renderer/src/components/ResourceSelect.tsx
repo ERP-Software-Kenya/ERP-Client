@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 const NONE_VALUE = '__none__';
 
 interface ListResource<T> {
-  useList(enabled?: boolean): { data?: T[] };
+  useList(): { data?: T[] };
 }
 
 interface ResourceSelectProps<T extends { id: string }> {

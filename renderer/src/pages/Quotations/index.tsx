@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import QuotationPreviewModal from './QuotationPreviewModal';
 import ConvertQuotationModal from './ConvertQuotationModal';
 import type { Quotation } from '../../types';
+import { formatMoney, getCurrencyCode } from '../../lib/format-money';
 
 const STATUS_TABS = [
   { id: 'ALL', label: 'All Quotations' },
@@ -158,7 +159,7 @@ export default function QuotationsListPage() {
                 <th className="p-3">Customer</th>
                 <th className="p-3">Location</th>
                 <th className="p-3 text-right">Items</th>
-                <th className="p-3 text-right">Grand Total (₹)</th>
+                <th className="p-3 text-right">Grand Total ({getCurrencyCode()})</th>
                 <th className="p-3 text-center">Status</th>
                 <th className="p-3">Date</th>
                 <th className="p-3 pr-4 text-right">Actions</th>
@@ -199,7 +200,7 @@ export default function QuotationsListPage() {
                       {quote.items?.length ?? 0}
                     </td>
                     <td className="p-3 text-right font-bold text-foreground">
-                      ₹{Number(quote.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {formatMoney(Number(quote.totalAmount))}
                     </td>
                     <td className="p-3 text-center">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase ${getStatusBadge(quote.status)}`}>

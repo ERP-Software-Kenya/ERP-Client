@@ -7,7 +7,7 @@ import {
   Locations,
   Inventory,
 } from '../../api';
-import { useSession } from '../../context/SessionContext';
+import { formatMoney, getCurrencyCode } from '../../lib/format-money';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { toast } from 'sonner';
@@ -44,8 +44,7 @@ export default function QuotationBuilder() {
   const { id } = useParams<{ id: string }>();
   const isEditing = Boolean(id && id !== 'new');
 
-  const { activeLocationId } = useSession();
-  const [selectedLocationId, setSelectedLocationId] = useState<string>(activeLocationId ?? '');
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
@@ -149,13 +148,13 @@ export default function QuotationBuilder() {
 
       const available = stockMap.get(product.id) ?? 0;
       const rate = Number(product.retailPrice ?? 0);
-      const taxRate = Number(product.taxRate ?? 18);
+      const taxRate = 0;
 
       setItems((prev) => [
         ...prev,
         {
           productId: product.id,
-          productName: product.name,
+          productName: product.name ?? 'Unnamed product',
           sku: product.sku,
           quantity: 1,
           unitPriceInclusive: rate,
@@ -187,10 +186,10 @@ export default function QuotationBuilder() {
         if (patch.productId && patch.productId !== item.productId) {
           const prod = (productsData?.items ?? []).find((p) => p.id === patch.productId);
           if (prod) {
-            updated.productName = prod.name;
+            updated.productName = prod.name ?? 'Unnamed product';
             updated.sku = prod.sku;
             updated.unitPriceInclusive = Number(prod.retailPrice ?? 0);
-            updated.taxRate = Number(prod.taxRate ?? 18);
+            updated.taxRate = 0;
             updated.stockAvailable = stockMap.get(prod.id) ?? 0;
           }
         }
@@ -229,10 +228,12 @@ export default function QuotationBuilder() {
       if (isEditing) {
         await updateQuotation.mutateAsync({
           id: id!,
-          locationId: selectedLocationId,
-          customerId: selectedCustomerId,
-          notes: notes.trim() || undefined,
-          items: payloadItems,
+          body: {
+            locationId: selectedLocationId,
+            customerId: selectedCustomerId,
+            notes: notes.trim() || undefined,
+            items: payloadItems,
+          },
         });
         toast.success('Quotation updated successfully');
       } else {
@@ -439,7 +440,7 @@ export default function QuotationBuilder() {
                         type="button"
                         onClick={() => {
                           setSelectedCustomerId(c.id);
-                          setCustomerSearch(c.name);
+                          setCustomerSearch(c.name ?? 'Unnamed customer');
                           setShowCustomerDropdown(false);
                         }}
                         className="w-full text-left px-3 py-2 hover:bg-muted text-xs flex justify-between items-center transition-colors"
@@ -494,9 +495,9 @@ export default function QuotationBuilder() {
                     <th className="p-2.5 pl-3">Product / SKU</th>
                     <th className="p-2.5 text-center w-24">Live Stock</th>
                     <th className="p-2.5 text-right w-20">Qty</th>
-                    <th className="p-2.5 text-right w-28">Rate (Inc ₹)</th>
+                    <th className="p-2.5 text-right w-28">Rate (Inc {getCurrencyCode()})</th>
                     <th className="p-2.5 text-right w-20">Tax %</th>
-                    <th className="p-2.5 text-right w-28">Total (₹)</th>
+                    <th className="p-2.5 text-right w-28">Total ({getCurrencyCode()})</th>
                     {!isReadOnly && <th className="p-2.5 w-10 text-center"></th>}
                   </tr>
                 </thead>
@@ -525,7 +526,7 @@ export default function QuotationBuilder() {
                               <option value="">Select Product...</option>
                               {(productsData?.items ?? []).map((p) => (
                                 <option key={p.id} value={p.id}>
-                                  {p.name} {p.sku ? `(${p.sku})` : ''} - ₹{p.retailPrice}
+                                  {p.name} {p.sku ? `(${p.sku})` : ''} - {formatMoney(Number(p.retailPrice))}
                                 </option>
                               ))}
                             </select>
@@ -558,7 +559,7 @@ export default function QuotationBuilder() {
                         </td>
                         <td className="p-2 text-right">
                           {isReadOnly ? (
-                            <span className="font-semibold">₹{item.unitPriceInclusive}</span>
+                            <span className="font-semibold">{formatMoney(item.unitPriceInclusive)}</span>
                           ) : (
                             <Input
                               type="number"
@@ -588,7 +589,7 @@ export default function QuotationBuilder() {
                           )}
                         </td>
                         <td className="p-2 text-right font-bold text-foreground">
-                          ₹{Math.round(item.quantity * item.unitPriceInclusive * 100) / 100}
+                          {formatMoney(Math.round(item.quantity * item.unitPriceInclusive * 100) / 100)}
                         </td>
                         {!isReadOnly && (
                           <td className="p-2 text-center">
@@ -621,15 +622,15 @@ export default function QuotationBuilder() {
             <div className="space-y-2.5 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>Taxable Subtotal:</span>
-                <span className="font-medium text-foreground">₹{totals.subtotal.toFixed(2)}</span>
+                <span className="font-medium text-foreground">{formatMoney(totals.subtotal)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Total GST Tax:</span>
-                <span className="font-medium text-foreground">₹{totals.taxAmount.toFixed(2)}</span>
+                <span className="font-medium text-foreground">{formatMoney(totals.taxAmount)}</span>
               </div>
               <div className="flex justify-between text-base font-bold text-foreground border-t border-border pt-3 mt-2">
                 <span>Grand Total (Inc):</span>
-                <span className="text-primary">₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="text-primary">{formatMoney(totals.grandTotal)}</span>
               </div>
             </div>
 
@@ -680,7 +681,7 @@ export default function QuotationBuilder() {
         onClose={() => setIsQuickCustomerOpen(false)}
         onSuccess={(customer) => {
           setSelectedCustomerId(customer.id);
-          setCustomerSearch(customer.name);
+          setCustomerSearch(customer.name ?? 'Unnamed customer');
         }}
       />
 

@@ -32,7 +32,7 @@ export interface CustomerInfoSectionProps {
   isBlackSale?: boolean;
   canCreateBlackSale?: boolean;
   creditBalance: number;
-  customerInputRef?: RefObject<HTMLInputElement>;
+  customerInputRef?: RefObject<HTMLInputElement | null>;
   billedBy: string;
   transactionDate: string;
   onTransactionDateChange: (v: string) => void;

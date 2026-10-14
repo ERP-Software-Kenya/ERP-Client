@@ -3,6 +3,7 @@ import { Package, Scan, X } from 'lucide-react';
 import type { Product } from '../../types';
 import { Products } from '../../api';
 import { useDebounce } from '../../hooks/useDebounce';
+import { formatMoney } from '../../lib/format-money';
 
 interface OrderProductSearchProps {
   onAddProduct: (p: Product) => void;
@@ -74,7 +75,7 @@ export function OrderProductSearch({ onAddProduct }: OrderProductSearchProps): R
                   <p className="truncate text-xs font-semibold text-foreground">{p.name}</p>
                   <p className="font-mono text-[10px] text-muted-foreground">{p.sku ?? p.id.slice(0, 8)}</p>
                   <p className="mt-0.5 text-[10px] font-semibold text-primary">
-                    KSh {Number(p.retailPrice ?? 0).toFixed(2)}
+                    {formatMoney(Number(p.retailPrice ?? 0))}
                   </p>
                 </div>
               </button>

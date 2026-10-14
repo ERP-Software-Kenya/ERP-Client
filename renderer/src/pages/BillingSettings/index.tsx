@@ -1,11 +1,20 @@
-import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CalendarRange, Globe2, Plus, Save, Trash2, WalletCards } from 'lucide-react';
 import { BillingSettings } from '../../api';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { FormSection } from '../../components/FormDrawer';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import type { CustomerType, CustomerTypeRule, QuickCharge } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+import { useSession } from '../../context/SessionContext';
+import { configureCurrencyCode, getCurrencySymbol } from '../../lib/format-money';
+
+const CURRENCIES = ['USD', 'KES', 'INR', 'EUR', 'GBP', 'AED', 'TZS', 'UGX', 'ZAR', 'CAD', 'AUD'] as const;
+const MONTHS = Array.from({ length: 12 }, (_, index) =>
+  new Intl.DateTimeFormat(undefined, { month: 'long' }).format(new Date(2024, index, 1)),
+);
+const TIME_ZONES = ['UTC', 'Africa/Nairobi', 'Africa/Kampala', 'Africa/Dar_es_Salaam', 'Asia/Kolkata', 'Asia/Dubai', 'Europe/London', 'America/New_York'];
 
 const TYPE_LABEL: Record<CustomerType, string> = {
   regular: 'Regular',
@@ -15,6 +24,10 @@ const TYPE_LABEL: Record<CustomerType, string> = {
 };
 
 export default function BillingSettingsPage(): React.JSX.Element {
+  const { refresh: refreshAuth } = useAuth();
+  const { isOrgAdmin } = useSession();
+  const { data: organizationSettings, isLoading: settingsLoading, error: settingsError } = BillingSettings.useOrganizationSettings();
+  const updateOrganizationSettings = BillingSettings.useUpdateOrganizationSettings();
   const { data: charges = [], isLoading: chargesLoading } = BillingSettings.useQuickCharges();
   const { data: rules = [], isLoading: rulesLoading } = BillingSettings.useCustomerTypeRules();
   const createCharge = BillingSettings.useCreateQuickCharge();
@@ -25,6 +38,28 @@ export default function BillingSettingsPage(): React.JSX.Element {
   const [newLabel, setNewLabel] = useState('');
   const [newAmount, setNewAmount] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<QuickCharge | null>(null);
+  const [currencyCode, setCurrencyCode] = useState('USD');
+  const [fiscalYearStartMonth, setFiscalYearStartMonth] = useState(4);
+  const [timeZone, setTimeZone] = useState('UTC');
+
+  useEffect(() => {
+    if (!organizationSettings) return;
+    setCurrencyCode(organizationSettings.baseCurrencyCode);
+    setFiscalYearStartMonth(organizationSettings.fiscalYearStartMonth);
+    setTimeZone(organizationSettings.timeZone);
+  }, [organizationSettings]);
+
+  const saveOrganizationSettings = (): void => {
+    updateOrganizationSettings.mutate(
+      { baseCurrencyCode: currencyCode, fiscalYearStartMonth, timeZone },
+      {
+        onSuccess: async (settings) => {
+          configureCurrencyCode(settings.baseCurrencyCode);
+          await refreshAuth();
+        },
+      },
+    );
+  };
 
   const handleAddCharge = (ev: React.FormEvent): void => {
     ev.preventDefault();
@@ -45,9 +80,50 @@ export default function BillingSettingsPage(): React.JSX.Element {
   return (
     <div className="mx-auto max-w-4xl space-y-8 p-6">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Billing</h1>
-        <p className="text-sm text-muted-foreground">Quick charges and customer-type price/credit defaults.</p>
+        <h1 className="text-xl font-semibold text-foreground">Financial settings</h1>
+        <p className="text-sm text-muted-foreground">Organization currency, fiscal calendar, regional settings, and billing defaults.</p>
       </div>
+
+      <FormSection title="Organization finance">
+        {settingsLoading ? (
+          <p className="text-sm text-muted-foreground">Loading organization settings…</p>
+        ) : settingsError ? (
+          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">Unable to load organization settings. Confirm that your account has organization-admin access and try again.</p>
+        ) : (
+          <div className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="space-y-1.5 text-sm">
+                <span className="flex items-center gap-2 font-medium"><WalletCards size={15} /> Base currency</span>
+                <select className="h-10 w-full rounded-md border border-input bg-background px-3" value={currencyCode} onChange={(event) => setCurrencyCode(event.target.value)} disabled={!isOrgAdmin}>
+                  {[...new Set([currencyCode, ...CURRENCIES])].map((code) => <option key={code} value={code}>{code} ({getCurrencySymbol(code)})</option>)}
+                </select>
+                <span className="block text-xs text-muted-foreground">Used for every amount, document, and report.</span>
+              </label>
+              <label className="space-y-1.5 text-sm">
+                <span className="flex items-center gap-2 font-medium"><CalendarRange size={15} /> Fiscal year starts</span>
+                <select className="h-10 w-full rounded-md border border-input bg-background px-3" value={fiscalYearStartMonth} onChange={(event) => setFiscalYearStartMonth(Number(event.target.value))} disabled={!isOrgAdmin}>
+                  {MONTHS.map((month, index) => <option key={month} value={index + 1}>{month}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1.5 text-sm">
+                <span className="flex items-center gap-2 font-medium"><Globe2 size={15} /> Time zone</span>
+                <select className="h-10 w-full rounded-md border border-input bg-background px-3" value={timeZone} onChange={(event) => setTimeZone(event.target.value)} disabled={!isOrgAdmin}>
+                  {[...new Set([timeZone, ...TIME_ZONES])].map((zone) => <option key={zone} value={zone}>{zone.replaceAll('_', ' ')}</option>)}
+                </select>
+              </label>
+            </div>
+            {isOrgAdmin ? (
+              <div className="flex justify-end">
+                <Button type="button" onClick={saveOrganizationSettings} disabled={updateOrganizationSettings.isPending || !organizationSettings}>
+                  <Save size={14} className="mr-1.5" />{updateOrganizationSettings.isPending ? 'Saving…' : 'Save organization settings'}
+                </Button>
+              </div>
+            ) : (
+              <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">Only organization administrators can change these settings.</p>
+            )}
+          </div>
+        )}
+      </FormSection>
 
       <FormSection title="Quick Charges">
         <p className="mb-3 text-xs text-muted-foreground">

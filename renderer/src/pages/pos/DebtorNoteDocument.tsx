@@ -1,7 +1,8 @@
 import type { PosReceipt } from './checkout';
+import { formatMoney } from '../../lib/format-money';
 
 function fmt(n: number) {
-  return `KSh ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatMoney(n);
 }
 
 function fmtDate(iso: string) {

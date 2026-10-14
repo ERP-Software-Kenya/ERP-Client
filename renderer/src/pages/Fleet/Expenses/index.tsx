@@ -7,6 +7,7 @@ import { Input } from '../../../components/ui/input';
 import { FormSelect } from '../../../components/FormSelect';
 import { FleetExpensesApi, FleetVehicles, FleetTrips } from '../../../api';
 import type { FleetExpense, FleetExpenseType } from '../../../types';
+import { formatMoney, getCurrencyCode } from '../../../lib/format-money';
 
 const EXPENSE_TYPES: FleetExpenseType[] = ['fuel', 'toll', 'parking', 'insurance', 'tax', 'washing', 'repair', 'other'];
 
@@ -103,7 +104,7 @@ export default function FleetExpensesPage(): React.JSX.Element {
         <div className="bg-card border border-border rounded-xl p-4 shadow-sm inline-flex flex-col">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Session Total</p>
           <p className="text-2xl font-black text-foreground mt-1 tabular-nums">
-            ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            {formatMoney(totalAmount)}
           </p>
         </div>
       )}
@@ -133,7 +134,7 @@ export default function FleetExpensesPage(): React.JSX.Element {
                       </span>
                     </td>
                     <td className="px-4 py-2 font-semibold tabular-nums">
-                      ₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {formatMoney(exp.amount)}
                     </td>
                     <td className="px-4 py-2 text-muted-foreground text-xs">
                       {exp.expenseDate ? new Date(exp.expenseDate).toLocaleDateString() : '—'}
@@ -193,7 +194,7 @@ export default function FleetExpensesPage(): React.JSX.Element {
               options={EXPENSE_TYPE_OPTIONS}
             />
           </Field>
-          <Field label="Amount (₹)" required>
+          <Field label={`Amount (${getCurrencyCode()})`} required>
             <Input
               type="number"
               min="0"
@@ -233,7 +234,7 @@ export default function FleetExpensesPage(): React.JSX.Element {
         open={deleteTarget !== null}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title="Delete Expense"
-        description={`Delete this ${deleteTarget?.expenseType ?? ''} expense of ₹${deleteTarget?.amount ?? 0}?`}
+        description={`Delete this ${deleteTarget?.expenseType ?? ''} expense of ${formatMoney(Number(deleteTarget?.amount ?? 0))}?`}
         confirmLabel="Delete"
         isPending={deleteMutation.isPending}
         onConfirm={() => {

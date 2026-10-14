@@ -11,6 +11,7 @@ import { Expenses, ExpensesApi, Locations } from '../../api';
 import { loadErrorMessage } from '../../lib/api-error';
 import { useSession } from '../../context/SessionContext';
 import type { Expense, EExpenseStatus } from '../../types';
+import { formatMoney, getCurrencyCode } from '../../lib/format-money';
 
 const STATUS_OPTIONS = [
   { label: 'All', value: '' },
@@ -181,7 +182,7 @@ export default function ExpensesPage(): React.JSX.Element {
             label: 'Amount',
             render: (r) =>
               r.amount != null
-                ? <span className="font-semibold tabular-nums">₹{Number(r.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                ? <span className="font-semibold tabular-nums">{formatMoney(Number(r.amount))}</span>
                 : <span className="text-muted-foreground">—</span>,
           },
           {
@@ -349,7 +350,7 @@ export default function ExpensesPage(): React.JSX.Element {
               required
             />
           </Field>
-          <Field label="Amount (₹)" required>
+          <Field label={`Amount (${getCurrencyCode()})`} required>
             <Input
               type="number"
               step="0.01"
@@ -390,7 +391,7 @@ export default function ExpensesPage(): React.JSX.Element {
         open={approveTarget !== null}
         onOpenChange={(open) => !open && setApproveTarget(null)}
         title="Approve Expense"
-        description={`Approve this ${approveTarget?.category ?? 'expense'} claim of ₹${approveTarget?.amount ?? 0}?`}
+        description={`Approve this ${approveTarget?.category ?? 'expense'} claim of ${formatMoney(Number(approveTarget?.amount ?? 0))}?`}
         confirmLabel="Approve"
         confirmVariant="default"
         isPending={updateStatus.isPending}
@@ -407,7 +408,7 @@ export default function ExpensesPage(): React.JSX.Element {
           }
         }}
         title="Reject Expense"
-        description={`Reject this ${rejectTarget?.category ?? 'expense'} claim of ₹${rejectTarget?.amount ?? 0}?`}
+        description={`Reject this ${rejectTarget?.category ?? 'expense'} claim of ${formatMoney(Number(rejectTarget?.amount ?? 0))}?`}
         confirmLabel="Reject"
         confirmVariant="destructive"
         isPending={updateStatus.isPending}
@@ -427,7 +428,7 @@ export default function ExpensesPage(): React.JSX.Element {
           }
         }}
         title="Move to Under Review"
-        description={`Move this ${reviewTarget?.category ?? 'expense'} claim of ₹${reviewTarget?.amount ?? 0} to under review?`}
+        description={`Move this ${reviewTarget?.category ?? 'expense'} claim of ${formatMoney(Number(reviewTarget?.amount ?? 0))} to under review?`}
         confirmLabel="Move to Review"
         confirmVariant="default"
         isPending={updateStatus.isPending}
@@ -442,7 +443,7 @@ export default function ExpensesPage(): React.JSX.Element {
         open={settleTarget !== null}
         onOpenChange={(open) => !open && setSettleTarget(null)}
         title="Mark as Settled"
-        description={`Mark this ${settleTarget?.category ?? 'expense'} claim of ₹${settleTarget?.amount ?? 0} as settled?`}
+        description={`Mark this ${settleTarget?.category ?? 'expense'} claim of ${formatMoney(Number(settleTarget?.amount ?? 0))} as settled?`}
         confirmLabel="Mark Settled"
         confirmVariant="default"
         isPending={updateStatus.isPending}

@@ -9,12 +9,13 @@ import { Button } from '../../components/ui/button';
 import { useAuth } from '../../context/AuthContext';
 import { usePagination } from '../../hooks/usePagination';
 import type { OrderQueueItem, PackedOrder } from '../../types';
+import { formatMoney } from '../../lib/format-money';
 
 type Tab = 'to-pack' | 'ready-for-pickup';
 
 function money(n: number | undefined | null): string {
   if (n == null || Number.isNaN(Number(n))) return '—';
-  return `KSh ${Number(n).toFixed(2)}`;
+  return formatMoney(Number(n));
 }
 
 function formatWhen(d: string | Date | undefined): string {

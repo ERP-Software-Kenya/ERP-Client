@@ -1,5 +1,5 @@
 import React from 'react';
-import { WifiOff, RefreshCw, Loader2, AlertCircle, CheckCircle2, Power } from 'lucide-react';
+import { WifiOff, RefreshCw, Loader2, AlertCircle, Power } from 'lucide-react';
 import { useNetworkStatus } from '../context/NetworkContext';
 import { getAppName } from '../lib/branding';
 import { Button } from './ui/button';

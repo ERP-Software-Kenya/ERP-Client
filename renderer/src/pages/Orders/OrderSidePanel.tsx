@@ -3,6 +3,7 @@ import type { Customer, Location } from '../../types';
 import { CustomerPicker } from '../../components/CustomerPicker';
 import { FormSelect } from '../../components/FormSelect';
 import { Button } from '../../components/ui/button';
+import { formatMoney } from '../../lib/format-money';
 
 interface OrderSidePanelProps {
   locations: Location[];
@@ -24,7 +25,7 @@ interface OrderSidePanelProps {
 }
 
 function fmt(n: number): string {
-  return `KSh ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return formatMoney(n);
 }
 
 function SideLabel({ children }: { children: React.ReactNode }): React.JSX.Element {

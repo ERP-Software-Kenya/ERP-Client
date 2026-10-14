@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, PackageCheck, RotateCcw, Search } from 'lucide-react';
+import { AlertTriangle, Banknote, CheckCircle2, PackageCheck, RotateCcw, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Inventory,
@@ -92,6 +92,10 @@ export default function PurchaseReturnsPage() {
   const [notes, setNotes] = useState('');
   const [lineDrafts, setLineDrafts] = useState<Record<string, LineDraft>>({});
   const [draftToFinalize, setDraftToFinalize] = useState<PurchaseReturn | null>(null);
+  const [refundTarget, setRefundTarget] = useState<PurchaseReturn | null>(null);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundMethod, setRefundMethod] = useState<'CASH' | 'CARD' | 'UPI' | 'NET_BANKING' | 'CHEQUE'>('CASH');
+  const [refundNote, setRefundNote] = useState('');
 
   const {
     data: poData,
@@ -118,6 +122,7 @@ export default function PurchaseReturnsPage() {
 
   const createDraft = PurchaseReturns.useCreateDraft();
   const finalizeReturn = PurchaseReturns.useFinalize();
+  const recordRefund = PurchaseReturns.useRecordRefund();
 
   const purchaseOrders = poData?.items ?? [];
   const history = historyIsError ? [] : (historyData?.items ?? []);
@@ -501,6 +506,22 @@ export default function PurchaseReturnsPage() {
                           <span>{formatDateTime(ret.finalizedAt ?? ret.createdAt)}</span>
                           <span className="font-semibold tabular-nums">{formatMoney(toNumber(ret.totalAmount))}</span>
                         </div>
+                        {ret.status === 'finalized' && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 h-7 w-full text-xs"
+                            onClick={() => {
+                              setRefundTarget(ret);
+                              setRefundAmount('');
+                              setRefundMethod('CASH');
+                              setRefundNote('');
+                            }}
+                          >
+                            <Banknote size={13} /> Record supplier refund
+                          </Button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -530,6 +551,58 @@ export default function PurchaseReturnsPage() {
               <span className="text-muted-foreground">Total</span>
               <span className="font-semibold">{formatMoney(toNumber(draftToFinalize?.totalAmount ?? returnTotal))}</span>
             </div>
+          </div>
+        </ConfirmDialog>
+
+        <ConfirmDialog
+          open={!!refundTarget}
+          onOpenChange={(open) => !open && setRefundTarget(null)}
+          title="Record Supplier Refund"
+          description="Record money received from the supplier against this finalized purchase-return credit. Amounts above the outstanding credit are rejected by the server."
+          confirmLabel="Record Refund"
+          pendingLabel="Recording…"
+          confirmVariant="default"
+          isPending={recordRefund.isPending}
+          confirmDisabled={!refundTarget || !(Number(refundAmount) > 0)}
+          onConfirm={() => {
+            if (!refundTarget || !(Number(refundAmount) > 0)) return;
+            recordRefund.mutate(
+              {
+                id: refundTarget.id,
+                body: {
+                  amount: Number(refundAmount),
+                  paymentMethod: refundMethod,
+                  note: refundNote.trim() || undefined,
+                },
+              },
+              {
+                onSuccess: () => {
+                  setRefundTarget(null);
+                  void refetchHistory();
+                },
+              },
+            );
+          }}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1 text-xs font-medium">
+              Amount
+              <Input type="number" min="0.01" step="0.01" value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)} placeholder="0.00" />
+            </label>
+            <label className="space-y-1 text-xs font-medium">
+              Payment method
+              <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={refundMethod} onChange={(event) => setRefundMethod(event.target.value as typeof refundMethod)}>
+                <option value="CASH">Cash</option>
+                <option value="CARD">Card</option>
+                <option value="UPI">UPI</option>
+                <option value="NET_BANKING">Net banking</option>
+                <option value="CHEQUE">Cheque</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-xs font-medium sm:col-span-2">
+              Note (optional)
+              <Textarea value={refundNote} onChange={(event) => setRefundNote(event.target.value)} placeholder="Supplier reference or settlement note" />
+            </label>
           </div>
         </ConfirmDialog>
       </main>

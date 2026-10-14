@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { formatMoneyCompact } from '../../lib/format-money';
 import {
   Package,
   ShoppingCart,
@@ -107,9 +108,7 @@ function useFadeIn(delay = 0) {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function fmt(n: number): string {
-  if (n >= 1_000_000) return `KSh ${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `KSh ${(n / 1_000).toFixed(1)}K`;
-  return `KSh ${n.toFixed(0)}`;
+  return formatMoneyCompact(n);
 }
 
 function fmtN(n: number): string {
@@ -675,7 +674,7 @@ function OperationsTab() {
                   <BarChart data={locationPerf} barCategoryGap="35%">
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => `KSh ${(v / 1000).toFixed(0)}k`} />
+                    <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={(v) => formatMoneyCompact(Number(v))} />
                     <Tooltip content={<ChartTooltipBox currency />} />
                     <Bar dataKey="value" name="Stock Value" radius={[6, 6, 0, 0]} animationDuration={1200}>
                       {locationPerf.map((_, i) => (

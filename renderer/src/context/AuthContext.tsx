@@ -7,6 +7,7 @@ import { configureApi } from '../api';
 import { HttpError } from '../lib/http';
 import { AuthService, MeResponse } from '../services/auth.service';
 import AuthBootScreen, { AuthBootPhase } from '../components/auth/AuthBootScreen';
+import { configureCurrencyCode } from '../lib/format-money';
 
 type AuthContextType = {
   user: MeResponse | null;
@@ -113,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (signingOut.current || epoch !== authEpoch.current || !clerk.session) return;
         if (!me) throw lastError instanceof Error ? lastError : new Error('Failed to load your account');
+        configureCurrencyCode(me.currencyCode);
         setUser(me);
         writeCachedMe(me);
       } catch (error) {
@@ -203,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     syncingRef.current = false;
     setSyncing(false);
     setBootPhase(null);
+    configureCurrencyCode('USD');
     setUser(null);
     clearCachedMe();
 

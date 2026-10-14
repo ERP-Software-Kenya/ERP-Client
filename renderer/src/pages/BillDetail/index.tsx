@@ -10,10 +10,11 @@ import { formatEntityLabel, truncateId } from '../../lib/entityLabel';
 import { billToPosReceipt, downloadSaleDoc, printSaleDoc } from '../pos/billReceipt';
 import type { BillStatus, PaymentMethod } from '../../types';
 import { formatPayment, moneyOrZero } from '../SalesList/salesHelpers';
+import { formatMoney } from '../../lib/format-money';
 
 function money(n: number | undefined | null): string {
   if (n == null || Number.isNaN(Number(n))) return '—';
-  return `KSh ${Number(n).toFixed(2)}`;
+  return formatMoney(Number(n));
 }
 
 const PAY_METHODS: PaymentMethod[] = ['CASH', 'CARD', 'UPI', 'NET_BANKING', 'CHEQUE', 'CREDIT'];

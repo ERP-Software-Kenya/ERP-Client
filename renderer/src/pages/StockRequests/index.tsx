@@ -37,7 +37,7 @@ export function getBranchForLocation(loc: Location, branchList: Branch[]): Branc
 
 export interface ResolveStockRequestsScopeParams {
   user: { id: string } | null;
-  raw: { id?: string; branchId?: string; locationIds?: string[]; hasOrgWideAccess?: boolean } | null;
+  raw: { id?: string; branchId?: string; locationIds?: string[]; hasOrgWideAccess?: boolean; roles?: string[] } | null;
   hasOrgWideAccess: boolean;
   branches: Branch[];
   locations: Location[];

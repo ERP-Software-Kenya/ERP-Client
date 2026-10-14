@@ -10,6 +10,7 @@ import { FormSelect } from '../../components/FormSelect';
 import { Bills, Customers, Locations } from '../../api';
 import { CustomerPicker } from '../../components/CustomerPicker';
 import { BillViewDrawer } from './BillViewDrawer';
+import { formatMoney } from '../../lib/format-money';
 import { formatEntityLabel, truncateId } from '../../lib/entityLabel';
 import { loadErrorMessage } from '../../lib/api-error';
 import { extractRef, formatPayment } from '../SalesList/salesHelpers';
@@ -56,7 +57,7 @@ function walkInLabel(row: Bill): string {
 
 function money(n: number | undefined | null): string {
   if (n == null || Number.isNaN(Number(n))) return '—';
-  return `KSh ${Number(n).toFixed(2)}`;
+  return formatMoney(Number(n));
 }
 
 function formatDate(d: string | null | undefined): string {

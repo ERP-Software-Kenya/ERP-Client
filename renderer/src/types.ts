@@ -68,6 +68,8 @@ export interface Location {
   id: string;
   organizationId?: string;
   branchId?: string;
+  /** Legacy hierarchy field returned for parent-child location views. */
+  parentId?: string;
   name: string;
   type: LocationType;
   imageKey?: string;
@@ -359,6 +361,7 @@ export interface UnpublishedStockPurchaseOrder {
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
+  items?: UnpublishedStockPurchaseItem[];
 }
 
 export interface UnpublishedStockPurchaseItem {
@@ -390,6 +393,38 @@ export interface ReceiveUnpublishedStockPOInput {
 export interface AllocateUnpublishedStockPOInput {
   allocations: Array<{ purchaseItemId: string; locationId: string; quantity: number }>;
   notes?: string;
+}
+
+export interface CreateUnpublishedStockPurchaseReturnInput {
+  reason?: string;
+  notes?: string;
+  items: Array<{
+    purchaseItemId: string;
+    locationId: string;
+    quantity: number;
+    reason?: string;
+  }>;
+}
+
+export interface BlackPurchaseReturnResult {
+  id: string;
+  returnNumber: string;
+  totalAmount: number;
+  status: string;
+}
+
+export interface BlackPurchaseReturnRefundResult {
+  id: string;
+  amount: number;
+  refundedAmount: number;
+  outstandingCredit: number;
+}
+
+export interface RecordBlackPurchaseReturnRefundInput {
+  amount: number;
+  paymentMethod: 'CASH' | 'CARD' | 'UPI' | 'NET_BANKING' | 'CHEQUE';
+  receivedAt?: string;
+  note?: string;
 }
 
 /** Sales bill lifecycle — matches core-apis EBillStatus. */
@@ -675,6 +710,8 @@ export interface UnpublishedStock {
   productId: string;
   quantityOnHand: number;
   averageCost?: number;
+  /** Unit cost alias returned by movement/report projections. */
+  unitCost?: number;
   binLocation?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -776,6 +813,10 @@ export interface Order {
   taxAmount?: number;
   totalAmount?: number;
   paymentStatus?: string;
+  paymentTiming?: string;
+  partialAmount?: number;
+  saleType?: SaleType;
+  customerType?: CustomerType;
   createdAt?: string;
   items?: OrderItem[];
 }
@@ -870,6 +911,21 @@ export interface QuickCharge {
   enabled: boolean;
   sortOrder: number;
   createdAt?: string;
+}
+
+export interface OrganizationFinancialSettings {
+  id: string;
+  organizationId: string;
+  baseCurrencyCode: string;
+  fiscalYearStartMonth: number;
+  timeZone: string;
+  updatedAt: string;
+}
+
+export interface UpdateOrganizationFinancialSettings {
+  baseCurrencyCode: string;
+  fiscalYearStartMonth: number;
+  timeZone: string;
 }
 
 export interface CustomerTypeRule {
@@ -984,6 +1040,20 @@ export interface PurchaseReturn {
   createdAt?: string;
   updatedAt?: string;
   items?: PurchaseReturnItem[];
+}
+
+export interface PurchaseReturnRefundResult {
+  id: string;
+  amount: number;
+  refundedAmount: number;
+  outstandingCredit: number;
+}
+
+export interface RecordPurchaseReturnRefundInput {
+  amount: number;
+  paymentMethod: 'CASH' | 'CARD' | 'UPI' | 'NET_BANKING' | 'CHEQUE';
+  receivedAt?: string;
+  note?: string;
 }
 
 export interface CreatePurchaseReturnInput {
@@ -1490,6 +1560,7 @@ export interface CreateTripPayload {
 }
 
 export interface LiveDriverLocation {
+  id: string;
   driverId: string;
   driverName: string;
   vehicleId: string;

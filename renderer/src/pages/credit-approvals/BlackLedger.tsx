@@ -1,5 +1,6 @@
 import { CreditApprovals } from "../../api";
 import { CheckCircle2, Loader2, HandCoins } from "lucide-react";
+import { formatMoney } from '../../lib/format-money';
 
 export default function BlackLedger() {
   const { data, isLoading } = CreditApprovals.useBlackLedger();
@@ -45,9 +46,9 @@ export default function BlackLedger() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-slate-800 text-lg">₹{b.totalAmount}</p>
+                      <p className="font-bold text-slate-800 text-lg">{formatMoney(Number(b.totalAmount))}</p>
                       {b.blackAmount && (
-                        <p className="text-xs font-semibold text-emerald-600">Black: ₹{b.blackAmount}</p>
+                        <p className="text-xs font-semibold text-emerald-600">Black: {formatMoney(Number(b.blackAmount))}</p>
                       )}
                     </div>
                   </div>
@@ -91,7 +92,7 @@ export default function BlackLedger() {
                   </div>
                   
                   <div className="flex items-center gap-4 text-right">
-                    <p className="font-bold text-amber-600 text-lg">₹{c.amount}</p>
+                    <p className="font-bold text-amber-600 text-lg">{formatMoney(Number(c.amount))}</p>
                     {c.status === 'owed' && (
                       <button
                         onClick={() => markPaid.mutate(c.id)}
