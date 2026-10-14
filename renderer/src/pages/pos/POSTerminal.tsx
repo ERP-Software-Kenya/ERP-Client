@@ -430,7 +430,18 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const { data: myRejected = [] } = CreditApprovals.useMyRejected(mode === "sales");
   const { data: typeRules = [] } = BillingSettings.useCustomerTypeRules();
   const { data: fleetDrivers = [] } = FleetDrivers.useList(mode === "sales");
-  const { data: branchPricesPage } = useListBranchProductPricesAll(branchId);
+
+  // Compute the effective branch early so the price query uses the right branch.
+  // session.branchId is set for branch managers; for org admins it is undefined —
+  // fall back to the branch that owns the currently selected location.
+  const stockLocation = useMemo(
+    () => locations.find((l: Location) => l.id === locationId),
+    [locations, locationId],
+  );
+  const orgId = stockLocation?.organizationId;
+  const effectiveBranchId = stockLocation?.branchId ?? branchId;
+
+  const { data: branchPricesPage } = useListBranchProductPricesAll(effectiveBranchId);
   const branchPriceMap = useMemo<Map<string, ProductBranchPrice>>(() => {
     const map = new Map<string, ProductBranchPrice>();
     for (const bp of branchPricesPage?.items ?? []) map.set(bp.productId, bp);
@@ -570,12 +581,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     if (locations.length === 0 || locationId) return;
     setLocationId(locations[0].id);
   }, [locations, locationId]);
-
-  const stockLocation = useMemo(
-    () => locations.find((l: Location) => l.id === locationId),
-    [locations, locationId],
-  );
-  const orgId = stockLocation?.organizationId;
 
   const effectiveInventory = useMemo(() => {
     if (!unpublishedStock.length) return inventory;

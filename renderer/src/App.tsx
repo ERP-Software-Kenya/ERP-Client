@@ -91,6 +91,7 @@ const Quotations = lazy(() => import('./pages/Quotations'));
 const QuotationBuilder = lazy(() => import('./pages/Quotations/QuotationBuilder'));
 const BranchPricing = lazy(() => import('./pages/BranchPricing'));
 const TaxesPage = lazy(() => import('./pages/Taxes'));
+const AskAiPage = lazy(() => import('./pages/AskAi'));
 
 function RouteFallback() {
   return (
@@ -216,6 +217,7 @@ function App() {
             <Route path="users" element={<Users />} />
             <Route path="users/clerk/:clerkUserId" element={<UserDetail />} />
             <Route path="page-access" element={<PageAccessRoute pageKey="page-access"><PageAccessPage /></PageAccessRoute>} />
+            <Route path="ask-ai" element={<AskAiPage />} />
           </Route>
         </Routes>
       </Suspense>

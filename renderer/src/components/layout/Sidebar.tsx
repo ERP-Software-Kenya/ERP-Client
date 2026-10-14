@@ -1,12 +1,13 @@
 import { useState, useEffect, Fragment } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { MODULES, pageKeyForPath } from '../../config/modules';
 import { getAppInitial, getAppName } from '../../lib/branding';
 import { cn } from '../../lib/utils';
 import { Tooltip } from '../ui/tooltip';
 import { usePageAccess } from '../../context/PageAccessContext';
 import { useBlackTab } from '../../context/BlackTabContext';
+import { FEATURES } from '../../lib/featureFlags';
 
 export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const location = useLocation();
@@ -76,6 +77,43 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
         </button>
       )}
       <div className="flex-1 overflow-y-auto py-3 space-y-1 custom-scrollbar">
+        {FEATURES.askAi && (
+          <>
+            <div className="px-3 mb-1">
+              {collapsed ? (
+                <Tooltip content="Ask AI" side="right" className="flex w-full">
+                  <NavLink
+                    to="/ask-ai"
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center justify-center w-full py-2 rounded-md transition-colors',
+                        isActive ? 'bg-primary text-primary-foreground' : 'text-primary hover:bg-primary/10',
+                      )
+                    }
+                  >
+                    <Sparkles size={18} />
+                  </NavLink>
+                </Tooltip>
+              ) : (
+                <NavLink
+                  to="/ask-ai"
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors w-full',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-primary bg-primary/8 hover:bg-primary/15',
+                    )
+                  }
+                >
+                  <Sparkles size={16} />
+                  Ask AI
+                </NavLink>
+              )}
+            </div>
+            <div className="mx-3 mb-2 border-t border-border" />
+          </>
+        )}
         {isLoading ? (
           <div className="px-3 space-y-4 animate-pulse">
             {[5, 3, 4, 2].map((count, gi) => (

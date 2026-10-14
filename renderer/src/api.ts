@@ -1957,14 +1957,16 @@ export function useListBranchProductPrices(params: {
   branchId: string;
   page?: number;
   search?: string;
+  status?: 'set' | 'not_set';
 }): ReturnType<typeof useQuery<ProductBranchPricesPage>> {
   return useQuery<ProductBranchPricesPage>({
-    queryKey: ['product-branch-prices', params.branchId, params.page ?? 1, params.search ?? ''],
+    queryKey: ['product-branch-prices', params.branchId, params.page ?? 1, params.search ?? '', params.status ?? ''],
     queryFn: () =>
       get<ProductBranchPricesPage>('/api/v1/product-branch-prices', {
         branchId: params.branchId,
         page: params.page ?? 1,
         search: params.search ?? '',
+        ...(params.status ? { status: params.status } : {}),
       }),
     enabled: !!params.branchId,
     staleTime: 30_000,
@@ -2002,6 +2004,7 @@ export function useUpsertBranchProductPrice(): ReturnType<typeof useMutation<Pro
     onSuccess: (_data, { branchId }) => {
       toast.success('Prices saved');
       void queryClient.invalidateQueries({ queryKey: ['product-branch-prices', branchId] });
+      void queryClient.invalidateQueries({ queryKey: ['product-branch-prices-all', branchId] });
     },
     onError: (err: Error) => toast.error(err.message || 'Failed to save prices'),
   });
