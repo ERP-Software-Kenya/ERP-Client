@@ -10,6 +10,8 @@ import type { Branch, ProductBranchPrice } from '../../types';
 
 const PAGE_SIZE = 15;
 
+type StatusFilter = 'all' | 'set' | 'not_set';
+
 function PriceCell({ val }: { val: number | null }): React.JSX.Element {
   if (val == null) return <span className="text-muted-foreground">—</span>;
   return <span>{Number(val).toFixed(2)}</span>;
@@ -47,6 +49,7 @@ export default function BranchPricingPage(): React.JSX.Element {
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const debouncedSearch = useDebounce(search, 400);
   const [priceTarget, setPriceTarget] = useState<ProductBranchPrice | null>(null);
 
@@ -64,15 +67,16 @@ export default function BranchPricingPage(): React.JSX.Element {
     }
   }, [isAdmin, selectedBranchId, branchList]);
 
-  // Reset page on search change
+  // Reset page on search/filter change
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, selectedBranchId]);
+  }, [debouncedSearch, selectedBranchId, statusFilter]);
 
   const { data, isLoading, error, refetch } = useListBranchProductPrices({
     branchId: selectedBranchId,
     page,
     search: debouncedSearch,
+    status: statusFilter === 'all' ? undefined : statusFilter,
   });
 
   const selectedBranch = useMemo(
@@ -80,10 +84,8 @@ export default function BranchPricingPage(): React.JSX.Element {
     [branchList, selectedBranchId],
   );
 
-  const totalPages = Math.max(1, Math.ceil((data?.totalCount ?? 0) / PAGE_SIZE));
+  const totalPages = Math.max(1, data?.totalPages ?? 1);
   const items = data?.items ?? [];
-  const setCount  = items.filter(isPriceSet).length;
-  const notSetCount = items.length - setCount;
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -117,6 +119,17 @@ export default function BranchPricingPage(): React.JSX.Element {
             )
           )}
 
+          {/* Status filter */}
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          >
+            <option value="all">All</option>
+            <option value="set">Set</option>
+            <option value="not_set">Not set</option>
+          </select>
+
           {/* Search */}
           <Input
             type="text"
@@ -132,12 +145,14 @@ export default function BranchPricingPage(): React.JSX.Element {
         </div>
       </div>
 
-      {/* Status chips */}
+      {/* Stats */}
       {selectedBranchId && data && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>Total: {data.totalCount}</span>
-          <span className="text-emerald-400">Set: {setCount}</span>
-          <span className="text-amber-400">Not set: {notSetCount}</span>
+          <span>
+            {statusFilter === 'all' && `Total: ${data.totalCount}`}
+            {statusFilter === 'set' && <span className="text-emerald-400">Set: {data.totalCount}</span>}
+            {statusFilter === 'not_set' && <span className="text-amber-400">Not set: {data.totalCount}</span>}
+          </span>
         </div>
       )}
 
