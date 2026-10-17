@@ -37,7 +37,7 @@ export default function Topbar() {
   const { isUnlocked, lock } = useBlackTab();
   const [isUnlockModalOpen, setIsUnlockModalOpen] = useState(false);
   
-  const isOrgAdmin = user?.roles?.some((r) => ['org_admin', 'super_admin', 'org:admin'].includes(r));
+  const isOrgAdmin = user?.roles?.some((r) => ['org_admin', 'super_admin', 'org:admin', 'branch_manager'].includes(r));
 
   useCentrifugo(user);
 
