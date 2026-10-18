@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type RefObject } from "react";
 import { AlertCircle, LayoutList, Minus, Plus, Scan, Trash2 } from "lucide-react";
 import type { Location, Product, SaleType } from "../../../../types";
 import type { CheckoutResult } from "../../checkout";
-import { fmt, lineTotal, lineWeightKg, type BillLine, type ExtraCharge } from "../../posHelpers";
+import { fmt, lineTotal, type BillLine, type ExtraCharge } from "../../posHelpers";
 import type { StockInfo } from "../../posStock";
 import { FormSelect } from "../../../../components/FormSelect";
 import { StockBadge } from "../StockBadge";
@@ -158,7 +158,7 @@ export function ProductDetailsSection({
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 border-b border-border bg-muted/60">
               <tr>
-                {["#", "Product Name", "Category", "Location", "Qty", "Unit", "Weight", "Price", "Tax", "Discount", "Line Total", ""].map((h) => (
+                {["#", "Product Name", "Category", "Location", "Qty", "Unit", "Unit Cost", "Price", "Tax", "Discount", "Line Total", ""].map((h) => (
                   <th
                     key={h}
                     className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground"
@@ -237,7 +237,7 @@ export function ProductDetailsSection({
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-sm text-muted-foreground tabular-nums">
-                      {lineWeightKg(line) > 0 ? lineWeightKg(line).toFixed(2) : "—"}
+                      {line.costPrice ? fmt(line.costPrice) : "—"}
                     </td>
                     <td className="px-3 py-2.5">
                       {saleType === "black" ? (

@@ -30,6 +30,8 @@ export interface BillLine {
   packSize?: number;
   /** Gross weight per base unit in kg — null when not set on the product */
   weightKg?: number;
+  /** Branch-aware unit cost (costPrice) — shown on the sales line for margin visibility */
+  costPrice?: number;
 }
 
 export function customerTypeToTier(ct: CustomerType | string): PriceTier {

@@ -755,6 +755,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
           manufacturer: p.manufacturer,
           packSize: p.packSize,
           weightKg: p.weightKg,
+          costPrice: branchPriceMap.get(p.id)?.costPrice ?? Number(p.costPrice ?? 0),
         },
       ]);
     }
