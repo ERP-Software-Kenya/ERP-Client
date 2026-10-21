@@ -257,9 +257,35 @@ function BillSuccessModal({
                   ))}
                 </div>
               )}
-              <div className="overflow-hidden rounded-lg border border-border/70 bg-white">
-                {preview}
-              </div>
+              {receipt.mode === "sales" ? (
+                <div className="overflow-hidden rounded-lg border border-border/70 bg-white">
+                  {preview}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-border bg-muted/30 px-5 py-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Purchase Order</span>
+                    <span className="font-mono text-sm font-bold text-foreground">{receipt.ref}</span>
+                  </div>
+                  {receipt.partyLabel && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Supplier</span>
+                      <span className="font-medium text-foreground">{receipt.partyLabel}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Items</span>
+                    <span className="font-medium text-foreground">{receipt.lines.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm border-t border-border pt-3">
+                    <span className="font-semibold text-foreground">Order Total</span>
+                    <span className="font-bold tabular-nums text-foreground">{fmt(receipt.totalAmount)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center pt-2">
+                    Click <strong>PDF</strong> below to download the full purchase order document.
+                  </p>
+                </div>
+              )}
             </>
           )}
 
