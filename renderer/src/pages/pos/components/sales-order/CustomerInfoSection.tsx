@@ -19,6 +19,8 @@ export interface CustomerInfoSectionProps {
   saleRef: string;
   orderReference: string;
   onOrderReferenceChange: (v: string) => void;
+  /** Branch name (branch manager) or org name (org admin) shown next to the Store label. */
+  contextLabel?: string;
   customerInfo: string;
   onCustomerInfoChange: (v: string) => void;
   customerId: string;
@@ -62,6 +64,7 @@ export function CustomerInfoSection({
   locationId,
   onLocationChange,
   customerInputRef,
+  contextLabel,
 }: CustomerInfoSectionProps) {
   const isDefaultSelected = !customerId && customerInfo === DEFAULT_LABEL;
 
@@ -159,7 +162,7 @@ export function CustomerInfoSection({
               </div>
             </Field>
 
-            <Field label="Store">
+            <Field label={contextLabel ? `Store — ${contextLabel}` : "Store"}>
               <FormSelect
                 value={locationId}
                 onChange={onLocationChange}
@@ -179,7 +182,7 @@ export function CustomerInfoSection({
               <input
                 value={orderReference}
                 onChange={(e) => onOrderReferenceChange(e.target.value)}
-                placeholder="PO-1234"
+                placeholder="Auto-generated"
                 className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary"
               />
             </Field>

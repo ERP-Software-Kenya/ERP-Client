@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, CreditCard, Printer, Scan, UserCircle } from "lucide-react";
 import { toast } from "sonner";
 import { CustomerDetailDrawer } from "../../components/CustomerDetailDrawer";
-import { BillingSettings, Customers, CreditApprovals, FleetDrivers, Inventory, Locations, Products, Suppliers, useUnpublishedStockList, useListBranchProductPricesAll, get } from "../../api";
+import { BillingSettings, Branches, Customers, CreditApprovals, FleetDrivers, Inventory, Locations, Products, Suppliers, useUnpublishedStockList, useListBranchProductPricesAll, get } from "../../api";
 import { useAuth } from "../../context/AuthContext";
 import { useBlackTab } from "../../context/BlackTabContext";
 import { useSession } from "../../context/SessionContext";
@@ -41,6 +41,7 @@ import {
   buildAllLocationsStockMap,
   buildLocationStockMap,
   cartQtyForProduct,
+  getBranchStockInfo,
   getStockInfo,
   isSellableNow,
   lineExceedsStock,
@@ -374,7 +375,11 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const [rejectionsExpanded, setRejectionsExpanded] = useState(false);
   const [showDelivery, setShowDelivery] = useState(false);
   const [delivery, setDelivery] = useState<DeliveryInfo>({});
-  const [orderReference, setOrderReference] = useState("");
+  const [orderReference, setOrderReference] = useState(() => {
+    const dt = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const rnd = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `REF-${dt}-${rnd}`;
+  });
   // ponytail: fulfillment routing removed — will be per-line when needed
   const [selectedDriverId, setSelectedDriverId] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -393,6 +398,8 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     logoUrl: user?.organization?.logoUrl,
     orgMeta: [user?.organization?.slug].filter(Boolean).join(" · ") || undefined,
   };
+  const { data: myBranch } = Branches.useGet(branchId);
+  const contextLabel = branchId ? (myBranch?.name ?? "") : (orgBrand.orgName ?? "");
   const { isUnlocked } = useBlackTab();
   const userRoles = user?.roles ?? [];
   const canCreateBlackSale =
@@ -407,8 +414,12 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     }
   }, [isBlackSale, isUnlocked, saleType]);
 
-  const { data: locations = [] } =
-    Locations.useList();
+  const { data: allLocations = [] } = Locations.useList();
+  const locations = useMemo(
+    () => (branchId ? allLocations.filter((l: Location) => l.branchId === branchId) : allLocations),
+    [allLocations, branchId],
+  );
+  const branchLocationIds = useMemo(() => locations.map((l: Location) => l.id), [locations]);
   const stockLocation = useMemo(
     () => locations.find((location: Location) => location.id === locationId),
     [locations, locationId],
@@ -618,11 +629,16 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
   const getProductStock = useCallback(
     (productId: string, locId?: string) => {
+      // When called without a specific location (product search display), show branch-aggregate
+      // stock so branch managers see the total across all their locations, not just one.
+      if (!locId && branchLocationIds.length > 1) {
+        return getBranchStockInfo(allStockMaps, branchLocationIds, productId, mode === "sales" ? saleType : "normal");
+      }
       const effectiveMap =
         locId && allStockMaps.has(locId) ? allStockMaps.get(locId)! : stockMap;
       return getStockInfo(effectiveMap, productId, mode === "sales" ? saleType : "normal");
     },
-    [allStockMaps, stockMap, saleType, mode],
+    [allStockMaps, stockMap, branchLocationIds, saleType, mode],
   );
 
   const lineOverStock = useCallback(
@@ -665,54 +681,96 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     let addQty = 1;
 
     if (mode === "sales") {
-      const stock = getProductStock(p.id, locationId);
+      const primaryStock = getStockInfo(
+        allStockMaps.get(locationId) ?? new Map(),
+        p.id,
+        saleType,
+      );
       const inCart = cartQtyForProduct(lines, p.id, undefined, locationId);
-      if (!stock.found || stock.available <= 0) {
-        let otherLocName = "";
-        let otherQty = 0;
-        for (const loc of locations) {
-          if (loc.id === locationId) continue;
-          const otherStock = getProductStock(p.id, loc.id);
-          if (otherStock.available > 0) {
-            otherLocName = loc.name;
-            otherQty = otherStock.available;
-            break;
-          }
-        }
-        if (!stock.found) {
-          if (otherLocName) {
-            toast.error(
-              `No stock at ${stockLocation?.name ?? "selected store"} — ${otherQty} available at ${otherLocName}. Switch store to sell.`,
-            );
-          } else {
-            toast.error("No stock record at this location — add inventory first");
-          }
+      const primaryRoom = primaryStock.found ? primaryStock.available - inCart : 0;
+
+      if (primaryRoom <= 0) {
+        // Check if other branch locations can fulfil (multi-location fulfillment).
+        const otherBranchLocs = locations.filter((l: Location) => l.id !== locationId);
+        const branchTotal = getBranchStockInfo(allStockMaps, branchLocationIds, p.id, saleType);
+
+        if (!primaryStock.found && branchTotal.available <= 0) {
+          toast.error("No stock record for this product — add inventory first");
           return;
         }
-        if (stock.available <= 0) {
-          if (otherLocName) {
-            toast.error(
-              `Out of stock at ${stockLocation?.name ?? "selected store"} — ${otherQty} available at ${otherLocName}. Switch store to sell.`,
-            );
-          } else {
-            toast.error(
-              saleType === "black"
-                ? "No black stock available for this product"
-                : "Out of stock at this location",
-            );
-          }
+        if (branchTotal.available <= 0) {
+          toast.error(saleType === "black" ? "No black stock available for this product" : "Out of stock across all branch locations");
           return;
         }
-      }
-      const room = stock.available - inCart;
-      if (room <= 0) {
-        toast.error(`Already at max stock (${stock.available} available)`);
+
+        // Auto-split across branch locations: primary first, then others by available desc.
+        const sortedLocs = [
+          { id: locationId, name: stockLocation?.name ?? "" },
+          ...otherBranchLocs.map((l: Location) => ({ id: l.id, name: l.name })),
+        ].filter((l) => {
+          const si = getStockInfo(allStockMaps.get(l.id) ?? new Map(), p.id, saleType);
+          return si.available > 0;
+        }).sort((la, lb) => {
+          const sa = getStockInfo(allStockMaps.get(la.id) ?? new Map(), p.id, saleType).available;
+          const sb = getStockInfo(allStockMaps.get(lb.id) ?? new Map(), p.id, saleType).available;
+          return sb - sa;
+        });
+
+        const tiers = branchAwareTierPrices(p, branchPriceMap.get(p.id));
+        const tier = customerTypeToTier(customerType);
+        const listRate = tiers[tier];
+        const rate = discountedRate(listRate, effectiveDiscountPercent(selectedCustomer, customerType, typeRules));
+        const sku = formatEntityLabel({ sku: p.sku, id: p.id });
+
+        let remaining = addQty;
+        for (const loc of sortedLocs) {
+          if (remaining <= 0) break;
+          const locSi = getStockInfo(allStockMaps.get(loc.id) ?? new Map(), p.id, saleType);
+          const locInCart = cartQtyForProduct(lines, p.id, undefined, loc.id);
+          const locRoom = locSi.available - locInCart;
+          if (locRoom <= 0) continue;
+          const take = Math.min(remaining, locRoom);
+          remaining -= take;
+          const existing = lines.find((l) => l.productId === p.id && l.locationId === loc.id);
+          if (existing) {
+            setLines((ls) => ls.map((l) => l.productId === p.id && l.locationId === loc.id ? { ...l, qty: l.qty + take } : l));
+          } else {
+            const locObj = locations.find((l: Location) => l.id === loc.id);
+            setLines((ls) => [...ls, {
+              id: ++lineIdSeq,
+              productId: p.id,
+              sku,
+              name: p.name || "Unnamed product",
+              qty: take,
+              rate,
+              taxPct: p.tax?.rate ?? 0,
+              unitLabel: p.unit || "pcs",
+              officialRate: listRate,
+              p1: tiers.p1, p2: tiers.p2, p3: tiers.p3, p4: tiers.p4,
+              activeTier: tier,
+              storeCode: locObj?.name?.slice(0, 1).toUpperCase(),
+              locationId: loc.id,
+              manufacturer: p.manufacturer,
+              packSize: p.packSize,
+              weightKg: p.weightKg,
+              costPrice: branchPriceMap.get(p.id)?.costPrice ?? Number(p.costPrice ?? 0),
+            }]);
+          }
+        }
+
+        if (remaining > 0) {
+          toast.warning(`Only ${addQty - remaining} unit(s) added — insufficient branch stock for ${remaining} more`);
+        } else {
+          toast.success(`Added from ${sortedLocs.length > 1 ? "multiple locations" : sortedLocs[0]?.name ?? "store"}`);
+        }
+        setSearchVal("");
+        const active = document.activeElement;
+        const isForeignInput = (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) && active !== searchRef.current;
+        if (!isForeignInput) searchRef.current?.focus();
         return;
       }
-      if (addQty > room) {
-        toast.warning(`Only ${room} more available — adding ${room}`);
-        addQty = room;
-      }
+
+      addQty = Math.min(addQty, primaryRoom);
     }
 
     const tiers = branchAwareTierPrices(p, branchPriceMap.get(p.id));
@@ -916,7 +974,11 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     setCommissionPct("");
     setShowDelivery(false);
     setDelivery({});
-    setOrderReference("");
+    setOrderReference(() => {
+      const dt = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const rnd = Math.random().toString(36).slice(2, 6).toUpperCase();
+      return `REF-${dt}-${rnd}`;
+    });
     setSelectedDriverId("");
     setPrintDoc("receipt");
     setActiveDraftBillId(null);
@@ -1335,6 +1397,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
                 locationId={locationId}
                 onLocationChange={setLocationId}
                 customerInputRef={customerInputRef}
+                contextLabel={contextLabel}
               />
 
               <ProductDetailsSection
