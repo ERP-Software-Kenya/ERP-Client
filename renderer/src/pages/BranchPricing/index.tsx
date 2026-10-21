@@ -171,6 +171,7 @@ export default function BranchPricingPage(): React.JSX.Element {
               <tr>
                 <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Product</th>
                 <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">SKU</th>
+                <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Cost</th>
                 <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Retail</th>
                 <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Wholesale</th>
                 <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Loyalty</th>
@@ -183,7 +184,7 @@ export default function BranchPricingPage(): React.JSX.Element {
               {isLoading && items.length === 0 &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    {Array.from({ length: 8 }).map((__, j) => (
+                    {Array.from({ length: 9 }).map((__, j) => (
                       <td key={j} className="px-3 py-1.5">
                         <div className="h-4 w-4/5 animate-pulse rounded bg-muted" />
                       </td>
@@ -193,7 +194,7 @@ export default function BranchPricingPage(): React.JSX.Element {
               }
               {!isLoading && items.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
                     No products found
                   </td>
                 </tr>
@@ -202,6 +203,7 @@ export default function BranchPricingPage(): React.JSX.Element {
                 <tr key={row.id} className="hover:bg-muted/50">
                   <td className="px-3 py-1.5 font-medium">{row.productName}</td>
                   <td className="px-3 py-1.5 text-muted-foreground font-mono text-xs">{row.sku ?? '—'}</td>
+                  <td className="px-3 py-1.5"><PriceCell val={row.costPrice} /></td>
                   <td className="px-3 py-1.5"><PriceCell val={row.retailPrice} /></td>
                   <td className="px-3 py-1.5"><PriceCell val={row.wholesalePrice} /></td>
                   <td className="px-3 py-1.5"><PriceCell val={row.loyaltyPrice} /></td>
