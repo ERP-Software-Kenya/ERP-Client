@@ -193,3 +193,38 @@ export function saleHasStockIssues(
     lineExceedsStock(lines, line, stockMap, saleType, allStockMaps, globalLocationId),
   );
 }
+
+/**
+ * Aggregate stock across all locations belonging to a branch.
+ * Used to show the branch-total available qty in the product search panel
+ * when the logged-in user is a branch manager.
+ */
+export function getBranchStockInfo(
+  allStockMaps: Map<string, Map<string, InventoryItem>>,
+  branchLocationIds: string[],
+  productId: string,
+  saleType: SaleType,
+): StockInfo {
+  let available = 0;
+  let onHand = 0;
+  let reserved = 0;
+  let unpublished = 0;
+  let reorderLevel = 0;
+  let found = false;
+
+  for (const locId of branchLocationIds) {
+    const locMap = allStockMaps.get(locId);
+    if (!locMap) continue;
+    const info = getStockInfo(locMap, productId, saleType);
+    if (info.found) {
+      found = true;
+      available += info.available;
+      onHand += info.onHand;
+      reserved += info.reserved;
+      unpublished += info.unpublished;
+      reorderLevel = Math.max(reorderLevel, info.reorderLevel);
+    }
+  }
+
+  return { available, onHand, reserved, unpublished, reorderLevel, found };
+}
