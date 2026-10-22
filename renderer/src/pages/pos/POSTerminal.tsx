@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDebounce } from "../../hooks/useDebounce";
 import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CreditCard, Printer, Scan, UserCircle } from "lucide-react";
@@ -357,6 +358,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const [locationId, setLocationId] = useState("");
   const [lines, setLines] = useState<BillLine[]>([]);
   const [searchVal, setSearchVal] = useState("");
+  const debouncedSearch = useDebounce(searchVal, 300);
   const [payMethod, setPayMethod] = useState<PosPayMethod>("cash");
   const [paymentReference, setPaymentReference] = useState("");
   const [cashTendered, setCashTendered] = useState("");
@@ -462,7 +464,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const { data: productSearch } = Products.useSearch({
     page: 1,
     limit: 20,
-    search: searchVal.trim() || undefined,
+    search: debouncedSearch.trim() || undefined,
   });
   const { data: selectedCustomer, refetch: refetchSelectedCustomer } = Customers.useGet(
     mode === "sales" && customerId ? customerId : undefined,
