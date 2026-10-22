@@ -79,7 +79,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-installer-${{ github.ref_name }}
+          name: windows-installer-${{ github.run_number }}
           path: |
             release/*.exe
             release/*.blockmap
