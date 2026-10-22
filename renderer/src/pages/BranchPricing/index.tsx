@@ -43,6 +43,16 @@ function isPriceSet(row: ProductBranchPrice): boolean {
   );
 }
 
+function isFullyPriced(row: ProductBranchPrice): boolean {
+  return (
+    row.retailPrice != null &&
+    row.costPrice != null &&
+    row.loyaltyPrice != null &&
+    row.wholesalePrice != null &&
+    row.transferPrice != null
+  );
+}
+
 export default function BranchPricingPage(): React.JSX.Element {
   const { isAdmin, branchId: sessionBranchId } = useSession();
   const { data: branchList } = Branches.useList();
@@ -51,6 +61,7 @@ export default function BranchPricingPage(): React.JSX.Element {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'available' | 'not_available'>('all');
   const debouncedSearch = useDebounce(search, 400);
   const [priceTarget, setPriceTarget] = useState<ProductBranchPrice | null>(null);
 
@@ -86,7 +97,13 @@ export default function BranchPricingPage(): React.JSX.Element {
   );
 
   const totalPages = Math.max(1, data?.totalPages ?? 1);
-  const items = data?.items ?? [];
+  const allItems = data?.items ?? [];
+  const items =
+    availabilityFilter === 'available'
+      ? allItems.filter(isFullyPriced)
+      : availabilityFilter === 'not_available'
+        ? allItems.filter((r) => !isFullyPriced(r))
+        : allItems;
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -129,6 +146,17 @@ export default function BranchPricingPage(): React.JSX.Element {
             <option value="all">All</option>
             <option value="set">Set</option>
             <option value="not_set">Not set</option>
+          </select>
+
+          {/* Availability filter */}
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={availabilityFilter}
+            onChange={(e) => setAvailabilityFilter(e.target.value as 'all' | 'available' | 'not_available')}
+          >
+            <option value="all">All Products</option>
+            <option value="available">Available Product</option>
+            <option value="not_available">Not Available Product</option>
           </select>
 
           {/* Search */}
