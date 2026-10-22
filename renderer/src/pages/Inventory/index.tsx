@@ -136,7 +136,9 @@ export default function InventoryPage() {
   }, [locationFilter]);
 
   const { data: searchData, isLoading, refetch } = Inventory.useSearch({
-    page, search: debouncedSearch, filters: searchFilters, enabled: statusFilter !== 'low',
+    page,
+    filters: { ...searchFilters, ...(debouncedSearch ? { search: debouncedSearch } : {}) },
+    enabled: statusFilter !== 'low',
   });
   const { data: lowStockItems, isLoading: lowLoading } = useInventoryLowStock();
   const { data: valuationItems }                       = useInventoryValuation();
