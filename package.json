@@ -1,6 +1,6 @@
 {
   "name": "core-erp-client",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Pramukh Digital — Electron desktop ERP client",
   "type": "module",
   "main": "dist/main/index.cjs",
@@ -79,6 +79,7 @@
       "icon": "assets/icon.ico"
     },
     "nsis": {
+      "artifactName": "${name}-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "differentialPackage": true

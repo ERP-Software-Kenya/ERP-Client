@@ -1,0 +1,89 @@
+name: Release (Windows)
+
+on:
+  push:
+    tags: ['v*']
+    branches: ['ci-test/**']  # TEMP: build-only test runs, remove before merge
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish a draft release (otherwise build only)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      APP_NAME: ${{ vars.APP_NAME }}
+      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+      VITE_CENTRIFUGO_URL: ${{ vars.VITE_CENTRIFUGO_URL }}
+      VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          PKG="$(node -p "require('./package.json').version")"
+          [ "${GITHUB_REF_NAME}" = "v${PKG}" ] || { echo "Tag ${GITHUB_REF_NAME} != v${PKG}"; exit 1; }
+
+      - name: Verify required build vars
+        shell: bash
+        run: |
+          for v in VITE_API_BASE_URL VITE_CENTRIFUGO_URL VITE_CLERK_PUBLISHABLE_KEY; do
+            [ -n "${!v}" ] || { echo "$v is empty (set it under Settings > Variables)"; exit 1; }
+          done
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\electron\Cache
+            ~\AppData\Local\electron-builder\Cache
+          key: eb-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - run: npm ci
+      - run: npx vitest run
+      - run: npm run build
+
+      - name: Guard bundle (no dev auth bypass)
+        shell: bash
+        run: |
+          if grep -rEl "VITE_DEV_BYPASS_AUTH" dist/renderer; then
+            echo "Dev bypass flag found in bundle"; exit 1
+          fi
+
+      - name: Package only
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') && !(github.event_name == 'workflow_dispatch' && inputs.publish) }}
+        run: npx electron-builder --win --x64 --publish never
+
+      - name: Package and publish draft release
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --x64 --publish always
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-${{ github.ref_name }}
+          path: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
