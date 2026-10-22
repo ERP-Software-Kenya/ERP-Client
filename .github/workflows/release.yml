@@ -3,7 +3,6 @@ name: Release (Windows)
 on:
   push:
     tags: ['v*']
-    branches: ['ci-test/**']  # TEMP: build-only test runs, remove before merge
   workflow_dispatch:
     inputs:
       publish:
