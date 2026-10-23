@@ -15,11 +15,11 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import {
-  Inventory, Products, Locations,
+  Inventory, Products, Locations, OrganizationUnits,
   useInventoryLowStock, useInventoryValuation, useStockOperation,
 } from '../../api';
 import { usePagination } from '../../hooks/usePagination';
-import type { InventoryItem, StockMovementOp, ProductUnit } from '../../types';
+import type { InventoryItem, StockMovementOp } from '../../types';
 import { formatMoney } from '../../lib/format-money';
 
 const GUIDE_KEY = 'guide-inventory-v1';
@@ -40,25 +40,6 @@ const GUIDE_STEPS: GuideStep[] = [
     title: 'Manage stock levels',
     description: 'Click View on any row to add, remove, adjust, reserve or write off stock.',
   },
-];
-
-const UNIT_OPTIONS: { value: ProductUnit; label: string }[] = [
-  { value: 'bag',    label: 'Bag'    },
-  { value: 'pkt',    label: 'Pkt'    },
-  { value: 'meter',  label: 'Meter'  },
-  { value: 'roll',   label: 'Roll'   },
-  { value: 'kg',     label: 'Kg'     },
-  { value: 'litre',  label: 'Litre'  },
-  { value: 'feet',   label: 'Feet'   },
-  { value: 'pcs',    label: 'Pcs'    },
-  { value: 'dozen',  label: 'Dozen'  },
-  { value: 'box',    label: 'Box'    },
-  { value: 'pair',   label: 'Pair'   },
-  { value: 'bundle', label: 'Bundle' },
-  { value: 'piece',  label: 'Piece'  },
-  { value: 'gram',   label: 'Gram'   },
-  { value: 'ml',     label: 'Ml'     },
-  { value: 'pack',   label: 'Pack'   },
 ];
 
 type OpKey = StockMovementOp;
@@ -126,7 +107,7 @@ interface CreateForm {
   productId: string; locationId: string;
   initialQty: string; averageCost: string;
   reorderLevel: string; maxStock: string; binLocation: string;
-  unit: string;
+  unitId: string;
 }
 
 interface OpForm { op: OpKey; quantity: string; unitCost: string; notes: string }
@@ -136,6 +117,7 @@ type StatusFilter = 'all' | 'low' | 'zero';
 export default function InventoryPage() {
   const { page, setPage, setSearch, debouncedSearch } = usePagination();
   const [locationFilter, setLocationFilter] = useState('');
+  const [productFilter,  setProductFilter]  = useState('');
   const [statusFilter,   setStatusFilter]   = useState<StatusFilter>('all');
 
   const [viewItem,   setViewItem]   = useState<InventoryItem | null>(null);
@@ -146,17 +128,17 @@ export default function InventoryPage() {
 
   const [createForm, setCreateForm] = useState<CreateForm>({
     productId: '', locationId: '', initialQty: '', averageCost: '',
-    reorderLevel: '', maxStock: '', binLocation: '', unit: '',
+    reorderLevel: '', maxStock: '', binLocation: '', unitId: '',
   });
-  const [unitEditing, setUnitEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ reorderLevel: '', maxStock: '', binLocation: '', unit: '' });
+  const [editForm, setEditForm] = useState({ reorderLevel: '', maxStock: '', binLocation: '', unitId: '' });
   const [opForm,   setOpForm]   = useState<OpForm>({ op: 'add', quantity: '', unitCost: '', notes: '' });
 
   const searchFilters = useMemo(() => {
     const f: Record<string, string> = {};
     if (locationFilter) f.locationId = locationFilter;
+    if (productFilter)  f.productId  = productFilter;
     return Object.keys(f).length ? f : undefined;
-  }, [locationFilter]);
+  }, [locationFilter, productFilter]);
 
   const { data: searchData, isLoading, refetch } = Inventory.useSearch({
     page,
@@ -167,12 +149,12 @@ export default function InventoryPage() {
   const { data: valuationItems }                       = useInventoryValuation();
   const { data: products }  = Products.useList();
   const { data: locations } = Locations.useList();
+  const { data: orgUnits }  = OrganizationUnits.useList();
 
-  const createMutation         = Inventory.useCreate();
-  const updateMutation         = Inventory.useUpdate();
-  const deleteMutation         = Inventory.useDelete();
-  const opMutation             = useStockOperation();
-  const updateProductMutation  = Products.useUpdate();
+  const createMutation = Inventory.useCreate();
+  const updateMutation = Inventory.useUpdate();
+  const deleteMutation = Inventory.useDelete();
+  const opMutation     = useStockOperation();
 
   const productMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -191,22 +173,27 @@ export default function InventoryPage() {
     return m;
   }, [locations]);
 
-  const productUnitMap = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const p of products ?? []) {
-      if (p.unit) m.set(p.id, UNIT_OPTIONS.find(u => u.value === p.unit)?.label ?? p.unit);
-    }
-    return m;
-  }, [products]);
+  const orgUnitOptions = useMemo(
+    () => (orgUnits ?? []).filter(u => u.isActive).map(u => ({ value: u.id, label: `${u.name} (${u.symbol})` })),
+    [orgUnits],
+  );
 
   const locationOptions = useMemo(
     () => (locations ?? []).map(l => ({ value: l.id, label: l.name ?? l.id })),
     [locations],
   );
 
+  const productOptions = useMemo(
+    () => (products ?? []).map(p => ({ value: p.id, label: p.name ? `${p.name}${p.sku ? ` (${p.sku})` : ''}` : p.id })),
+    [products],
+  );
+
   const tableData = useMemo(() => {
     if (statusFilter === 'low') {
-      const items = (lowStockItems ?? []).filter(i => !locationFilter || i.locationId === locationFilter);
+      const items = (lowStockItems ?? []).filter(i =>
+        (!locationFilter || i.locationId === locationFilter) &&
+        (!productFilter  || i.productId  === productFilter),
+      );
       return { items, total: items.length };
     }
     if (statusFilter === 'zero') {
@@ -226,7 +213,7 @@ export default function InventoryPage() {
   const columns: Column<InventoryItem>[] = [
     { key: 'productId',  label: 'Product',   render: r => <span className="font-medium">{productMap.get(r.productId) ?? '—'}</span> },
     { key: 'locationId', label: 'Location',  render: r => <span className="text-muted-foreground">{locationMap.get(r.locationId) ?? '—'}</span> },
-    { key: 'unit',       label: 'Unit',      render: r => <span className="text-sm text-muted-foreground">{productUnitMap.get(r.productId) ?? '—'}</span> },
+    { key: 'unit',       label: 'Unit',      render: r => <span className="text-sm text-muted-foreground">{r.unitName ?? r.unitSymbol ?? '—'}</span> },
     { key: 'quantityOnHand',   label: 'On Hand',   render: r => <span className="font-mono">{Number(r.quantityOnHand).toLocaleString()}</span> },
     { key: 'quantityReserved', label: 'Reserved',  render: r => <span className="font-mono text-muted-foreground">{Number(r.quantityReserved).toLocaleString()}</span> },
     {
@@ -241,15 +228,9 @@ export default function InventoryPage() {
     e.preventDefault();
     if (!createForm.productId || !createForm.locationId) { toast.error('Product and location are required'); return; }
     try {
-      const selectedProduct = (products ?? []).find(p => p.id === createForm.productId);
-      if (createForm.unit && createForm.unit !== selectedProduct?.unit) {
-        await updateProductMutation.mutateAsync({
-          id: createForm.productId,
-          body: { unit: createForm.unit as ProductUnit },
-        });
-      }
       const created = await createMutation.mutateAsync({
         productId: createForm.productId, locationId: createForm.locationId,
+        unitId:       createForm.unitId       || undefined,
         reorderLevel: createForm.reorderLevel ? Number(createForm.reorderLevel) : undefined,
         maxStock:     createForm.maxStock     ? Number(createForm.maxStock)     : undefined,
         averageCost:  createForm.averageCost  ? Number(createForm.averageCost)  : undefined,
@@ -267,8 +248,7 @@ export default function InventoryPage() {
         });
       }
       setCreateOpen(false);
-      setCreateForm({ productId: '', locationId: '', initialQty: '', averageCost: '', reorderLevel: '', maxStock: '', binLocation: '', unit: '' });
-      setUnitEditing(false);
+      setCreateForm({ productId: '', locationId: '', initialQty: '', averageCost: '', reorderLevel: '', maxStock: '', binLocation: '', unitId: '' });
       void refetch();
     } catch {
       // errors already toasted by mutations
@@ -279,15 +259,9 @@ export default function InventoryPage() {
     e.preventDefault();
     if (!editItem) return;
     try {
-      const selectedProduct = (products ?? []).find(p => p.id === editItem.productId);
-      if (editForm.unit && editForm.unit !== selectedProduct?.unit) {
-        await updateProductMutation.mutateAsync({
-          id: editItem.productId,
-          body: { unit: editForm.unit as ProductUnit },
-        });
-      }
       await updateMutation.mutateAsync({
         id: editItem.id, body: {
+          unitId:       editForm.unitId       || undefined,
           reorderLevel: editForm.reorderLevel ? Number(editForm.reorderLevel) : undefined,
           maxStock:     editForm.maxStock     ? Number(editForm.maxStock)     : undefined,
           binLocation:  editForm.binLocation  || undefined,
@@ -367,6 +341,8 @@ export default function InventoryPage() {
       <div className="flex flex-wrap items-center gap-2">
         <FilterDropdown label="Location" options={locationOptions} value={locationFilter || null}
           onChange={v => { setLocationFilter(v ?? ''); setPage(1); }} searchable />
+        <FilterDropdown label="Product" options={productOptions} value={productFilter || null}
+          onChange={v => { setProductFilter(v ?? ''); setPage(1); }} searchable />
         <FilterDropdown label="Status"
           options={[{ value: 'all', label: 'All items' }, { value: 'low', label: 'Low stock' }, { value: 'zero', label: 'Out of stock' }]}
           value={statusFilter}
@@ -383,9 +359,8 @@ export default function InventoryPage() {
           onRefetch={() => void refetch()}
           onView={r => { setViewItem(r); setOpForm({ op: 'add', quantity: '', unitCost: '', notes: '' }); }}
           onEdit={r => {
-            const prod = (products ?? []).find(p => p.id === r.productId);
             setEditItem(r);
-            setEditForm({ reorderLevel: r.reorderLevel != null ? String(r.reorderLevel) : '', maxStock: r.maxStock != null ? String(r.maxStock) : '', binLocation: r.binLocation ?? '', unit: prod?.unit ?? '' });
+            setEditForm({ reorderLevel: r.reorderLevel != null ? String(r.reorderLevel) : '', maxStock: r.maxStock != null ? String(r.maxStock) : '', binLocation: r.binLocation ?? '', unitId: r.unitId ?? '' });
           }}
           onDelete={r => setDeleteItem(r)}
           isAdmin searchPlaceholder="Search by product…"
@@ -454,12 +429,12 @@ export default function InventoryPage() {
       )}
 
       {/* Create drawer */}
-      <FormDrawer open={createOpen} onClose={() => { setCreateOpen(false); setUnitEditing(false); }}
+      <FormDrawer open={createOpen} onClose={() => setCreateOpen(false)}
         title="Add Inventory Item" subtitle="Create a new product–location stock record"
         footer={
           <>
-            <Button type="submit" form="inv-create-form" disabled={createMutation.isPending || opMutation.isPending || updateProductMutation.isPending}>
-              {createMutation.isPending || opMutation.isPending || updateProductMutation.isPending ? 'Creating…' : 'Add Item'}
+            <Button type="submit" form="inv-create-form" disabled={createMutation.isPending || opMutation.isPending}>
+              {createMutation.isPending || opMutation.isPending ? 'Creating…' : 'Add Item'}
             </Button>
             <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
           </>
@@ -471,39 +446,17 @@ export default function InventoryPage() {
               items={productSearchItems}
               value={createForm.productId}
               placeholder="Search by name or SKU…"
-              onValueChange={v => {
-                const prod = (products ?? []).find(p => p.id === v);
-                setCreateForm(f => ({ ...f, productId: v, unit: prod?.unit ?? '' }));
-                setUnitEditing(!prod?.unit);
-              }} />
+              onValueChange={v => setCreateForm(f => ({ ...f, productId: v }))} />
           </Field>
-          {createForm.productId && (
-            <Field label="Unit">
-              {(() => {
-                const prod = (products ?? []).find(p => p.id === createForm.productId);
-                const hasUnit = !!prod?.unit && !unitEditing;
-                return hasUnit ? (
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-md border border-border bg-muted px-3 py-1.5 text-sm font-medium">
-                      {UNIT_OPTIONS.find(u => u.value === createForm.unit)?.label ?? createForm.unit}
-                    </span>
-                    <button type="button" onClick={() => setUnitEditing(true)}
-                      className="text-xs text-primary hover:underline">
-                      Change
-                    </button>
-                  </div>
-                ) : (
-                  <Select value={createForm.unit || undefined}
-                    onValueChange={v => setCreateForm(f => ({ ...f, unit: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select unit…" /></SelectTrigger>
-                    <SelectContent>
-                      {UNIT_OPTIONS.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                );
-              })()}
-            </Field>
-          )}
+          <Field label="Unit of Measure">
+            <Select value={createForm.unitId || undefined}
+              onValueChange={v => setCreateForm(f => ({ ...f, unitId: v }))}>
+              <SelectTrigger><SelectValue placeholder="Select unit…" /></SelectTrigger>
+              <SelectContent>
+                {orgUnitOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
           <Field label="Location" required>
             <ResourceSelect resource={Locations} getLabel={l => l.name ?? l.id}
               value={createForm.locationId} onValueChange={v => setCreateForm(f => ({ ...f, locationId: v }))} />
@@ -540,8 +493,8 @@ export default function InventoryPage() {
           subtitle={`${productMap.get(editItem.productId) ?? '—'} · ${locationMap.get(editItem.locationId) ?? '—'}`}
           footer={
             <>
-              <Button type="submit" form="inv-edit-form" disabled={updateMutation.isPending || updateProductMutation.isPending}>
-                {updateMutation.isPending || updateProductMutation.isPending ? 'Saving…' : 'Save Changes'}
+              <Button type="submit" form="inv-edit-form" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? 'Saving…' : 'Save Changes'}
               </Button>
               <Button type="button" variant="outline" onClick={() => setEditItem(null)}>Cancel</Button>
             </>
@@ -551,11 +504,11 @@ export default function InventoryPage() {
             <p className="text-xs text-muted-foreground">
               To change quantities, use stock operations from the View panel. Here you can update thresholds, unit, and bin location.
             </p>
-            <Field label="Unit">
-              <Select value={editForm.unit || undefined} onValueChange={v => setEditForm(f => ({ ...f, unit: v }))}>
+            <Field label="Unit of Measure">
+              <Select value={editForm.unitId || undefined} onValueChange={v => setEditForm(f => ({ ...f, unitId: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select unit…" /></SelectTrigger>
                 <SelectContent>
-                  {UNIT_OPTIONS.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+                  {orgUnitOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </Field>

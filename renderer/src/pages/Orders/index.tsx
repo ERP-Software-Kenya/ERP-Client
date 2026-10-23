@@ -291,7 +291,7 @@ export default function OrdersPage(): React.JSX.Element {
         sku: formatEntityLabel({ sku: p.sku, id: p.id }),
         name: p.name || 'Unnamed product',
         qty: 1, rate, taxPct: 0,
-        unitLabel: p.unit || 'pcs',
+        unitLabel: p.units?.find(u => u.isDefault)?.unitSymbol ?? p.units?.[0]?.unitSymbol ?? 'pcs',
         officialRate: tiers[tier],
         p1: tiers.p1, p2: tiers.p2, p3: tiers.p3, p4: tiers.p4,
         activeTier: tier,

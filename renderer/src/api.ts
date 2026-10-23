@@ -39,11 +39,13 @@ import type {
   PurchaseOrderPayment, SupplierAccount,
   Quotation, CreateQuotationInput, UpdateQuotationInput, ConvertToOrderInput, SendQuotationEmailInput,
   ProductBranchPrice, ProductBranchPricesPage,
+  OrganizationUnit,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
 
 export const Organizations = createResource<Organization>('/api/v1/organizations', 'organizations', 'Organization');
+export const OrganizationUnits = createResource<OrganizationUnit>('/api/v1/organization-units', 'organization-units', 'Unit');
 export const Categories = createResource<Category>('/api/v1/categories', 'categories', 'Category');
 const productsBase = createResource<Product>('/api/v1/products', 'products', 'Product');
 
