@@ -153,7 +153,7 @@ export interface Tax {
 // create/update-product.request.ts): fields are camelCase and there is no
 // snake_case conversion layer in api.ts, so these names must match the wire
 // format exactly. `unit` is a fixed backend enum, not free text.
-export type ProductUnit = 'piece' | 'kg' | 'gram' | 'litre' | 'ml' | 'box' | 'pack' | 'dozen';
+export type ProductUnit = 'piece' | 'kg' | 'gram' | 'litre' | 'ml' | 'box' | 'pack' | 'dozen' | 'bag' | 'pkt' | 'meter' | 'roll' | 'feet' | 'pcs' | 'pair' | 'bundle';
 
 export interface Product {
   id: string;
