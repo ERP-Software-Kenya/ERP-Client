@@ -92,6 +92,7 @@ const QuotationBuilder = lazy(() => import('./pages/Quotations/QuotationBuilder'
 const BranchPricing = lazy(() => import('./pages/BranchPricing'));
 const TaxesPage = lazy(() => import('./pages/Taxes'));
 const AskAiPage = lazy(() => import('./pages/AskAi'));
+const OrganizationUnitsPage = lazy(() => import('./pages/OrganizationUnits'));
 
 function RouteFallback() {
   return (
@@ -211,6 +212,7 @@ function App() {
             <Route path="settings/app" element={<AppUpdates />} />
             <Route path="settings/billing" element={<BillingSettings />} />
             <Route path="settings/notifications" element={<NotificationSettings />} />
+            <Route path="settings/organization-units" element={<OrganizationUnitsPage />} />
             <Route path="purchase-items" element={<PurchaseItems />} />
             <Route path="roles" element={<Roles />} />
             <Route path="user-roles" element={<Navigate to="/users" replace />} />
