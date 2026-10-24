@@ -179,7 +179,6 @@ export const MODULES: ModuleGroup[] = [
         icon: RotateCcw,
       },
       // { key: 'grn', title: 'GRN', path: '/purchase/grn', icon: PackageCheck, disabled: true },
-      { key: "bills", title: "Bills", path: "/bills", icon: FileText },
       // { key: 'payments-made', title: 'Payments Made', path: '/payment-transactions', icon: Banknote },
       // { key: 'purchase-items', title: 'Purchase Items', path: '/purchase-items', icon: Receipt },
     ],

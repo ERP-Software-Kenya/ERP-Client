@@ -288,34 +288,38 @@ export default function QuotationBuilder() {
   const isReadOnly = quotation?.status === 'CONVERTED' || quotation?.status === 'SUPERSEDED';
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-5 pb-12">
+      {/* Back */}
+      <button
+        type="button"
+        onClick={() => navigate('/quotations')}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft size={15} />
+        Back to Quotations
+      </button>
+
       {/* Top Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate('/quotations')}>
-            <ArrowLeft size={16} className="mr-1" />
-            Back to List
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <FileText className="text-primary" size={22} />
-              <span>
-                {isEditing ? `Quotation ${quotation?.quoteNumber ?? ''}` : 'New Quotation'}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5 flex-wrap">
+            <FileText className="text-primary" size={26} />
+            <span>
+              {isEditing ? `Quotation ${quotation?.quoteNumber ?? ''}` : 'New Quotation'}
+            </span>
+            {quotation && (
+              <span className="text-xs px-2.5 py-0.5 rounded-full font-bold uppercase bg-primary/10 text-primary border border-primary/20">
+                {quotation.status} (v{quotation.versionNumber})
               </span>
-              {quotation && (
-                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold uppercase bg-primary/10 text-primary border border-primary/20">
-                  {quotation.status} (v{quotation.versionNumber})
-                </span>
-              )}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Tax-inclusive estimate • Zero stock deduction until converted
-            </p>
-          </div>
+            )}
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Tax-inclusive estimate • Zero stock deduction until converted
+          </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {quotation && (
             <Button
               variant="outline"
@@ -373,9 +377,9 @@ export default function QuotationBuilder() {
       </div>
 
       {/* Main Form Box */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left 2 Cols: Form & Item Matrix */}
-        <div className="col-span-2 space-y-6">
+        <div className="xl:col-span-2 min-w-0 space-y-6">
           {/* Header Card: Location & Customer */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
@@ -488,7 +492,7 @@ export default function QuotationBuilder() {
             </div>
 
             {/* Items Table */}
-            <div className="border border-border rounded-lg overflow-hidden">
+            <div className="border border-border rounded-lg overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="bg-muted/60 text-muted-foreground font-semibold border-b border-border">
                   <tr>
@@ -612,7 +616,7 @@ export default function QuotationBuilder() {
         </div>
 
         {/* Right 1 Col: Totals, Revisions & Status */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {/* Summary Box */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-4">
             <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
