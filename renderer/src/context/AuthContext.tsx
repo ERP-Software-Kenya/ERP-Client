@@ -8,6 +8,7 @@ import { HttpError } from '../lib/http';
 import { AuthService, MeResponse } from '../services/auth.service';
 import AuthBootScreen, { AuthBootPhase } from '../components/auth/AuthBootScreen';
 import { configureCurrencyCode } from '../lib/format-money';
+import { SessionService } from '../services/session.service';
 
 type AuthContextType = {
   user: MeResponse | null;
@@ -26,7 +27,11 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://51.20.217.230:1000
 
 type ClerkResources = Parameters<Parameters<typeof clerk.addListener>[0]>[0];
 
-configureApi(API_BASE, () => (clerk.session ? clerk.session.getToken() : Promise.resolve(null)));
+configureApi(API_BASE, ({ forceRefresh } = {}) =>
+  clerk.session
+    ? clerk.session.getToken({ skipCache: forceRefresh === true })
+    : Promise.resolve(null),
+);
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -195,6 +200,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user || !clerk.session) return;
+    const heartbeat = () => {
+      if (document.visibilityState === 'visible' && clerk.session) {
+        void SessionService.registerCurrent().catch(() => undefined);
+      }
+    };
+    heartbeat();
+    const interval = window.setInterval(heartbeat, 5 * 60_000);
+    document.addEventListener('visibilitychange', heartbeat);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', heartbeat);
+    };
+  }, [user?.id]);
+
   // Keep a stable ref so the event listener always calls the latest logout closure.
   const logoutRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
@@ -210,6 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearCachedMe();
 
     try {
+      await SessionService.endCurrent().catch(() => undefined);
       // Clerk defaults to window.navigate("/") after sign-out (full page reload).
       // Pass a callback so we keep SPA routing — Topbar navigates to /login.
       await clerk.signOut(() => undefined);
@@ -225,12 +247,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Update ref every render so the event listener always has the latest closure.
   logoutRef.current = logout;
 
-  // Listen for 401 events dispatched by http.ts and force-logout immediately.
-  // 403 is a permission miss — stay signed in.
-  // While syncing, refresh() owns error handling (avoids racing logout on boot).
+  // A request has already forced a fresh Clerk token and retried before this event fires.
+  // Keep an active Clerk session intact: a persistent API 401 can be a backend/configuration
+  // problem, while Clerk's session listener remains the authority for expiry and revocation.
   useEffect(() => {
     const handler = () => {
-      if (!signingOut.current && !syncingRef.current) void logoutRef.current?.();
+      if (!signingOut.current && !syncingRef.current && !clerk.session) {
+        void logoutRef.current?.();
+      }
     };
     document.addEventListener('auth:unauthorized', handler);
     return () => document.removeEventListener('auth:unauthorized', handler);
