@@ -945,6 +945,20 @@ export interface UpdateOrganizationFinancialSettings {
   timeZone: string;
 }
 
+export interface NotificationSetting {
+  id: string;
+  organizationId: string;
+  event: string;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface NotificationSettingItem {
+  event: string;
+  isEnabled: boolean;
+}
+
 export interface CustomerTypeRule {
   id: string;
   organizationId: string;

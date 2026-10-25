@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Bell, BellOff, BellRing, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { FormSection } from '../../components/FormDrawer';
 import { Button } from '../../components/ui/button';
+import { useSession } from '../../context/SessionContext';
+import { EmailNotificationsSection } from './EmailNotificationsSection';
 
 type PermissionState = 'default' | 'granted' | 'denied' | 'unsupported';
 
@@ -40,6 +42,7 @@ function StatusBadge({ status }: { status: PermissionState }) {
 }
 
 export default function NotificationSettingsPage() {
+  const { isOrgAdmin } = useSession();
   const [permission, setPermission] = useState<PermissionState>(getPermission);
   const [requesting, setRequesting] = useState(false);
   const [testSent, setTestSent] = useState(false);
@@ -70,7 +73,7 @@ export default function NotificationSettingsPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-xl">
+    <div className="max-w-xl space-y-4">
       <div>
         <h1 className="text-2xl font-semibold">Notifications</h1>
         <p className="text-muted-foreground text-sm mt-1">
@@ -164,6 +167,8 @@ export default function NotificationSettingsPage() {
           the bell icon and the Notifications page.
         </p>
       </FormSection>
+
+      <EmailNotificationsSection isOrgAdmin={isOrgAdmin} />
     </div>
   );
 }
