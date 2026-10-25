@@ -40,6 +40,8 @@ import type {
   Quotation, CreateQuotationInput, UpdateQuotationInput, ConvertToOrderInput, SendQuotationEmailInput,
   ProductBranchPrice, ProductBranchPricesPage,
   OrganizationUnit,
+  NotificationSetting,
+  NotificationSettingItem,
 } from './types';
 
 // ── New hook-based resources ───────────────────────────────────────────────────
@@ -2109,6 +2111,28 @@ export function useCopyMainBranchPrices(): ReturnType<typeof useMutation<void, E
     onError: (err: Error) => toast.error(err.message || 'Failed to copy prices'),
   });
 }
+
+export const EmailNotificationSettings = {
+  useGet() {
+    return useQuery<NotificationSetting[]>({
+      queryKey: ['notification-settings'],
+      queryFn: () => get<NotificationSetting[]>('/api/v1/notification-settings'),
+      staleTime: 60_000,
+    });
+  },
+  useUpsert() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (items: NotificationSettingItem[]) =>
+        put<NotificationSetting[]>('/api/v1/notification-settings', { items }),
+      onSuccess: (data) => {
+        queryClient.setQueryData(['notification-settings'], data);
+        toast.success('Notification settings saved');
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to save notification settings'),
+    });
+  },
+};
 
 export * from './features/auth/api';
 export * from './features/inventory/api';
