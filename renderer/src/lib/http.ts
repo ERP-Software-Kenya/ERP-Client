@@ -14,10 +14,13 @@ export class HttpError extends Error {
 }
 
 let _baseUrl = 'http://51.20.217.230:10000';
-let _getToken: () => Promise<string | null> = async () => null;
+export type TokenProvider = (options?: { forceRefresh?: boolean }) => Promise<string | null>;
 
-/** Call once at startup. getToken is invoked fresh on every request (Clerk auto-refreshes). */
-export function configureApi(baseUrl: string, getToken: () => Promise<string | null>): void {
+let _getToken: TokenProvider = async () => null;
+let _refreshInFlight: Promise<string | null> | null = null;
+
+/** Call once at startup. The provider is invoked for every request and can force a refresh after a 401. */
+export function configureApi(baseUrl: string, getToken: TokenProvider): void {
   _baseUrl = baseUrl.replace(/\/$/, '');
   _getToken = getToken;
 }
@@ -34,13 +37,22 @@ function buildUrl(path: string, params?: QueryParams): string {
   return url.toString();
 }
 
-async function authHeader(): Promise<Record<string, string>> {
-  const token = await _getToken();
+async function getFreshToken(): Promise<string | null> {
+  if (!_refreshInFlight) {
+    _refreshInFlight = _getToken({ forceRefresh: true }).finally(() => {
+      _refreshInFlight = null;
+    });
+  }
+  return _refreshInFlight;
+}
+
+async function authHeader(forceRefresh = false): Promise<Record<string, string>> {
+  const token = forceRefresh ? await getFreshToken() : await _getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function jsonHeaders(): Promise<Record<string, string>> {
-  return { 'Content-Type': 'application/json', ...(await authHeader()) };
+async function jsonHeaders(forceRefresh = false): Promise<Record<string, string>> {
+  return { 'Content-Type': 'application/json', ...(await authHeader(forceRefresh)) };
 }
 
 // 401 = session dead → logout. 403 = permission miss → stay signed in.
@@ -86,13 +98,13 @@ async function request<T>(resp: Response): Promise<T> {
 
 async function retryingFetch(
   url: string,
-  makeHeaders: () => Promise<Record<string, string>>,
+  makeHeaders: (forceRefresh?: boolean) => Promise<Record<string, string>>,
   init: Omit<RequestInit, 'headers'> = {},
 ): Promise<Response> {
   try {
     const resp = await fetch(url, { ...init, headers: await makeHeaders() });
     if (resp.status !== 401) return resp;
-    return fetch(url, { ...init, headers: await makeHeaders() });
+    return fetch(url, { ...init, headers: await makeHeaders(true) });
   } catch (error) {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       document.dispatchEvent(new CustomEvent('network:offline'));
@@ -144,7 +156,7 @@ export async function del(path: string): Promise<void> {
 export async function getBlob(path: string, params?: QueryParams): Promise<{ blob: Blob; filename: string }> {
   const url = buildUrl(path, params);
   let resp = await fetch(url, { headers: await authHeader() });
-  if (resp.status === 401) resp = await fetch(url, { headers: await authHeader() });
+  if (resp.status === 401) resp = await fetch(url, { headers: await authHeader(true) });
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
     checkAuth(resp.status);
