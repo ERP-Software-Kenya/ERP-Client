@@ -176,16 +176,21 @@ export default function PendingApprovals() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Pending Credit Sales</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Over-limit credit sales held as drafts until you approve or reject.
+            When a customer's credit reaches their limit, any new credit sale is held here as a
+            draft until you approve or reject it.
           </p>
         </div>
       </div>
 
       <div className="grid gap-4 max-w-4xl">
         {approvals.length === 0 ? (
-          <p className="text-muted-foreground bg-card p-6 rounded-xl border border-border">
-            No pending credit approvals at this time.
-          </p>
+          <div className="bg-card p-6 rounded-xl border border-border">
+            <p className="font-medium">No sales waiting for approval</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Approve a held sale to complete it, or reject it to cancel. Sales appear here
+              automatically once a customer goes over their credit limit.
+            </p>
+          </div>
         ) : (
           approvals.map((req) => (
             <ApprovalCard
