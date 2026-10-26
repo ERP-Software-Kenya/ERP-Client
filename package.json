@@ -79,6 +79,7 @@
       "icon": "assets/icon.ico"
     },
     "nsis": {
+      "artifactName": "${name}-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "differentialPackage": true
