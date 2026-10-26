@@ -2,25 +2,20 @@ name: Release (Windows)
 
 on:
   push:
-    tags: ['v*']
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      publish:
-        description: 'Publish a draft release (otherwise build only)'
-        type: boolean
-        default: false
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-main
   cancel-in-progress: false
 
 jobs:
   release:
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       APP_NAME: ${{ vars.APP_NAME }}
       VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
@@ -28,20 +23,45 @@ jobs:
       VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
-      - name: Verify tag matches package.json version
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Check if release is needed
+        id: check
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PKG="$(node -p "require('./package.json').version")"
-          [ "${GITHUB_REF_NAME}" = "v${PKG}" ] || { echo "Tag ${GITHUB_REF_NAME} != v${PKG}"; exit 1; }
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          LATEST_TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // "v0.0.0"')
+          LATEST_VERSION="${LATEST_TAG#v}"
+
+          echo "tag=v${PKG_VERSION}" >> $GITHUB_OUTPUT
+          echo "pkg_version=${PKG_VERSION}" >> $GITHUB_OUTPUT
+          echo "latest_version=${LATEST_VERSION}" >> $GITHUB_OUTPUT
+
+          SHOULD_RELEASE=$(PKG_VERSION="$PKG_VERSION" LATEST_VERSION="$LATEST_VERSION" node -e "
+            const semver = v => v.replace(/^v/, '').split('.').map(Number);
+            const [a, b] = [semver(process.env.PKG_VERSION), semver(process.env.LATEST_VERSION)];
+            const gt = a[0] > b[0] || (a[0] === b[0] && (a[1] > b[1] || (a[1] === b[1] && a[2] > b[2])));
+            console.log(gt ? 'true' : 'false');
+          ")
+          echo "should_release=${SHOULD_RELEASE}" >> $GITHUB_OUTPUT
+
+          if [ "$SHOULD_RELEASE" = "false" ]; then
+            echo "::notice::v${PKG_VERSION} matches latest release v${LATEST_VERSION} — skipping release"
+          else
+            echo "::notice::v${PKG_VERSION} > latest release v${LATEST_VERSION} — proceeding with release"
+          fi
 
       - name: Verify required build vars
+        if: steps.check.outputs.should_release == 'true'
         shell: bash
         run: |
           for v in VITE_API_BASE_URL VITE_CENTRIFUGO_URL VITE_CLERK_PUBLISHABLE_KEY; do
@@ -49,34 +69,80 @@ jobs:
           done
 
       - uses: actions/cache@v4
+        if: steps.check.outputs.should_release == 'true'
         with:
           path: |
             ~\AppData\Local\electron\Cache
             ~\AppData\Local\electron-builder\Cache
           key: eb-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - run: npm ci
-      - run: npx vitest run
-      - run: npm run build
+      - name: Install dependencies
+        if: steps.check.outputs.should_release == 'true'
+        run: npm ci
+
+      - name: Run tests
+        if: steps.check.outputs.should_release == 'true'
+        run: npx vitest run
+
+      - name: Build
+        if: steps.check.outputs.should_release == 'true'
+        run: npm run build
 
       - name: Guard bundle (no dev auth bypass)
+        if: steps.check.outputs.should_release == 'true'
         shell: bash
         run: |
           if grep -rEl "VITE_DEV_BYPASS_AUTH" dist/renderer; then
             echo "Dev bypass flag found in bundle"; exit 1
           fi
 
-      - name: Package only
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') && !(github.event_name == 'workflow_dispatch' && inputs.publish) }}
+      - name: Package app
+        if: steps.check.outputs.should_release == 'true'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder --win --x64 --publish never
 
-      - name: Package and publish draft release
-        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+      - name: Create and push tag
+        if: steps.check.outputs.should_release == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.check.outputs.tag }}"
+          git push origin "${{ steps.check.outputs.tag }}"
+
+      - name: Create draft release
+        if: steps.check.outputs.should_release == 'true'
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win --x64 --publish always
+        run: |
+          gh release create "${{ steps.check.outputs.tag }}" \
+            --draft \
+            --title "${{ steps.check.outputs.tag }}" \
+            --notes "Automated release from ${{ github.sha }}"
+
+      - name: Upload build to draft release
+        if: steps.check.outputs.should_release == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ steps.check.outputs.tag }}" \
+            --clobber \
+            release/*.exe \
+            release/*.blockmap \
+            release/latest.yml
+
+      - name: Publish release
+        if: steps.check.outputs.should_release == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ steps.check.outputs.tag }}" --draft=false
 
       - uses: actions/upload-artifact@v4
+        if: steps.check.outputs.should_release == 'true'
         with:
           name: windows-installer-${{ github.run_number }}
           path: |
