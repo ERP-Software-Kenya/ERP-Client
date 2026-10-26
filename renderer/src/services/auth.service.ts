@@ -9,7 +9,9 @@ export interface MeResponse {
   avatarUrl?: string;
   roles: string[];
   isOnboarded: boolean;
-  organization?: { id: string; name: string; slug: string; logoUrl?: string };
+  /** 'pending' = Clerk session has an unfinished task (e.g. no active organization). */
+  sessionStatus?: 'active' | 'pending';
+  organization?: { id: string; name: string; slug: string; logoUrl?: string; clerkOrgId?: string };
   membership?: { id: string; roleId: string; status: string; joinedAt?: string };
   locationIds?: string[];
   branchId?: string;

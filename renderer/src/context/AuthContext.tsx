@@ -9,6 +9,7 @@ import { AuthService, MeResponse } from '../services/auth.service';
 import AuthBootScreen, { AuthBootPhase } from '../components/auth/AuthBootScreen';
 import { configureCurrencyCode } from '../lib/format-money';
 import { SessionService } from '../services/session.service';
+import { isSessionPendingError, resolvePendingSession } from '../lib/pending-session';
 
 type AuthContextType = {
   user: MeResponse | null;
@@ -17,6 +18,8 @@ type AuthContextType = {
   syncing: boolean;
   /** Fine-grained phase for the first-time boot UI. Null when idle. */
   bootPhase: AuthBootPhase | null;
+  /** Set when sign-in succeeded but the account still has an unfinished Clerk step we could not resolve. */
+  sessionIssue: string | null;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -53,7 +56,9 @@ async function loadMe(onPhase: (phase: AuthBootPhase) => void): Promise<MeRespon
   onPhase('sync');
   await AuthService.sync();
   onPhase('profile');
-  return AuthService.getMe();
+  const me = await AuthService.getMe();
+  // sts:"pending" is recoverable (e.g. org not active in Clerk yet) — fix it instead of failing the sign-in.
+  return resolvePendingSession(me);
 }
 
 function isRetryableBootstrapError(error: unknown): boolean {
@@ -65,6 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [bootPhase, setBootPhase] = useState<AuthBootPhase | null>('starting');
+  const [sessionIssue, setSessionIssue] = useState<string | null>(null);
+  const sessionIssueRef = useRef<string | null>(null);
+  const setIssue = (value: string | null) => {
+    sessionIssueRef.current = value;
+    setSessionIssue(value);
+  };
   const refreshInFlight = useRef<Promise<void> | null>(null);
   /** Bumped on logout so in-flight /me results cannot update UI afterward. */
   const authEpoch = useRef(0);
@@ -89,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      setIssue(null);
       setBootPhase('session');
       syncingRef.current = true;
       setSyncing(true);
@@ -125,6 +137,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         if (signingOut.current || epoch !== authEpoch.current) return;
         clearCachedMe();
+        if (isSessionPendingError(error)) {
+          // Not an expired session: signing out and back in cannot clear it, so keep the session and explain.
+          setUser(null);
+          setIssue(getErrorMessage(error, 'Your account setup is not finished.'));
+          return;
+        }
         toast.error(getErrorMessage(error, 'Failed to load your account'));
         // Callback form skips Clerk's default hard navigate to "/".
         await clerk.signOut(() => undefined);
@@ -222,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     // Invalidate any in-flight refresh before signOut so Login won't flash "Signing you in…".
     signingOut.current = true;
+    setIssue(null);
     authEpoch.current += 1;
     syncingRef.current = false;
     setSyncing(false);
@@ -256,12 +275,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void logoutRef.current?.();
       }
     };
+    // A route rejected a pending session: re-run bootstrap once (it heals or surfaces sessionIssue).
+    const pendingHandler = () => {
+      if (!signingOut.current && !syncingRef.current && !sessionIssueRef.current && clerk.session) {
+        void refresh();
+      }
+    };
     document.addEventListener('auth:unauthorized', handler);
-    return () => document.removeEventListener('auth:unauthorized', handler);
+    document.addEventListener('auth:session-pending', pendingHandler);
+    return () => {
+      document.removeEventListener('auth:unauthorized', handler);
+      document.removeEventListener('auth:session-pending', pendingHandler);
+    };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, syncing, bootPhase, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, syncing, bootPhase, sessionIssue, logout, refresh }}>
       {!loading ? children : <AuthBootScreen phase="starting" />}
     </AuthContext.Provider>
   );

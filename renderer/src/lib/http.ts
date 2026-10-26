@@ -58,9 +58,11 @@ async function jsonHeaders(forceRefresh = false): Promise<Record<string, string>
 // 401 = session dead → logout. 403 = permission miss → stay signed in.
 let last403At = 0;
 
-function checkAuth(status: number, message?: string): void {
+function checkAuth(status: number, message?: string, body?: Record<string, unknown>): void {
   if (status === 401) {
-    document.dispatchEvent(new CustomEvent('auth:unauthorized'));
+    // A pending session (unfinished Clerk task) is recoverable; only a dead one should reach logout.
+    const pending = body?.code === 'SESSION_PENDING';
+    document.dispatchEvent(new CustomEvent(pending ? 'auth:session-pending' : 'auth:unauthorized'));
     return;
   }
   if (status === 403) {
@@ -90,7 +92,7 @@ async function request<T>(resp: Response): Promise<T> {
     const message = text
       ? formatApiErrorBody(json ?? text, `HTTP ${resp.status} — ${resp.statusText}`)
       : `HTTP ${resp.status} — ${resp.statusText}`;
-    checkAuth(resp.status, message);
+    checkAuth(resp.status, message, json);
     throw new HttpError(resp.status, message, json);
   }
   return readJsonBody<T>(resp);
