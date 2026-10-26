@@ -17,10 +17,18 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     env:
-      APP_NAME: ${{ vars.APP_NAME }}
-      VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
-      VITE_CENTRIFUGO_URL: ${{ vars.VITE_CENTRIFUGO_URL }}
-      VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
+      # --- Required ---
+      VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+      VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+      # --- Recommended (have fallbacks but should be set) ---
+      APP_NAME: ${{ secrets.APP_NAME }}
+      VITE_CENTRIFUGO_URL: ${{ secrets.VITE_CENTRIFUGO_URL }}
+      # --- Optional ---
+      VITE_FEATURE_ASK_AI: ${{ secrets.VITE_FEATURE_ASK_AI }}
+      VITE_BLACK_TAB_PIN: ${{ secrets.VITE_BLACK_TAB_PIN }}
+      VITE_DEFAULT_CUSTOMER_NAME: ${{ secrets.VITE_DEFAULT_CUSTOMER_NAME }}
+      VITE_DEFAULT_CUSTOMER_PHONE: ${{ secrets.VITE_DEFAULT_CUSTOMER_PHONE }}
+      ERP_CLIENT_APP_UPDATE_KEY: ${{ secrets.ERP_CLIENT_APP_UPDATE_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,12 +68,12 @@ jobs:
             echo "::notice::v${PKG_VERSION} > latest release v${LATEST_VERSION} — proceeding with release"
           fi
 
-      - name: Verify required build vars
+      - name: Verify required build secrets
         if: steps.check.outputs.should_release == 'true'
         shell: bash
         run: |
-          for v in VITE_API_BASE_URL VITE_CENTRIFUGO_URL VITE_CLERK_PUBLISHABLE_KEY; do
-            [ -n "${!v}" ] || { echo "$v is empty (set it under Settings > Variables)"; exit 1; }
+          for v in VITE_CLERK_PUBLISHABLE_KEY VITE_API_BASE_URL; do
+            [ -n "${!v}" ] || { echo "$v is empty — add it under Settings > Secrets > Actions"; exit 1; }
           done
 
       - uses: actions/cache@v4
