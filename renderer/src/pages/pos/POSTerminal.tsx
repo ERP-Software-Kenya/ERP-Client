@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDebounce } from "../../hooks/useDebounce";
 import { useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CreditCard, Printer, Scan, UserCircle } from "lucide-react";
@@ -357,6 +358,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const [locationId, setLocationId] = useState("");
   const [lines, setLines] = useState<BillLine[]>([]);
   const [searchVal, setSearchVal] = useState("");
+  const debouncedSearch = useDebounce(searchVal, 300);
   const [payMethod, setPayMethod] = useState<PosPayMethod>("cash");
   const [paymentReference, setPaymentReference] = useState("");
   const [cashTendered, setCashTendered] = useState("");
@@ -462,7 +464,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const { data: productSearch } = Products.useSearch({
     page: 1,
     limit: 20,
-    search: searchVal.trim() || undefined,
+    search: debouncedSearch.trim() || undefined,
   });
   const { data: selectedCustomer, refetch: refetchSelectedCustomer } = Customers.useGet(
     mode === "sales" && customerId ? customerId : undefined,
@@ -770,7 +772,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
               qty: take,
               rate,
               taxPct: p.tax?.rate ?? 0,
-              unitLabel: p.unit || "pcs",
+              unitLabel: p.units?.find(u => u.isDefault)?.unitSymbol ?? p.units?.[0]?.unitSymbol ?? "pcs",
               officialRate: listRate,
               p1: tiers.p1, p2: tiers.p2, p3: tiers.p3, p4: tiers.p4,
               activeTier: tier,
@@ -827,7 +829,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
           qty: addQty,
           rate,
           taxPct: p.tax?.rate ?? 0,
-          unitLabel: p.unit || "pcs",
+          unitLabel: p.units?.find(u => u.isDefault)?.unitSymbol ?? p.units?.[0]?.unitSymbol ?? "pcs",
           officialRate: listRate,
           p1: tiers.p1,
           p2: tiers.p2,
@@ -1156,7 +1158,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
             qty: it.quantity,
             rate: it.unitPrice,
             taxPct: it.taxRate ?? 0,
-            unitLabel: p?.unit || "pcs",
+            unitLabel: p?.units?.find(u => u.isDefault)?.unitSymbol ?? p?.units?.[0]?.unitSymbol ?? "pcs",
             officialRate: p ? productRate(p, mode) : it.unitPrice,
           };
         }),

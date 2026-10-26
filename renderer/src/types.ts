@@ -149,11 +149,23 @@ export interface Tax {
   updatedAt?: string;
 }
 
-// Verified 2026-07-26 against core-apis source (products.controller.ts,
-// create/update-product.request.ts): fields are camelCase and there is no
-// snake_case conversion layer in api.ts, so these names must match the wire
-// format exactly. `unit` is a fixed backend enum, not free text.
-export type ProductUnit = 'piece' | 'kg' | 'gram' | 'litre' | 'ml' | 'box' | 'pack' | 'dozen';
+export interface OrganizationUnit {
+  id: string;
+  organizationId: string;
+  name: string;
+  symbol: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProductUnitItem {
+  unitId: string;
+  unitName?: string;
+  unitSymbol?: string;
+  isDefault: boolean;
+}
 
 export interface Product {
   id: string;
@@ -164,7 +176,9 @@ export interface Product {
   sku?: string;
   barcode?: string;
   description?: string;
-  unit?: ProductUnit;
+  units?: ProductUnitItem[];
+  unitIds?: string[];
+  defaultUnitId?: string;
   costPrice?: number;
   retailPrice?: number;
   loyaltyPrice?: number;
@@ -225,6 +239,9 @@ export interface InventoryItem {
   quantityReserved: number;
   /** Black / unpublished pool — used for black sales stock checks */
   quantityUnpublished?: number;
+  unitId?: string;
+  unitName?: string;
+  unitSymbol?: string;
   reorderLevel: number;
   maxStock?: number;
   averageCost?: number;
@@ -926,6 +943,20 @@ export interface UpdateOrganizationFinancialSettings {
   baseCurrencyCode: string;
   fiscalYearStartMonth: number;
   timeZone: string;
+}
+
+export interface NotificationSetting {
+  id: string;
+  organizationId: string;
+  event: string;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface NotificationSettingItem {
+  event: string;
+  isEnabled: boolean;
 }
 
 export interface CustomerTypeRule {

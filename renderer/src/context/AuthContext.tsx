@@ -8,6 +8,8 @@ import { HttpError } from '../lib/http';
 import { AuthService, MeResponse } from '../services/auth.service';
 import AuthBootScreen, { AuthBootPhase } from '../components/auth/AuthBootScreen';
 import { configureCurrencyCode } from '../lib/format-money';
+import { SessionService } from '../services/session.service';
+import { isSessionPendingError, resolvePendingSession } from '../lib/pending-session';
 
 type AuthContextType = {
   user: MeResponse | null;
@@ -16,6 +18,8 @@ type AuthContextType = {
   syncing: boolean;
   /** Fine-grained phase for the first-time boot UI. Null when idle. */
   bootPhase: AuthBootPhase | null;
+  /** Set when sign-in succeeded but the account still has an unfinished Clerk step we could not resolve. */
+  sessionIssue: string | null;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -26,7 +30,11 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://51.20.217.230:1000
 
 type ClerkResources = Parameters<Parameters<typeof clerk.addListener>[0]>[0];
 
-configureApi(API_BASE, () => (clerk.session ? clerk.session.getToken() : Promise.resolve(null)));
+configureApi(API_BASE, ({ forceRefresh } = {}) =>
+  clerk.session
+    ? clerk.session.getToken({ skipCache: forceRefresh === true })
+    : Promise.resolve(null),
+);
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -48,7 +56,9 @@ async function loadMe(onPhase: (phase: AuthBootPhase) => void): Promise<MeRespon
   onPhase('sync');
   await AuthService.sync();
   onPhase('profile');
-  return AuthService.getMe();
+  const me = await AuthService.getMe();
+  // sts:"pending" is recoverable (e.g. org not active in Clerk yet) — fix it instead of failing the sign-in.
+  return resolvePendingSession(me);
 }
 
 function isRetryableBootstrapError(error: unknown): boolean {
@@ -60,6 +70,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [bootPhase, setBootPhase] = useState<AuthBootPhase | null>('starting');
+  const [sessionIssue, setSessionIssue] = useState<string | null>(null);
+  const sessionIssueRef = useRef<string | null>(null);
+  const setIssue = (value: string | null) => {
+    sessionIssueRef.current = value;
+    setSessionIssue(value);
+  };
   const refreshInFlight = useRef<Promise<void> | null>(null);
   /** Bumped on logout so in-flight /me results cannot update UI afterward. */
   const authEpoch = useRef(0);
@@ -84,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      setIssue(null);
       setBootPhase('session');
       syncingRef.current = true;
       setSyncing(true);
@@ -120,6 +137,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         if (signingOut.current || epoch !== authEpoch.current) return;
         clearCachedMe();
+        if (isSessionPendingError(error)) {
+          // Not an expired session: signing out and back in cannot clear it, so keep the session and explain.
+          setUser(null);
+          setIssue(getErrorMessage(error, 'Your account setup is not finished.'));
+          return;
+        }
         toast.error(getErrorMessage(error, 'Failed to load your account'));
         // Callback form skips Clerk's default hard navigate to "/".
         await clerk.signOut(() => undefined);
@@ -195,12 +218,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user || !clerk.session) return;
+    const heartbeat = () => {
+      if (document.visibilityState === 'visible' && clerk.session) {
+        void SessionService.registerCurrent().catch(() => undefined);
+      }
+    };
+    heartbeat();
+    const interval = window.setInterval(heartbeat, 5 * 60_000);
+    document.addEventListener('visibilitychange', heartbeat);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', heartbeat);
+    };
+  }, [user?.id]);
+
   // Keep a stable ref so the event listener always calls the latest logout closure.
   const logoutRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   const logout = async () => {
     // Invalidate any in-flight refresh before signOut so Login won't flash "Signing you in…".
     signingOut.current = true;
+    setIssue(null);
     authEpoch.current += 1;
     syncingRef.current = false;
     setSyncing(false);
@@ -210,6 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearCachedMe();
 
     try {
+      await SessionService.endCurrent().catch(() => undefined);
       // Clerk defaults to window.navigate("/") after sign-out (full page reload).
       // Pass a callback so we keep SPA routing — Topbar navigates to /login.
       await clerk.signOut(() => undefined);
@@ -225,19 +266,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Update ref every render so the event listener always has the latest closure.
   logoutRef.current = logout;
 
-  // Listen for 401 events dispatched by http.ts and force-logout immediately.
-  // 403 is a permission miss — stay signed in.
-  // While syncing, refresh() owns error handling (avoids racing logout on boot).
+  // A request has already forced a fresh Clerk token and retried before this event fires.
+  // Keep an active Clerk session intact: a persistent API 401 can be a backend/configuration
+  // problem, while Clerk's session listener remains the authority for expiry and revocation.
   useEffect(() => {
     const handler = () => {
-      if (!signingOut.current && !syncingRef.current) void logoutRef.current?.();
+      if (!signingOut.current && !syncingRef.current && !clerk.session) {
+        void logoutRef.current?.();
+      }
+    };
+    // A route rejected a pending session: re-run bootstrap once (it heals or surfaces sessionIssue).
+    const pendingHandler = () => {
+      if (!signingOut.current && !syncingRef.current && !sessionIssueRef.current && clerk.session) {
+        void refresh();
+      }
     };
     document.addEventListener('auth:unauthorized', handler);
-    return () => document.removeEventListener('auth:unauthorized', handler);
+    document.addEventListener('auth:session-pending', pendingHandler);
+    return () => {
+      document.removeEventListener('auth:unauthorized', handler);
+      document.removeEventListener('auth:session-pending', pendingHandler);
+    };
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, syncing, bootPhase, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, syncing, bootPhase, sessionIssue, logout, refresh }}>
       {!loading ? children : <AuthBootScreen phase="starting" />}
     </AuthContext.Provider>
   );

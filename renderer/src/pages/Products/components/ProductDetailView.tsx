@@ -237,7 +237,7 @@ export function ProductDetailView({ productId, categoryName, allSuppliers, onClo
                   </InfoField>
 
                   <InfoField label="Unit">
-                    <span className="text-sm font-medium">{product?.unit || '—'}</span>
+                    <span className="text-sm font-medium">{product?.units?.find(u => u.isDefault)?.unitSymbol ?? product?.units?.[0]?.unitSymbol ?? '—'}</span>
                   </InfoField>
 
                   <InfoField label="Manufacturer / Brand">

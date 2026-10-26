@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useDebounce } from '../../hooks/useDebounce';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Printer, ShoppingCart } from 'lucide-react';
 import { ErrorState } from '../../components/errors/ErrorState';
@@ -41,6 +42,7 @@ export default function BillDetail() {
   const [notes, setNotes] = useState<string | null>(null);
   const [payMethod, setPayMethod] = useState<PaymentMethod>('CASH');
   const [productSearch, setProductSearch] = useState('');
+  const debouncedProductSearch = useDebounce(productSearch, 300);
   const [qty, setQty] = useState('1');
   const [unitPrice, setUnitPrice] = useState('');
   const [taxRate, setTaxRate] = useState('0');
@@ -49,7 +51,7 @@ export default function BillDetail() {
   const { data: productResults } = Products.useSearch({
     page: 1,
     limit: 8,
-    search: productSearch.trim() || undefined,
+    search: debouncedProductSearch.trim() || undefined,
   });
 
   const locationName = useMemo(() => {

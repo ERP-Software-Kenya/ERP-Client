@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  Products, Suppliers,
+  Products, Suppliers, OrganizationUnits,
   useCategoryParents, useLinkProductSupplier, useNextSku, useProductSuppliers,
   useUnlinkProductSupplier, useUploadProductImage, useListTaxes,
 } from '../../../api';
@@ -15,7 +15,7 @@ import { Input } from '../../../components/ui/input';
 import { Textarea } from '../../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { formatMoney, getCurrencyCode } from '../../../lib/format-money';
-import type { Category, Product, ProductSupplier, ProductUnit, Supplier, Tax } from '../../../types';
+import type { Category, OrganizationUnit, Product, ProductSupplier, Supplier, Tax } from '../../../types';
 import { cn } from '../../../lib/utils';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -24,7 +24,6 @@ type Step = 1 | 2 | 3 | 4;
 
 export interface PendingImg { id: string; file: File; preview: string }
 
-const UNITS: ProductUnit[] = ['piece', 'kg', 'gram', 'litre', 'ml', 'box', 'pack', 'dozen'];
 
 const STEP_LABELS: Record<Step, string> = {
   1: 'Product Details',
@@ -260,19 +259,28 @@ function Step1Panel({
 
 function Step2Panel({
   name, setName, sku, barcode, setBarcode,
-  unit, setUnit, description, setDescription,
+  unitIds, setUnitIds, defaultUnitId, setDefaultUnitId, availableUnits,
+  description, setDescription,
   manufacturer, setManufacturer, packSize, setPackSize,
   weightKg, setWeightKg,
 }: {
   name: string; setName: (v: string) => void;
   sku: string;
   barcode: string; setBarcode: (v: string) => void;
-  unit: ProductUnit | ''; setUnit: (v: ProductUnit | '') => void;
+  unitIds: string[]; setUnitIds: (v: string[]) => void;
+  defaultUnitId: string; setDefaultUnitId: (v: string) => void;
+  availableUnits: OrganizationUnit[];
   description: string; setDescription: (v: string) => void;
   manufacturer: string; setManufacturer: (v: string) => void;
   packSize: string; setPackSize: (v: string) => void;
   weightKg: string; setWeightKg: (v: string) => void;
 }) {
+  const toggleUnit = (id: string) => {
+    const next = unitIds.includes(id) ? unitIds.filter(u => u !== id) : [...unitIds, id];
+    setUnitIds(next);
+    if (id === defaultUnitId && !next.includes(id)) setDefaultUnitId(next[0] ?? '');
+    if (next.length === 1) setDefaultUnitId(next[0]);
+  };
   return (
     <SectionCard title="Product Details" icon={<CheckCircle2 size={15} className="text-primary" />}
       badge={<span className="text-[10px] text-muted-foreground italic">* Required</span>}>
@@ -308,16 +316,37 @@ function Step2Panel({
           </div>
           <div>
             <FieldLabel>Unit of Measure</FieldLabel>
-            <Select value={unit} onValueChange={(v) => setUnit(v as ProductUnit)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select unit…" />
-              </SelectTrigger>
-              <SelectContent position="popper" sideOffset={4}>
-                {UNITS.map((u) => (
-                  <SelectItem key={u} value={u}>{u}</SelectItem>
+            {availableUnits.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">No units configured — add them in Settings → Organization Units.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-44 overflow-y-auto rounded-lg border border-border p-2">
+                {availableUnits.map(u => (
+                  <label key={u.id} className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={unitIds.includes(u.id)}
+                      onChange={() => toggleUnit(u.id)}
+                      className="h-4 w-4 rounded accent-primary"
+                    />
+                    <span className="flex-1 text-sm">{u.name} <span className="text-muted-foreground text-xs">({u.symbol})</span></span>
+                    {unitIds.includes(u.id) && (
+                      <button
+                        type="button"
+                        onClick={() => setDefaultUnitId(u.id)}
+                        className={cn(
+                          'text-[10px] px-2 py-0.5 rounded-full border font-medium transition-colors',
+                          u.id === defaultUnitId
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'border-border text-muted-foreground hover:border-primary/50',
+                        )}
+                      >
+                        {u.id === defaultUnitId ? 'Default' : 'Set default'}
+                      </button>
+                    )}
+                  </label>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -631,7 +660,8 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
   const [name, setName]         = useState(editingProduct?.name ?? '');
   const [sku, setSku]           = useState(editingProduct?.sku ?? '');
   const [barcode, setBarcode]   = useState(editingProduct?.barcode ?? '');
-  const [unit, setUnit]         = useState<ProductUnit | ''>(editingProduct?.unit ?? '');
+  const [unitIds, setUnitIds]       = useState<string[]>(editingProduct?.units?.map(u => u.unitId) ?? []);
+  const [defaultUnitId, setDefaultUnitId] = useState<string>(editingProduct?.units?.find(u => u.isDefault)?.unitId ?? '');
   const [description, setDescription] = useState(editingProduct?.description ?? '');
   const [manufacturer, setManufacturer] = useState(editingProduct?.manufacturer ?? '');
   const [packSize, setPackSize] = useState(editingProduct?.packSize != null ? String(editingProduct.packSize) : '');
@@ -660,6 +690,8 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
   const { data: activeTaxes }      = useListTaxes(true);
   const { data: suppliers }        = Suppliers.useList();
   const { data: productSuppliers, refetch: refetchSups } = useProductSuppliers(productId ?? undefined);
+  const { data: orgUnitsData }     = OrganizationUnits.useList();
+  const availableUnits = (orgUnitsData ?? []).filter(u => u.isActive);
 
   // SKU preview: only while creating a brand-new, not-yet-persisted product.
   const isEditing = !!editingProduct;
@@ -717,7 +749,8 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
           name: name.trim(),
           sku: undefined, // server generates the authoritative SKU; the field above is preview-only
           barcode: barcode || undefined,
-          unit: unit || undefined,
+          unitIds: unitIds.length ? unitIds : undefined,
+          defaultUnitId: defaultUnitId || undefined,
           description: description || undefined,
           manufacturer: manufacturer || undefined,
           packSize: packSize ? Number(packSize) : undefined,
@@ -733,7 +766,8 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
             name: name.trim(),
             sku: sku || undefined,
             barcode: barcode || undefined,
-            unit: unit || undefined,
+            unitIds: unitIds.length ? unitIds : undefined,
+            defaultUnitId: defaultUnitId || undefined,
             description: description || undefined,
             manufacturer: manufacturer || undefined,
             packSize: packSize ? Number(packSize) : undefined,
@@ -838,7 +872,9 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
               name={name} setName={setName}
               sku={sku}
               barcode={barcode} setBarcode={setBarcode}
-              unit={unit} setUnit={setUnit}
+              unitIds={unitIds} setUnitIds={setUnitIds}
+              defaultUnitId={defaultUnitId} setDefaultUnitId={setDefaultUnitId}
+              availableUnits={availableUnits}
               description={description} setDescription={setDescription}
               manufacturer={manufacturer} setManufacturer={setManufacturer}
               packSize={packSize} setPackSize={setPackSize}

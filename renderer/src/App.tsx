@@ -92,6 +92,8 @@ const QuotationBuilder = lazy(() => import('./pages/Quotations/QuotationBuilder'
 const BranchPricing = lazy(() => import('./pages/BranchPricing'));
 const TaxesPage = lazy(() => import('./pages/Taxes'));
 const AskAiPage = lazy(() => import('./pages/AskAi'));
+const OrganizationUnitsPage = lazy(() => import('./pages/OrganizationUnits'));
+const AccountSessionsPage = lazy(() => import('./pages/AccountSessions'));
 
 function RouteFallback() {
   return (
@@ -102,16 +104,19 @@ function RouteFallback() {
 }
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
-  const { user, syncing, bootPhase } = useAuth();
+  const { user, syncing, bootPhase, sessionIssue } = useAuth();
   if (syncing && clerk.session) return <AuthBootScreen phase={bootPhase ?? 'session'} />;
+  // Signed in with Clerk but account setup unfinished: the login form cannot help, show the explanation.
+  if (sessionIssue) return <Navigate to="/" replace />;
   if (user) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
 // Requires a valid Clerk session but not an org — used for the onboarding flow.
 function SessionRoute({ children }: { children: React.ReactNode }) {
-  const { user, syncing, bootPhase } = useAuth();
+  const { user, syncing, bootPhase, sessionIssue } = useAuth();
   if (syncing) return <AuthBootScreen phase={bootPhase ?? 'session'} />;
+  if (sessionIssue) return <Navigate to="/" replace />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -211,6 +216,8 @@ function App() {
             <Route path="settings/app" element={<AppUpdates />} />
             <Route path="settings/billing" element={<BillingSettings />} />
             <Route path="settings/notifications" element={<NotificationSettings />} />
+            <Route path="settings/organization-units" element={<OrganizationUnitsPage />} />
+            <Route path="settings/sessions" element={<AccountSessionsPage />} />
             <Route path="purchase-items" element={<PurchaseItems />} />
             <Route path="roles" element={<Roles />} />
             <Route path="user-roles" element={<Navigate to="/users" replace />} />

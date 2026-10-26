@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, LogOut, Moon, Sun, Lock, Unlock } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, Moon, Sun, Lock, Unlock, MonitorSmartphone } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -70,6 +70,18 @@ export default function Topbar() {
         </summary>
 
         <div className="absolute right-0 top-full mt-2 w-48 rounded-lg border border-border bg-card shadow-lg p-1 z-20">
+          <button
+            type="button"
+            className="w-full flex items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-accent mb-1"
+            onClick={(event) => {
+              const details = event.currentTarget.closest('details');
+              if (details) details.open = false;
+              navigate('/settings/sessions');
+            }}
+          >
+            <MonitorSmartphone size={16} />
+            Devices & sessions
+          </button>
           {isOrgAdmin && (
             <button
               type="button"
