@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { MoreHorizontal } from 'lucide-react';
-import { Branches, Locations, patch, useCopyMainBranchPrices } from '../../api';
+import { Branches, Locations, OrganizationUsers, patch, useCopyMainBranchPrices } from '../../api';
 import { DataTable, type Column } from '../../components/DataTable';
 import { FormDrawer, Field } from '../../components/FormDrawer';
 import { BranchViewDrawer } from './BranchViewDrawer';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,8 @@ interface FormState {
   address: string;
   city: string;
   phone: string;
+  userId: string;
+  locationIds: string[];
 }
 
 const EMPTY: FormState = {
@@ -32,7 +35,11 @@ const EMPTY: FormState = {
   address: '',
   city: '',
   phone: '',
+  userId: '',
+  locationIds: [],
 };
+
+const NO_MANAGER = 'none';
 
 export default function BranchesPage(): React.JSX.Element {
   const { isAdmin } = useSession();
@@ -47,6 +54,7 @@ export default function BranchesPage(): React.JSX.Element {
 
   const { data, isLoading, error, refetch } = Branches.useSearch({ page, search: debouncedSearch });
   const { data: locations = [] } = Locations.useList();
+  const { data: membersPage } = OrganizationUsers.useMembers({ page: 1, limit: 100, status: 'active' });
   const createMutation = Branches.useCreate();
   const updateMutation = Branches.useUpdate();
   const copyPricesMutation = useCopyMainBranchPrices();
@@ -54,6 +62,20 @@ export default function BranchesPage(): React.JSX.Element {
   const locationName = useMemo(
     () => new Map(locations.map((l: Location) => [l.id, l.name])),
     [locations],
+  );
+  const alreadyManagedUserIds = useMemo(
+    () => new Set(
+      (data?.items ?? [])
+        .filter((b) => b.userId && b.id !== editing?.id)
+        .map((b) => b.userId as string),
+    ),
+    [data?.items, editing?.id],
+  );
+  const managerOptions = useMemo(
+    () => (membersPage?.items ?? []).filter(
+      (member) => member.roleName === 'branch_manager' && !alreadyManagedUserIds.has(member.userId),
+    ),
+    [membersPage, alreadyManagedUserIds],
   );
 
   const columns: Column<Branch>[] = [
@@ -104,12 +126,12 @@ export default function BranchesPage(): React.JSX.Element {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setViewRow(r)}>View</DropdownMenuItem>
             <DropdownMenuItem onClick={() => openEdit(r)}>Update</DropdownMenuItem>
-            {isAdmin && !r.isMain && (
+            {isAdmin && !r.isMain && r.isActive && (
               <DropdownMenuItem onClick={() => setSetMainTarget(r)}>
                 Set as Main Branch
               </DropdownMenuItem>
             )}
-            {r.isActive && (
+            {r.isActive && !r.isMain && (
               <DropdownMenuItem className="text-destructive" onClick={() => setInactiveTarget(r)}>
                 Inactive
               </DropdownMenuItem>
@@ -140,6 +162,8 @@ export default function BranchesPage(): React.JSX.Element {
       address: row.address ?? '',
       city: row.city ?? '',
       phone: row.phone ?? '',
+      userId: row.userId ?? '',
+      locationIds: row.locationIds ?? [],
     });
     setDrawerOpen(true);
   };
@@ -153,6 +177,8 @@ export default function BranchesPage(): React.JSX.Element {
       address: form.address || undefined,
       city: form.city || undefined,
       phone: form.phone || undefined,
+      userId: form.userId || null,
+      locationIds: form.locationIds,
     };
     if (editing) {
       updateMutation.mutate(
@@ -257,6 +283,50 @@ export default function BranchesPage(): React.JSX.Element {
           </Field>
           <Field label="Phone">
             <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+          </Field>
+          <Field label="Branch manager">
+            <Select
+              value={form.userId || NO_MANAGER}
+              onValueChange={(value) => setForm({ ...form, userId: value === NO_MANAGER ? '' : value })}
+            >
+              <SelectTrigger><SelectValue placeholder="Select an active branch manager" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_MANAGER}>No manager assigned</SelectItem>
+                {managerOptions.map((member) => (
+                  <SelectItem key={member.userId} value={member.userId}>
+                    {[member.firstName, member.lastName].filter(Boolean).join(' ') || member.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Only active organization users with the Branch Manager role are eligible.
+            </p>
+          </Field>
+          <Field label="Locations">
+            <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
+              {locations
+                .filter((location) => location.isActive !== false && (!location.branchId || location.branchId === editing?.id))
+                .map((location) => (
+                  <label key={location.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.locationIds.includes(location.id)}
+                      onChange={(event) => setForm({
+                        ...form,
+                        locationIds: event.target.checked
+                          ? [...form.locationIds, location.id]
+                          : form.locationIds.filter((id) => id !== location.id),
+                      })}
+                    />
+                    <span>{location.name}</span>
+                    <span className="text-xs text-muted-foreground">({location.type})</span>
+                  </label>
+                ))}
+              {!locations.some((location) => location.isActive !== false && (!location.branchId || location.branchId === editing?.id)) && (
+                <p className="text-sm text-muted-foreground">No unassigned locations are available.</p>
+              )}
+            </div>
           </Field>
         </form>
       </FormDrawer>
