@@ -1258,7 +1258,6 @@ export interface OrganizationInvitation {
   locationId?: string | null;
   locationName?: string | null;
   status: OrganizationInvitationStatus;
-  invitedByName?: string | null;
   expiresAt: string;
   lastSentAt?: string | null;
   sendCount?: number;
