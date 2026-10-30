@@ -25,6 +25,8 @@ import type {
   BlackPurchaseReturnRefundResult, RecordBlackPurchaseReturnRefundInput,
   ClerkUserListResponse, ClerkUserRolesResponse, ClerkInvitation, EInvitationStatus,
   InviteUserPayload, UpdateRolesPayload, AssignOrgPayload, ClerkOrganization,
+  OrganizationInvitation, OrganizationMember, OrganizationUserPage,
+  CreateOrganizationInvitationPayload,
   PageAccessConfig,
   FleetVehicle, FleetDriver, FleetTrip, FleetMaintenance, FleetExpense,
   VehicleTypeRef, VehicleBrandRef, FuelTypeRef, MaintenanceTypeRef,
@@ -1738,6 +1740,85 @@ export const ClerkUsers = {
       queryKey: [CLERK_USERS_KEY, 'organizations'],
       queryFn: () => get<ClerkOrganization[]>('/api/v1/users/clerk/organizations'),
       staleTime: 5 * 60 * 1000,
+    });
+  },
+};
+
+// ── Local organization users (authoritative ERP membership) ────────────────
+
+const ORGANIZATION_MEMBERS_KEY = 'organization-members';
+const ORGANIZATION_INVITATIONS_KEY = 'organization-invitations';
+
+function normalizeOrganizationPage<T>(value: T[] | OrganizationUserPage<T>): OrganizationUserPage<T> {
+  if (Array.isArray(value)) return { items: value, total: value.length };
+  return value;
+}
+
+export const OrganizationUsers = {
+  useMembers(params: { page: number; limit?: number; search?: string; status?: string }) {
+    const limit = params.limit ?? 15;
+    return useQuery({
+      queryKey: [ORGANIZATION_MEMBERS_KEY, params.page, limit, params.search ?? '', params.status ?? 'all'],
+      queryFn: () => get<OrganizationMember[] | OrganizationUserPage<OrganizationMember>>(
+        '/api/v1/organization-members',
+        {
+          page: params.page,
+          limit,
+          ...(params.search ? { search: params.search } : {}),
+          ...(params.status ? { status: params.status } : {}),
+        },
+      ).then(normalizeOrganizationPage),
+      staleTime: 30_000,
+    });
+  },
+
+  useInvitations(status?: string) {
+    return useQuery({
+      queryKey: [ORGANIZATION_INVITATIONS_KEY, status ?? 'all'],
+      queryFn: () => get<OrganizationInvitation[] | OrganizationUserPage<OrganizationInvitation>>(
+        '/api/v1/organization-invitations',
+        status ? { status } : {},
+      ).then(normalizeOrganizationPage),
+      staleTime: 30_000,
+    });
+  },
+
+  useInvite() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (body: CreateOrganizationInvitationPayload) =>
+        post<OrganizationInvitation>('/api/v1/organization-invitations', body),
+      onSuccess: () => {
+        toast.success('Invitation sent');
+        void queryClient.invalidateQueries({ queryKey: [ORGANIZATION_INVITATIONS_KEY] });
+        void queryClient.invalidateQueries({ queryKey: [ORGANIZATION_MEMBERS_KEY] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to send invitation'),
+    });
+  },
+
+  useResendInvitation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (invitationId: string) =>
+        post<OrganizationInvitation>(`/api/v1/organization-invitations/${invitationId}/resend`, {}),
+      onSuccess: () => {
+        toast.success('Invitation resent');
+        void queryClient.invalidateQueries({ queryKey: [ORGANIZATION_INVITATIONS_KEY] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to resend invitation'),
+    });
+  },
+
+  useRevokeInvitation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (invitationId: string) => del(`/api/v1/organization-invitations/${invitationId}`),
+      onSuccess: () => {
+        toast.success('Invitation revoked');
+        void queryClient.invalidateQueries({ queryKey: [ORGANIZATION_INVITATIONS_KEY] });
+      },
+      onError: (error: Error) => toast.error(error.message || 'Failed to revoke invitation'),
     });
   },
 };
