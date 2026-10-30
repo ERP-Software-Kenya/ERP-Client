@@ -1,5 +1,5 @@
 /** Set to true to bypass all page-access checks — all authenticated users can access all pages. */
-const DISABLE_PAGE_ACCESS_CHECKS = true;
+const DISABLE_PAGE_ACCESS_CHECKS = false;
 
 /** Roles that skip page-access config checks. Super admin is platform-wide; org admin is org-wide. */
 export const FULL_PAGE_ACCESS_ROLES: readonly string[] = ['super_admin', 'org_admin'];
