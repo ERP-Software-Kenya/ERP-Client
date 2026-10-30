@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Mail, Link } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { FormDrawer, Field } from '../../../components/FormDrawer';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import { ClerkUsers, useListRoles, Locations, Organizations } from '../../../api';
+import { OrganizationUsers, useListRoles, Locations, Organizations } from '../../../api';
 import { useSession } from '../../../context/SessionContext';
-import type { InviteUserPayload } from '../../../types';
+import type { CreateOrganizationInvitationPayload } from '../../../types';
 
 interface Props {
   open: boolean;
@@ -14,12 +14,19 @@ interface Props {
 }
 
 const ORG_WIDE = '__org_wide__';
-const EMPTY: InviteUserPayload = { email: '', roleId: '', organizationId: undefined, locationId: undefined, redirectUrl: '' };
+const EMPTY: CreateOrganizationInvitationPayload = {
+  email: '',
+  firstName: '',
+  lastName: '',
+  roleId: '',
+  organizationId: undefined,
+  locationId: undefined,
+};
 
 export function InviteUserDrawer({ open, onClose }: Props) {
-  const [form, setForm] = useState<InviteUserPayload>(EMPTY);
+  const [form, setForm] = useState<CreateOrganizationInvitationPayload>(EMPTY);
   const { isSuperAdmin } = useSession();
-  const inviteMutation = ClerkUsers.useInvite();
+  const inviteMutation = OrganizationUsers.useInvite();
   const { data: roles = [] } = useListRoles();
   const { data: orgs = [] } = Organizations.useList(isSuperAdmin);
   const { data: orgLocations = [] } = Locations.useList(!isSuperAdmin);
@@ -44,7 +51,8 @@ export function InviteUserDrawer({ open, onClose }: Props) {
         roleId:         form.roleId,
         organizationId: isSuperAdmin ? form.organizationId : undefined,
         locationId:     form.locationId || undefined,
-        redirectUrl:    form.redirectUrl?.trim() || undefined,
+        firstName:      form.firstName?.trim() || undefined,
+        lastName:       form.lastName?.trim() || undefined,
       },
       { onSuccess: close },
     );
@@ -61,7 +69,7 @@ export function InviteUserDrawer({ open, onClose }: Props) {
       open={open}
       onClose={close}
       title="Invite User"
-      subtitle="Send a Clerk email invitation. Accepting it joins your organization with the role and store picked here."
+      subtitle="Send a branded app invitation. Membership, role and store access are managed by ERP."
       footer={
         <>
           <Button type="submit" form="invite-user-form" disabled={!canSubmit}>
@@ -88,6 +96,23 @@ export function InviteUserDrawer({ open, onClose }: Props) {
             />
           </div>
         </Field>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="First name (optional)">
+            <Input
+              value={form.firstName ?? ''}
+              onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+              placeholder="John"
+            />
+          </Field>
+          <Field label="Last name (optional)">
+            <Input
+              value={form.lastName ?? ''}
+              onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+              placeholder="Doe"
+            />
+          </Field>
+        </div>
 
         {isSuperAdmin && (
           <Field label="Organization" required hint="SuperAdmin accounts are org-less — pick the company this hire joins.">
@@ -137,21 +162,6 @@ export function InviteUserDrawer({ open, onClose }: Props) {
           </Select>
         </Field>
 
-        <Field
-          label="Redirect URL (optional)"
-          hint="Where to send the user after they accept the invitation."
-        >
-          <div className="relative">
-            <Link size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="url"
-              placeholder="https://app.example.com/welcome"
-              className="pl-8"
-              value={form.redirectUrl ?? ''}
-              onChange={(e) => setForm({ ...form, redirectUrl: e.target.value })}
-            />
-          </div>
-        </Field>
       </form>
     </FormDrawer>
   );

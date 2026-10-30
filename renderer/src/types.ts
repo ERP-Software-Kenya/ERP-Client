@@ -1243,6 +1243,62 @@ export interface InviteUserPayload {
   redirectUrl?: string;
 }
 
+// ── Local organization membership & invitations ─────────────────────────────
+
+export type OrganizationInvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked' | 'failed';
+
+export interface OrganizationInvitation {
+  id: string;
+  organizationId: string;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  roleId: string;
+  roleName?: string | null;
+  locationId?: string | null;
+  locationName?: string | null;
+  status: OrganizationInvitationStatus;
+  expiresAt: string;
+  lastSentAt?: string | null;
+  sendCount?: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  userId: string;
+  organizationId?: string;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  avatarUrl?: string | null;
+  roleId: string;
+  roleName: string;
+  locationId?: string | null;
+  locationName?: string | null;
+  status: 'active' | 'suspended' | 'removed';
+  joinedAt?: string | null;
+  lastLoginAt?: string | null;
+}
+
+export interface OrganizationUserPage<T> {
+  items: T[];
+  total: number;
+  page?: number;
+  perPage?: number;
+  totalPages?: number;
+}
+
+export interface CreateOrganizationInvitationPayload {
+  email: string;
+  roleId: string;
+  organizationId?: string;
+  locationId?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
 export interface UpdateRolesPayload {
   roles: string[];
 }
