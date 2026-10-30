@@ -93,7 +93,7 @@ export interface Branch {
   state?: string;
   country?: string;
   phone?: string;
-  userId?: string;
+  userId?: string | null;
   isActive: boolean;
   isMain?: boolean;
   locationIds?: string[];
