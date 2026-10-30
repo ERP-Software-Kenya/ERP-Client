@@ -63,9 +63,19 @@ export default function BranchesPage(): React.JSX.Element {
     () => new Map(locations.map((l: Location) => [l.id, l.name])),
     [locations],
   );
+  const alreadyManagedUserIds = useMemo(
+    () => new Set(
+      (data?.items ?? [])
+        .filter((b) => b.userId && b.id !== editing?.id)
+        .map((b) => b.userId as string),
+    ),
+    [data?.items, editing?.id],
+  );
   const managerOptions = useMemo(
-    () => (membersPage?.items ?? []).filter((member) => member.roleName === 'branch_manager'),
-    [membersPage],
+    () => (membersPage?.items ?? []).filter(
+      (member) => member.roleName === 'branch_manager' && !alreadyManagedUserIds.has(member.userId),
+    ),
+    [membersPage, alreadyManagedUserIds],
   );
 
   const columns: Column<Branch>[] = [
@@ -116,12 +126,12 @@ export default function BranchesPage(): React.JSX.Element {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => setViewRow(r)}>View</DropdownMenuItem>
             <DropdownMenuItem onClick={() => openEdit(r)}>Update</DropdownMenuItem>
-            {isAdmin && !r.isMain && (
+            {isAdmin && !r.isMain && r.isActive && (
               <DropdownMenuItem onClick={() => setSetMainTarget(r)}>
                 Set as Main Branch
               </DropdownMenuItem>
             )}
-            {r.isActive && (
+            {r.isActive && !r.isMain && (
               <DropdownMenuItem className="text-destructive" onClick={() => setInactiveTarget(r)}>
                 Inactive
               </DropdownMenuItem>
@@ -296,7 +306,7 @@ export default function BranchesPage(): React.JSX.Element {
           <Field label="Locations">
             <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-3">
               {locations
-                .filter((location) => !location.branchId || location.branchId === editing?.id)
+                .filter((location) => location.isActive !== false && (!location.branchId || location.branchId === editing?.id))
                 .map((location) => (
                   <label key={location.id} className="flex items-center gap-2 text-sm">
                     <input
@@ -313,7 +323,7 @@ export default function BranchesPage(): React.JSX.Element {
                     <span className="text-xs text-muted-foreground">({location.type})</span>
                   </label>
                 ))}
-              {!locations.some((location) => !location.branchId || location.branchId === editing?.id) && (
+              {!locations.some((location) => location.isActive !== false && (!location.branchId || location.branchId === editing?.id)) && (
                 <p className="text-sm text-muted-foreground">No unassigned locations are available.</p>
               )}
             </div>
