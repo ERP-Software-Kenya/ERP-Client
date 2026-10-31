@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { clerk } from '../../lib/clerk';
@@ -183,10 +183,15 @@ export default function SignIn() {
               Continue with Google
             </Button>
             <p className="text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{' '}
-              <Link to="/signup" className="text-primary underline underline-offset-2">
-                Sign up
-              </Link>
+              New organization?{' '}
+              <a
+                href={import.meta.env.VITE_WEB_ERP_URL ?? 'https://app.pramukhdigital.com'}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary underline underline-offset-2"
+              >
+                Create Organization
+              </a>
             </p>
           </form>
         </div>
