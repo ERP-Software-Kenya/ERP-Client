@@ -428,7 +428,18 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   };
   const { data: myBranch } = Branches.useGet(branchId);
   const { data: allBranches = [] } = Branches.useList(!branchId);
+  // Tracks an explicit user selection in the Branch dropdown (org admin only).
   const [posBranchId, setPosBranchId] = useState("");
+  // Derive the effective branch synchronously — useMemo instead of useEffect
+  // so the value is correct on the very first render, including after tab
+  // navigation where TanStack Query returns cached data immediately.
+  // Priority: explicit user pick → single-branch auto-select → none (all locations).
+  const resolvedPosBranchId = useMemo(() => {
+    if (branchId) return "";
+    if (posBranchId) return posBranchId;
+    if (allBranches.length === 1) return allBranches[0].id;
+    return "";
+  }, [branchId, posBranchId, allBranches]);
   const handlePosBranchChange = (id: string) => {
     setPosBranchId(id);
     setLocationId("");
@@ -450,9 +461,9 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const { data: allLocations = [] } = Locations.useList();
   const locations = useMemo(() => {
     if (branchId) return allLocations.filter((l: Location) => l.branchId === branchId);
-    if (posBranchId) return allLocations.filter((l: Location) => l.branchId === posBranchId);
+    if (resolvedPosBranchId) return allLocations.filter((l: Location) => l.branchId === resolvedPosBranchId);
     return allLocations;
-  }, [allLocations, branchId, posBranchId]);
+  }, [allLocations, branchId, resolvedPosBranchId]);
   const branchLocationIds = useMemo(() => locations.map((l: Location) => l.id), [locations]);
   const stockLocation = useMemo(
     () => locations.find((location: Location) => location.id === locationId),
@@ -1413,7 +1424,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
                 orderReference={orderReference}
                 onOrderReferenceChange={setOrderReference}
                 branches={!branchId ? allBranches : undefined}
-                posBranchId={posBranchId}
+                posBranchId={resolvedPosBranchId}
                 onPosBranchChange={handlePosBranchChange}
                 branchName={branchId ? (myBranch?.name ?? "") : undefined}
                 customerInfo={customerInfo}
