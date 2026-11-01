@@ -115,7 +115,7 @@ export default function BranchesPage(): React.JSX.Element {
     },
     {
       key: 'actions',
-      label: '',
+      label: 'Actions',
       render: (r) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
