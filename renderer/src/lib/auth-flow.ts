@@ -96,6 +96,32 @@ export async function verifyEmailCode(
   return signUp.attemptEmailAddressVerification({ code: code.trim() });
 }
 
+// Sends an email OTP for sign-in. Call this before showing the OTP input.
+export async function sendSignInEmailOtp(
+  signIn: SignInResource,
+  identifier: string,
+): Promise<void> {
+  await signIn.create({ strategy: 'email_code', identifier: identifier.trim() });
+}
+
+// Verifies the OTP code submitted by the user during OTP sign-in.
+// Returns the signIn resource — caller should pass it to resolveSignInStatus.
+export async function verifySignInEmailOtp(
+  signIn: SignInResource,
+  code: string,
+): Promise<SignInResource> {
+  return signIn.attemptFirstFactor({ strategy: 'email_code', code: code.trim() });
+}
+
+// Starts OTP sign-up (no password). Call this, then verify with verifyEmailCode.
+export async function signUpWithEmailOtp(
+  signUp: SignUpResource,
+  payload: { emailAddress: string; firstName: string; lastName: string; username: string },
+): Promise<void> {
+  await signUp.create(payload);
+  await prepareEmailVerification(signUp);
+}
+
 export async function startGoogleOAuth(signIn: SignInResource): Promise<void> {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const callbackUrl = `${origin}/#/sso-callback`;
