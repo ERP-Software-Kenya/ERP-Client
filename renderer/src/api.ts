@@ -1,4 +1,4 @@
-export { configureApi, get, post, put, patch, del, getBlob } from './lib/http';
+﻿export { configureApi, get, post, put, patch, del, getBlob } from './lib/http';
 import { get, post, put, patch, del, uploadForm, getBlob } from './lib/http';
 import { createResource, createCreateOnlyResource } from './lib/resource';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -46,7 +46,7 @@ import type {
   NotificationSettingItem,
 } from './types';
 
-// ── New hook-based resources ───────────────────────────────────────────────────
+// â”€â”€ New hook-based resources â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const Organizations = createResource<Organization>('/api/v1/organizations', 'organizations', 'Organization');
 export const OrganizationUnits = createResource<OrganizationUnit>('/api/v1/organization-units', 'organization-units', 'Unit');
@@ -54,7 +54,7 @@ export const Categories = createResource<Category>('/api/v1/categories', 'catego
 const productsBase = createResource<Product>('/api/v1/products', 'products', 'Product');
 
 /**
- * Products backend exposes a dedicated `search` field (matches name, SKU, or barcode) —
+ * Products backend exposes a dedicated `search` field (matches name, SKU, or barcode) â€”
  * the generic resource's `toQuery()` maps `search` to `name`, which misses SKU/barcode
  * matches entirely. Route `search` through `filters` so it reaches the backend as `search`.
  */
@@ -165,7 +165,7 @@ export const PurchaseOrders = {
   },
 };
 
-// ── Unpublished Stock Purchase Orders ─────────────────────────────────────────
+// â”€â”€ Unpublished Stock Purchase Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const bspoBase = createResource<UnpublishedStockPurchaseOrder>(
   '/api/v1/unpublished-stock-purchase-orders',
@@ -265,7 +265,7 @@ const billsBase = createResource<Bill>('/api/v1/bills', 'bills', 'Bill');
 
 /**
  * Bills SearchBillsRequest uses @IsNumber() on $page/$perPage without @Type(() => Number).
- * Sending those query params returns 400 on Render — omit them (handler defaults page 1 / 20).
+ * Sending those query params returns 400 on Render â€” omit them (handler defaults page 1 / 20).
  */
 export const Bills = {
   ...billsBase,
@@ -714,7 +714,7 @@ export const Invoices = createCreateOnlyResource<Invoice>('/api/v1/invoices', 'i
 const customersBase = createResource<Customer>('/api/v1/customers', 'customers', 'Customer');
 
 /**
- * Customers SearchCustomersRequest: same $page/$perPage string→@IsNumber 400 as bills.
+ * Customers SearchCustomersRequest: same $page/$perPage stringâ†’@IsNumber 400 as bills.
  * Omit pagination; only send name/phone/filters. Handler defaults to page 1 / 20.
  */
 export const Customers = {
@@ -1020,7 +1020,7 @@ export async function exportActivityLogsPdf(filters: ActivityLogFilters): Promis
 }
 export const Roles = createCreateOnlyResource<Role>('/api/v1/roles', 'roles', 'Role');
 
-/** Flat list of all roles — backed by the fixed 4-row role table (GET /api/v1/roles/list). */
+/** Flat list of all roles â€” backed by the fixed 4-row role table (GET /api/v1/roles/list). */
 export function useListRoles() {
   return useQuery<Role[]>({
     queryKey: ['roles', 'list'],
@@ -1088,7 +1088,7 @@ export const Locations = {
     return locationsBase.useSearch({ ...params, omitPagination: true });
   },
 };
-// ── Inventory cluster (hook-based) ─────────────────────────────────────────────
+// â”€â”€ Inventory cluster (hook-based) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function useCategoryParents(enabled = true) {
   return useQuery({
@@ -1107,7 +1107,7 @@ export const StockTransfers = {
       enabled: !!id,
     });
   },
-  /** Paginated history — resolves to { items, total }. */
+  /** Paginated history â€” resolves to { items, total }. */
   useSearch(params?: { page?: number; limit?: number; filters?: Record<string, string> }) {
     return useQuery({
       queryKey: ['stock-transfers', 'search', params?.page ?? 1, params?.limit ?? 15, params?.filters ?? {}],
@@ -1187,7 +1187,7 @@ export const StockTransferRequests = {
       mutationFn: ({ id, acceptingLocationId }: { id: string; acceptingLocationId: string }) =>
         put<StockTransferRequest>(`/api/v1/stock-transfer-requests/${id}/accept`, { acceptingLocationId }),
       onSuccess: () => {
-        toast.success('Request accepted — stock deducted from your store');
+        toast.success('Request accepted â€” stock deducted from your store');
         queryClient.invalidateQueries({ queryKey: ['stock-transfer-requests'] });
         queryClient.invalidateQueries({ queryKey: ['inventory'] });
       },
@@ -1200,7 +1200,7 @@ export const StockTransferRequests = {
       mutationFn: (id: string) =>
         put<StockTransferRequest>(`/api/v1/stock-transfer-requests/${id}/claim`, {}),
       onSuccess: () => {
-        toast.success('Marked as received — stock added to your inventory');
+        toast.success('Marked as received â€” stock added to your inventory');
         queryClient.invalidateQueries({ queryKey: ['stock-transfer-requests'] });
         queryClient.invalidateQueries({ queryKey: ['inventory'] });
       },
@@ -1275,7 +1275,7 @@ export function useCompleteStockTransfer() {
       id: string;
       items: Array<{
         fromInventoryId: string;
-        // NEEDS BACKEND: resolve/create this server-side when omitted — see
+        // NEEDS BACKEND: resolve/create this server-side when omitted â€” see
         // docs/superpowers/plans/2026-08-04-backend-requirements.md
         toInventoryId?: string;
         productId: string;
@@ -1380,7 +1380,7 @@ export function useProductLogsByInventory(inventoryId: string | undefined) {
     enabled: !!inventoryId,
   });
 }
-// ── Product subresources (images, suppliers) ──────────────────────────────────
+// â”€â”€ Product subresources (images, suppliers) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function useProductImages(productId: string | undefined) {
   return useQuery({
@@ -1415,7 +1415,7 @@ const PRODUCT_IMAGE_MIME_TYPES = new Set([
 ]);
 
 /**
- * Direct R2 upload via presigned URL. Does NOT create a product_images row —
+ * Direct R2 upload via presigned URL. Does NOT create a product_images row â€”
  * Core API has no confirm/imageKey endpoint yet. Do not invalidate gallery queries.
  */
 export function useProductImagePresignedUpload() {
@@ -1513,7 +1513,7 @@ export function useUpdateProductPrice() {
   });
 }
 
-// ── Common Utility — Countries / States / Cities ─────────────────────────────
+// â”€â”€ Common Utility â€” Countries / States / Cities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function useListCountries() {
   return useQuery<Country[]>({
@@ -1541,7 +1541,7 @@ export function useListCities(stateId: number | null) {
   });
 }
 
-// ── Location image (single image; upload replaces) ────────────────────────────
+// â”€â”€ Location image (single image; upload replaces) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function useUploadLocationImage() {
   const queryClient = useQueryClient();
@@ -1563,12 +1563,12 @@ export function useRemoveLocationImage() {
   });
 }
 
-// ── Clerk User Management ───────────────────────────────────────────────────
+// â”€â”€ Clerk User Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const CLERK_USERS_KEY       = 'clerk-users';
 const CLERK_INVITATIONS_KEY = 'clerk-invitations';
 
-/** Backend returns clerkUserId only — add `id` so rows satisfy DataTable's `{ id: string }`. */
+/** Backend returns clerkUserId only â€” add `id` so rows satisfy DataTable's `{ id: string }`. */
 function withId(res: ClerkUserListResponse): ClerkUserListResponse {
   return { ...res, data: res.data.map((u) => ({ ...u, id: u.clerkUserId })) };
 }
@@ -1616,7 +1616,7 @@ export const ClerkUsers = {
     });
   },
 
-  /** POST /api/v1/users/clerk/invite — body: { email, roleId, locationId?, redirectUrl? } */
+  /** POST /api/v1/users/clerk/invite â€” body: { email, roleId, locationId?, redirectUrl? } */
   useInvite() {
     const queryClient = useQueryClient();
     return useMutation({
@@ -1744,7 +1744,7 @@ export const ClerkUsers = {
   },
 };
 
-// ── Local organization users (authoritative ERP membership) ────────────────
+// â”€â”€ Local organization users (authoritative ERP membership) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ORGANIZATION_MEMBERS_KEY = 'organization-members';
 const ORGANIZATION_INVITATIONS_KEY = 'organization-invitations';
@@ -1823,7 +1823,7 @@ export const OrganizationUsers = {
   },
 };
 
-// ── Fleet Reference Data ──────────────────────────────────────────────────────
+// â”€â”€ Fleet Reference Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const VehicleTypes = {
   useList() {
@@ -1865,7 +1865,7 @@ export const MaintenanceTypes = {
   },
 };
 
-// ── Analytics ─────────────────────────────────────────────────────────────────
+// â”€â”€ Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function analyticsQueryParams(params?: DashboardAnalyticsParams & { limit?: number; months?: number; staleDays?: number }) {
   const q: Record<string, string | number> = {};
@@ -2043,7 +2043,7 @@ export const Analytics = {
   },
 };
 
-// ── Fleet Management ──────────────────────────────────────────────────────────
+// â”€â”€ Fleet Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export const FleetVehicles = createResource<FleetVehicle>('/api/v1/vehicles', 'fleet-vehicles', 'Vehicle');
 export const FleetDrivers  = createResource<FleetDriver>('/api/v1/drivers', 'fleet-drivers', 'Driver');
@@ -2121,7 +2121,7 @@ export const PageAccess = {
   },
 };
 
-// ── Product Branch Prices ─────────────────────────────────────────────────────
+// â”€â”€ Product Branch Prices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function useListBranchProductPrices(params: {
   branchId: string;
@@ -2221,3 +2221,4 @@ export * from './features/purchasing/api';
 export * from './features/sales/api';
 export * from './features/fleet/api';
 export * from './features/core/api';
+
