@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { UserCircle } from "lucide-react";
-import type { Customer, CustomerType, Location, SaleType } from "../../../../types";
+import type { Branch, Customer, CustomerType, Location, SaleType } from "../../../../types";
 import { CustomerPicker } from "../../../../components/CustomerPicker";
 import { FormSelect } from "../../../../components/FormSelect";
 
@@ -19,8 +19,13 @@ export interface CustomerInfoSectionProps {
   saleRef: string;
   orderReference: string;
   onOrderReferenceChange: (v: string) => void;
-  /** Branch name (branch manager) or org name (org admin) shown next to the Store label. */
-  contextLabel?: string;
+  /** Org admin: all branches for the branch selector dropdown. */
+  branches?: Branch[];
+  /** Org admin: currently selected branch in the POS branch picker. */
+  posBranchId?: string;
+  onPosBranchChange?: (id: string) => void;
+  /** Branch manager: branch name to display as read-only. */
+  branchName?: string;
   customerInfo: string;
   onCustomerInfoChange: (v: string) => void;
   customerId: string;
@@ -47,6 +52,10 @@ export function CustomerInfoSection({
   saleRef,
   orderReference,
   onOrderReferenceChange,
+  branches,
+  posBranchId,
+  onPosBranchChange,
+  branchName,
   customerInfo,
   onCustomerInfoChange,
   customerId,
@@ -64,7 +73,6 @@ export function CustomerInfoSection({
   locationId,
   onLocationChange,
   customerInputRef,
-  contextLabel,
 }: CustomerInfoSectionProps) {
   const isDefaultSelected = !customerId && customerInfo === DEFAULT_LABEL;
 
@@ -145,8 +153,8 @@ export function CustomerInfoSection({
             </div>
           </div>
 
-          {/* Row 2: Date | Billed By | Store | Invoice Number | Reference */}
-          <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
+          {/* Row 2: Date | Billed By | Branch | Location | Invoice Number | Reference */}
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-6">
             <Field label="Date">
               <input
                 type="date"
@@ -162,7 +170,23 @@ export function CustomerInfoSection({
               </div>
             </Field>
 
-            <Field label={contextLabel ? `Store — ${contextLabel}` : "Store"}>
+            <Field label="Branch">
+              {branchName != null ? (
+                <div className="flex h-9 items-center rounded-lg border border-border bg-muted px-3 text-sm text-foreground">
+                  {branchName || "—"}
+                </div>
+              ) : (
+                <FormSelect
+                  value={posBranchId ?? ""}
+                  onChange={onPosBranchChange ?? (() => {})}
+                  placeholder="All branches…"
+                  options={(branches ?? []).map((b) => ({ value: b.id, label: b.name }))}
+                  className="h-9 py-1.5"
+                />
+              )}
+            </Field>
+
+            <Field label="Location">
               <FormSelect
                 value={locationId}
                 onChange={onLocationChange}

@@ -154,7 +154,7 @@ export function ProductDetailsSection({
         </div>
 
         {/* Table */}
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10 border-b border-border bg-muted/60">
               <tr>
