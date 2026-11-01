@@ -3,7 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { clerk } from '../../lib/clerk';
-import { clerkErrorMessage, signUpWithPassword, startGoogleOAuth } from '../../lib/auth-flow';
+import { activateSession, clerkErrorMessage, signUpWithEmailOtp, signUpWithPassword, startGoogleOAuth, verifyEmailCode } from '../../lib/auth-flow';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -13,17 +13,17 @@ import { getAppName } from '../../lib/branding';
 import { toast } from 'sonner';
 
 export default function SignUp() {
-  const { user, syncing, bootPhase } = useAuth();
+  const { user, syncing, bootPhase, refresh } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockActive, setCapsLockActive] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
+  const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
+  const [otpStage, setOtpStage] = useState<'send' | 'verify'>('send');
+  const [otpCode, setOtpCode] = useState('');
 
   if (syncing && clerk.session) {
     return <AuthBootScreen phase={bootPhase ?? 'session'} />;
@@ -50,9 +50,6 @@ export default function SignUp() {
       await signUpWithPassword(clerk.client!.signUp, {
         emailAddress: email.trim(),
         password,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        username: username.trim(),
       });
       toast.success('Enter the verification code we emailed you');
       navigate('/verify-email');
@@ -63,6 +60,55 @@ export default function SignUp() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSignUpOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requireClerkClient()) return;
+    setErrorMsg(null);
+    setLoading(true);
+    try {
+      await signUpWithEmailOtp(clerk.client!.signUp, {
+        emailAddress: email.trim(),
+      });
+      toast.success('Enter the verification code we emailed you');
+      setOtpStage('verify');
+    } catch (error: any) {
+      const msg = clerkErrorMessage(error, 'Sign up failed');
+      setErrorMsg(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtpSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!requireClerkClient()) return;
+    setErrorMsg(null);
+    setLoading(true);
+    try {
+      const result = await verifyEmailCode(clerk.client!.signUp, otpCode);
+      if (result.status === 'complete') {
+        await activateSession(result.createdSessionId, refresh);
+        navigate('/verify-email');
+      } else {
+        throw new Error(`Unexpected sign-up status: ${result.status}`);
+      }
+    } catch (error: any) {
+      const msg = clerkErrorMessage(error, 'Verification failed');
+      setErrorMsg(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpTabSwitch = (method: 'password' | 'otp') => {
+    setAuthMethod(method);
+    setErrorMsg(null);
+    setOtpStage('send');
+    setOtpCode('');
   };
 
   const handleGoogle = async () => {
@@ -96,132 +142,196 @@ export default function SignUp() {
             <p className="text-muted-foreground">Create your account</p>
           </div>
 
-          <form onSubmit={handleSignUp} className="space-y-6">
-            {errorMsg && (
-              <div className="p-3 text-sm rounded-md bg-destructive/10 border border-destructive/20 text-destructive">
-                {errorMsg}
-              </div>
-            )}
+          <div className="flex rounded-lg border border-border mb-6 p-1 gap-1 bg-muted/30">
+            <button
+              type="button"
+              onClick={() => handleOtpTabSwitch('password')}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${authMethod === 'password' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+            >
+              Password
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOtpTabSwitch('otp')}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${authMethod === 'otp' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
+            >
+              Email OTP
+            </button>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First name</Label>
-                <Input
-                  id="firstName"
-                  value={firstName}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setFirstName(e.target.value);
-                    if (errorMsg) setErrorMsg(null);
-                  }}
-                  required
-                  autoFocus
-                  autoComplete="given-name"
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last name</Label>
-                <Input
-                  id="lastName"
-                  value={lastName}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setLastName(e.target.value);
-                    if (errorMsg) setErrorMsg(null);
-                  }}
-                  required
-                  autoComplete="family-name"
-                  disabled={loading}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signUpUsername">Username</Label>
-              <Input
-                id="signUpUsername"
-                value={username}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setUsername(e.target.value);
-                  if (errorMsg) setErrorMsg(null);
-                }}
-                required
-                autoComplete="username"
-                disabled={loading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signUpEmail">Email</Label>
-              <Input
-                id="signUpEmail"
-                type="email"
-                value={email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setEmail(e.target.value);
-                  if (errorMsg) setErrorMsg(null);
-                }}
-                required
-                autoComplete="email"
-                disabled={loading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="signUpPassword">Password</Label>
-              <div className="relative">
-                <Input
-                  id="signUpPassword"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setPassword(e.target.value);
-                    if (errorMsg) setErrorMsg(null);
-                  }}
-                  onKeyDown={checkCapsLock}
-                  onKeyUp={checkCapsLock}
-                  required
-                  autoComplete="new-password"
-                  className="pr-10"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring rounded p-1 transition-colors"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  title={showPassword ? 'Hide password' : 'Show password'}
-                  disabled={loading}
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-              {capsLockActive && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                  Caps Lock is ON
-                </p>
+          {authMethod === 'password' ? (
+            <form onSubmit={handleSignUp} className="space-y-6">
+              {errorMsg && (
+                <div className="p-3 text-sm rounded-md bg-destructive/10 border border-destructive/20 text-destructive">
+                  {errorMsg}
+                </div>
               )}
-            </div>
 
-            <div id="clerk-captcha" />
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="animate-spin" />}
-              {loading ? 'Creating account...' : 'Sign Up'}
-            </Button>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
+              <div className="space-y-2">
+                <Label htmlFor="signUpEmail">Email</Label>
+                <Input
+                  id="signUpEmail"
+                  type="email"
+                  value={email}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setEmail(e.target.value);
+                    if (errorMsg) setErrorMsg(null);
+                  }}
+                  required
+                  autoComplete="email"
+                  disabled={loading}
+                />
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">or</span>
+              <div className="space-y-2">
+                <Label htmlFor="signUpPassword">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="signUpPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setPassword(e.target.value);
+                      if (errorMsg) setErrorMsg(null);
+                    }}
+                    onKeyDown={checkCapsLock}
+                    onKeyUp={checkCapsLock}
+                    required
+                    autoComplete="new-password"
+                    className="pr-10"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring rounded p-1 transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                    disabled={loading}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {capsLockActive && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                    Caps Lock is ON
+                  </p>
+                )}
               </div>
+
+              <div id="clerk-captcha" />
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="animate-spin" />}
+                {loading ? 'Creating account...' : 'Sign Up'}
+              </Button>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+              <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={handleGoogle}>
+                Continue with Google
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                Already have an account?{' '}
+                <Link to="/login" className="text-primary underline underline-offset-2">
+                  Sign in
+                </Link>
+              </p>
+            </form>
+          ) : (
+            <div className="space-y-6">
+              {otpStage === 'send' ? (
+                <form onSubmit={handleSignUpOtp} className="space-y-6">
+                  {errorMsg && (
+                    <div className="p-3 text-sm rounded-md bg-destructive/10 border border-destructive/20 text-destructive">
+                      {errorMsg}
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="otp-signUpEmail">Email</Label>
+                    <Input
+                      id="otp-signUpEmail"
+                      type="email"
+                      value={email}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        setEmail(e.target.value);
+                        if (errorMsg) setErrorMsg(null);
+                      }}
+                      required
+                      autoComplete="email"
+                      disabled={loading}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="animate-spin" />}
+                    {loading ? 'Sending...' : 'Send code'}
+                  </Button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtpSignUp} className="space-y-6">
+                  {errorMsg && (
+                    <div className="p-3 text-sm rounded-md bg-destructive/10 border border-destructive/20 text-destructive">
+                      {errorMsg}
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    Code sent to <span className="font-medium text-foreground">{email}</span>
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="otp-signUpCode">Verification code</Label>
+                    <Input
+                      id="otp-signUpCode"
+                      type="text"
+                      inputMode="numeric"
+                      value={otpCode}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        setOtpCode(e.target.value);
+                        if (errorMsg) setErrorMsg(null);
+                      }}
+                      required
+                      autoFocus
+                      autoComplete="one-time-code"
+                      disabled={loading}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="animate-spin" />}
+                    {loading ? 'Verifying...' : 'Verify'}
+                  </Button>
+                  <p className="text-center text-sm text-muted-foreground">
+                    <button
+                      type="button"
+                      onClick={() => { setOtpStage('send'); setOtpCode(''); setErrorMsg(null); }}
+                      className="text-primary underline underline-offset-2"
+                      disabled={loading}
+                    >
+                      Back
+                    </button>
+                  </p>
+                </form>
+              )}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+              <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={handleGoogle}>
+                Continue with Google
+              </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                Already have an account?{' '}
+                <Link to="/login" className="text-primary underline underline-offset-2">
+                  Sign in
+                </Link>
+              </p>
             </div>
-            <Button type="button" variant="outline" className="w-full" disabled={loading} onClick={handleGoogle}>
-              Continue with Google
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <Link to="/login" className="text-primary underline underline-offset-2">
-                Sign in
-              </Link>
-            </p>
-          </form>
+          )}
         </div>
       </div>
     </div>
