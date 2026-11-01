@@ -71,7 +71,7 @@ export function OrderSummarySidebar({
   const balanceDue = grandTotalWithBalance - amountPaid;
 
   return (
-    <aside className="flex w-72 2xl:w-80 min-h-0 flex-shrink-0 flex-col gap-2.5 overflow-y-auto border-l border-border bg-muted/40 pt-3 pb-3 pl-2 pr-4">
+    <aside className="custom-scrollbar flex w-72 2xl:w-80 min-h-0 flex-shrink-0 flex-col gap-2.5 overflow-y-auto border-l border-border bg-muted/40 pt-3 pb-3 pl-2 pr-4">
       {/* Order Summary Card */}
       <div className="rounded-xl border border-border bg-card shadow-sm">
         <div className="flex items-center gap-2 border-b border-border px-3.5 py-2.5">

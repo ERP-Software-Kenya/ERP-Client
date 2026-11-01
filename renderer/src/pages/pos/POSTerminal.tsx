@@ -427,7 +427,12 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     orgMeta: [user?.organization?.slug].filter(Boolean).join(" · ") || undefined,
   };
   const { data: myBranch } = Branches.useGet(branchId);
-  const contextLabel = branchId ? (myBranch?.name ?? "") : (orgBrand.orgName ?? "");
+  const { data: allBranches = [] } = Branches.useList(!branchId);
+  const [posBranchId, setPosBranchId] = useState("");
+  const handlePosBranchChange = (id: string) => {
+    setPosBranchId(id);
+    setLocationId("");
+  };
   const { isUnlocked } = useBlackTab();
   const userRoles = user?.roles ?? [];
   const canCreateBlackSale =
@@ -443,10 +448,11 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   }, [isBlackSale, isUnlocked, saleType]);
 
   const { data: allLocations = [] } = Locations.useList();
-  const locations = useMemo(
-    () => (branchId ? allLocations.filter((l: Location) => l.branchId === branchId) : allLocations),
-    [allLocations, branchId],
-  );
+  const locations = useMemo(() => {
+    if (branchId) return allLocations.filter((l: Location) => l.branchId === branchId);
+    if (posBranchId) return allLocations.filter((l: Location) => l.branchId === posBranchId);
+    return allLocations;
+  }, [allLocations, branchId, posBranchId]);
   const branchLocationIds = useMemo(() => locations.map((l: Location) => l.id), [locations]);
   const stockLocation = useMemo(
     () => locations.find((location: Location) => location.id === locationId),
@@ -1406,6 +1412,10 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
                 saleRef={saleRef}
                 orderReference={orderReference}
                 onOrderReferenceChange={setOrderReference}
+                branches={!branchId ? allBranches : undefined}
+                posBranchId={posBranchId}
+                onPosBranchChange={handlePosBranchChange}
+                branchName={branchId ? (myBranch?.name ?? "") : undefined}
                 customerInfo={customerInfo}
                 onCustomerInfoChange={handleCustomerInfoChange}
                 customerId={customerId}
@@ -1425,7 +1435,6 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
                 locationId={locationId}
                 onLocationChange={setLocationId}
                 customerInputRef={customerInputRef}
-                contextLabel={contextLabel}
               />
 
               <ProductDetailsSection
