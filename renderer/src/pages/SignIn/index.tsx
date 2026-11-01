@@ -149,20 +149,20 @@ export default function SignIn() {
             <p className="text-muted-foreground">Sign in to your account</p>
           </div>
 
-          <div className="flex rounded-md border border-border mb-6 overflow-hidden">
+          <div className="flex rounded-lg border border-border mb-6 p-1 gap-1 bg-muted/30">
             <button
               type="button"
               onClick={() => handleOtpTabSwitch('password')}
-              className={`flex-1 py-2 text-sm font-medium transition-colors ${authMethod === 'password' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground'}`}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${authMethod === 'password' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
             >
               Password
             </button>
             <button
               type="button"
               onClick={() => handleOtpTabSwitch('otp')}
-              className={`flex-1 py-2 text-sm font-medium transition-colors ${authMethod === 'otp' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground'}`}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${authMethod === 'otp' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
             >
-              OTP
+              Email OTP
             </button>
           </div>
 

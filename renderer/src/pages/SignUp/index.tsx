@@ -20,9 +20,6 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockActive, setCapsLockActive] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
   const [otpStage, setOtpStage] = useState<'send' | 'verify'>('send');
@@ -53,9 +50,6 @@ export default function SignUp() {
       await signUpWithPassword(clerk.client!.signUp, {
         emailAddress: email.trim(),
         password,
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        username: username.trim(),
       });
       toast.success('Enter the verification code we emailed you');
       navigate('/verify-email');
@@ -74,14 +68,8 @@ export default function SignUp() {
     setErrorMsg(null);
     setLoading(true);
     try {
-      const emailPart = email.trim().split('@')[0].replace(/[^a-zA-Z0-9]/g, '');
-      const randomSuffix = Math.random().toString(36).slice(2, 7);
-      const generatedUsername = `${emailPart}${randomSuffix}`;
       await signUpWithEmailOtp(clerk.client!.signUp, {
         emailAddress: email.trim(),
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        username: generatedUsername,
       });
       toast.success('Enter the verification code we emailed you');
       setOtpStage('verify');
@@ -154,20 +142,20 @@ export default function SignUp() {
             <p className="text-muted-foreground">Create your account</p>
           </div>
 
-          <div className="flex rounded-md border border-border mb-6 overflow-hidden">
+          <div className="flex rounded-lg border border-border mb-6 p-1 gap-1 bg-muted/30">
             <button
               type="button"
               onClick={() => handleOtpTabSwitch('password')}
-              className={`flex-1 py-2 text-sm font-medium transition-colors ${authMethod === 'password' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground'}`}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${authMethod === 'password' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
             >
               Password
             </button>
             <button
               type="button"
               onClick={() => handleOtpTabSwitch('otp')}
-              className={`flex-1 py-2 text-sm font-medium transition-colors ${authMethod === 'otp' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground'}`}
+              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${authMethod === 'otp' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
             >
-              OTP
+              Email OTP
             </button>
           </div>
 
@@ -179,51 +167,6 @@ export default function SignUp() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First name</Label>
-                  <Input
-                    id="firstName"
-                    value={firstName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setFirstName(e.target.value);
-                      if (errorMsg) setErrorMsg(null);
-                    }}
-                    required
-                    autoFocus
-                    autoComplete="given-name"
-                    disabled={loading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last name</Label>
-                  <Input
-                    id="lastName"
-                    value={lastName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                      setLastName(e.target.value);
-                      if (errorMsg) setErrorMsg(null);
-                    }}
-                    required
-                    autoComplete="family-name"
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="signUpUsername">Username</Label>
-                <Input
-                  id="signUpUsername"
-                  value={username}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setUsername(e.target.value);
-                    if (errorMsg) setErrorMsg(null);
-                  }}
-                  required
-                  autoComplete="username"
-                  disabled={loading}
-                />
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="signUpEmail">Email</Label>
                 <Input
@@ -307,37 +250,6 @@ export default function SignUp() {
                       {errorMsg}
                     </div>
                   )}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="otp-firstName">First name</Label>
-                      <Input
-                        id="otp-firstName"
-                        value={firstName}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                          setFirstName(e.target.value);
-                          if (errorMsg) setErrorMsg(null);
-                        }}
-                        required
-                        autoFocus
-                        autoComplete="given-name"
-                        disabled={loading}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="otp-lastName">Last name</Label>
-                      <Input
-                        id="otp-lastName"
-                        value={lastName}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                          setLastName(e.target.value);
-                          if (errorMsg) setErrorMsg(null);
-                        }}
-                        required
-                        autoComplete="family-name"
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
                   <div className="space-y-2">
                     <Label htmlFor="otp-signUpEmail">Email</Label>
                     <Input
