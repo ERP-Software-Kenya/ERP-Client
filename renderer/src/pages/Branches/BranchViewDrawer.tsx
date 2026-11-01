@@ -31,7 +31,7 @@ function WarehouseSvg() {
   );
 }
 
-function LocationCard({ loc }: { loc: Location }) {
+function LocationCard({ loc, isDefault }: { loc: Location; isDefault?: boolean }) {
   const isStore = loc.type === 'store';
   return (
     <div className="rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900 hover:border-zinc-700 transition-colors cursor-default">
@@ -46,7 +46,14 @@ function LocationCard({ loc }: { loc: Location }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
       </div>
       <div className="px-3 py-2.5">
-        <p className="text-[13px] font-semibold text-zinc-100 truncate mb-1.5">{loc.name}</p>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <p className="text-[13px] font-semibold text-zinc-100 truncate">{loc.name}</p>
+          {isDefault && (
+            <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-900/60 uppercase tracking-wide">
+              Default
+            </span>
+          )}
+        </div>
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-zinc-500 flex items-center gap-1">
             <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -176,30 +183,48 @@ export function BranchViewDrawer({ branch, locations, onClose, onEdit, onInactiv
           </div>
 
           {/* Info grid */}
-          <div className="grid grid-cols-2 border border-zinc-800 rounded-lg overflow-hidden">
-            {[
+          {(() => {
+            const defaultLoc = branch.defaultLocationId
+              ? branchLocations.find((l) => l.id === branch.defaultLocationId)
+              : null;
+            const fields = [
               { label: 'Code', value: branch.code || '—', mono: true },
               { label: 'City', value: branch.city || '—', mono: false },
               { label: 'Phone', value: branch.phone || '—', mono: false },
               { label: 'Address', value: branch.address || '—', mono: false },
-            ].map((field, i) => (
-              <div
-                key={field.label}
-                className={[
-                  'px-3.5 py-2.5 bg-zinc-900/60',
-                  i < 2 ? 'border-b border-zinc-800' : '',
-                  i % 2 === 0 ? 'border-r border-zinc-800' : '',
-                ].join(' ')}
-              >
-                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wide mb-1">
-                  {field.label}
-                </p>
-                <p className={`text-[13px] text-zinc-300 ${field.mono ? 'font-mono text-indigo-400' : ''}`}>
-                  {field.value}
-                </p>
+            ];
+            return (
+              <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                <div className="grid grid-cols-2">
+                  {fields.map((field, i) => (
+                    <div
+                      key={field.label}
+                      className={[
+                        'px-3.5 py-2.5 bg-zinc-900/60',
+                        'border-b border-zinc-800',
+                        i % 2 === 0 ? 'border-r border-zinc-800' : '',
+                      ].join(' ')}
+                    >
+                      <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wide mb-1">
+                        {field.label}
+                      </p>
+                      <p className={`text-[13px] text-zinc-300 ${field.mono ? 'font-mono text-indigo-400' : ''}`}>
+                        {field.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-3.5 py-2.5 bg-zinc-900/60">
+                  <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wide mb-1">
+                    Default Location
+                  </p>
+                  <p className="text-[13px] text-zinc-300">
+                    {defaultLoc ? defaultLoc.name : '—'}
+                  </p>
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
           {/* Stores */}
           <div>
@@ -210,7 +235,7 @@ export function BranchViewDrawer({ branch, locations, onClose, onEdit, onInactiv
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-2.5">
-                {stores.map((loc) => <LocationCard key={loc.id} loc={loc} />)}
+                {stores.map((loc) => <LocationCard key={loc.id} loc={loc} isDefault={loc.id === branch.defaultLocationId} />)}
               </div>
             )}
           </div>
@@ -224,7 +249,7 @@ export function BranchViewDrawer({ branch, locations, onClose, onEdit, onInactiv
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-2.5">
-                {warehouses.map((loc) => <LocationCard key={loc.id} loc={loc} />)}
+                {warehouses.map((loc) => <LocationCard key={loc.id} loc={loc} isDefault={loc.id === branch.defaultLocationId} />)}
               </div>
             )}
           </div>
