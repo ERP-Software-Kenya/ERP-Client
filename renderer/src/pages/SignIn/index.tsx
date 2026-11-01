@@ -185,7 +185,7 @@ export default function SignIn() {
             <p className="text-center text-sm text-muted-foreground">
               New organization?{' '}
               <a
-                href={import.meta.env.VITE_WEB_ERP_URL ?? 'https://app.pramukhdigital.com'}
+                href={import.meta.env.VITE_WEB_ERP_URL ?? 'https://erp-web-kenya.netlify.app'}
                 target="_blank"
                 rel="noreferrer"
                 className="text-primary underline underline-offset-2"
