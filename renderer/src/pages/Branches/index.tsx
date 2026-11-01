@@ -27,6 +27,7 @@ interface FormState {
   phone: string;
   userId: string;
   locationIds: string[];
+  defaultLocationId: string;
 }
 
 const EMPTY: FormState = {
@@ -37,6 +38,7 @@ const EMPTY: FormState = {
   phone: '',
   userId: '',
   locationIds: [],
+  defaultLocationId: '',
 };
 
 const NO_MANAGER = 'none';
@@ -105,6 +107,15 @@ export default function BranchesPage(): React.JSX.Element {
       ),
     },
     {
+      key: 'defaultLocationId',
+      label: 'Default Location',
+      render: (r) => (
+        <span className="text-muted-foreground text-sm">
+          {r.defaultLocationId ? (locationName.get(r.defaultLocationId) ?? '—') : '—'}
+        </span>
+      ),
+    },
+    {
       key: 'isActive',
       label: 'Status',
       render: (r) => (
@@ -164,6 +175,7 @@ export default function BranchesPage(): React.JSX.Element {
       phone: row.phone ?? '',
       userId: row.userId ?? '',
       locationIds: row.locationIds ?? [],
+      defaultLocationId: row.defaultLocationId ?? '',
     });
     setDrawerOpen(true);
   };
@@ -179,6 +191,7 @@ export default function BranchesPage(): React.JSX.Element {
       phone: form.phone || undefined,
       userId: form.userId || null,
       locationIds: form.locationIds,
+      defaultLocationId: form.defaultLocationId || null,
     };
     if (editing) {
       updateMutation.mutate(
@@ -312,12 +325,16 @@ export default function BranchesPage(): React.JSX.Element {
                     <input
                       type="checkbox"
                       checked={form.locationIds.includes(location.id)}
-                      onChange={(event) => setForm({
-                        ...form,
-                        locationIds: event.target.checked
+                      onChange={(event) => {
+                        const newLocationIds = event.target.checked
                           ? [...form.locationIds, location.id]
-                          : form.locationIds.filter((id) => id !== location.id),
-                      })}
+                          : form.locationIds.filter((id) => id !== location.id);
+                        setForm({
+                          ...form,
+                          locationIds: newLocationIds,
+                          defaultLocationId: newLocationIds.includes(form.defaultLocationId) ? form.defaultLocationId : '',
+                        });
+                      }}
                     />
                     <span>{location.name}</span>
                     <span className="text-xs text-muted-foreground">({location.type})</span>
@@ -327,6 +344,28 @@ export default function BranchesPage(): React.JSX.Element {
                 <p className="text-sm text-muted-foreground">No unassigned locations are available.</p>
               )}
             </div>
+          </Field>
+          <Field label="Default Location">
+            <Select
+              value={form.defaultLocationId || 'none'}
+              onValueChange={(value) => setForm({ ...form, defaultLocationId: value === 'none' ? '' : value })}
+              disabled={form.locationIds.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select default location…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No default</SelectItem>
+                {locations
+                  .filter((l) => form.locationIds.includes(l.id))
+                  .map((l) => (
+                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Pre-selected in the POS location dropdown when billing for this branch.
+            </p>
           </Field>
         </form>
       </FormDrawer>

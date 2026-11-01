@@ -94,6 +94,7 @@ export interface Branch {
   country?: string;
   phone?: string;
   userId?: string | null;
+  defaultLocationId?: string | null;
   isActive: boolean;
   isMain?: boolean;
   locationIds?: string[];

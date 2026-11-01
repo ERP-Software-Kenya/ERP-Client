@@ -632,8 +632,13 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
   useEffect(() => {
     if (locations.length === 0 || locationId) return;
-    setLocationId(locations[0].id);
-  }, [locations, locationId]);
+    const resolvedBranch = branchId
+      ? myBranch
+      : allBranches.find((b) => b.id === resolvedPosBranchId);
+    const preferred = resolvedBranch?.defaultLocationId;
+    const hasPreferred = preferred && locations.some((l: Location) => l.id === preferred);
+    setLocationId(hasPreferred ? preferred : locations[0].id);
+  }, [locations, locationId, branchId, myBranch, allBranches, resolvedPosBranchId]);
 
   const effectiveInventory = useMemo(() => {
     if (!unpublishedStock.length) return inventory;
