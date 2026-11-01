@@ -79,7 +79,7 @@ export async function resolveSignInStatus(
 
 export async function signUpWithPassword(
   signUp: SignUpResource,
-  payload: { emailAddress: string; password: string; firstName: string; lastName: string; username: string },
+  payload: { emailAddress: string; password: string },
 ): Promise<void> {
   await signUp.create(payload);
   await prepareEmailVerification(signUp);
@@ -116,7 +116,7 @@ export async function verifySignInEmailOtp(
 // Starts OTP sign-up (no password). Call this, then verify with verifyEmailCode.
 export async function signUpWithEmailOtp(
   signUp: SignUpResource,
-  payload: { emailAddress: string; firstName: string; lastName: string; username: string },
+  payload: { emailAddress: string },
 ): Promise<void> {
   await signUp.create(payload);
   await prepareEmailVerification(signUp);
