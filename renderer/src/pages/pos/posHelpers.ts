@@ -14,6 +14,9 @@ export interface BillLine {
   rate: number;
   taxPct: number;
   unitLabel: string;
+  productUnitId?: string;
+  conversionFactor?: number;
+  unitOptions?: Array<{ id: string; label: string; factor: number }>;
   officialRate: number;
   /** Tier prices shown in sales order grid */
   p1?: number;

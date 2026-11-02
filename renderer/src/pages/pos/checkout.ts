@@ -17,6 +17,8 @@ export interface PosLineInput {
   name?: string;
   qty: number;
   unitPrice: number;
+  productUnitId?: string;
+  conversionFactor?: number;
   taxPct: number;
   /** Units per pack — present only for pack products in purchase mode */
   packSize?: number;
@@ -177,7 +179,7 @@ function localRef(prefix: string) {
 
 function buildReceiptLines(lines: PosLineInput[]) {
   return lines.map((l) => {
-    const units = l.qty * (l.packSize ?? 1);
+    const units = l.qty;
     const lineTax = (units * l.unitPrice * l.taxPct) / 100;
     return {
       sku: l.sku || l.productId.slice(0, 8),
@@ -265,6 +267,7 @@ async function updateDraftSale(
       () =>
         post<Bill>(`/api/v1/bills/${billId}/items`, {
           productId: l.productId,
+          productUnitId: l.productUnitId,
           quantity: l.qty,
           unitPrice: l.unitPrice,
           taxRate: l.taxPct,
@@ -397,6 +400,7 @@ export async function createDraftSale(input: SalesCheckoutInput): Promise<DraftS
         paymentMethod: toBillPaymentMethod(input.paymentMethod),
         items: input.lines.map((l) => ({
           productId: l.productId,
+          productUnitId: l.productUnitId,
           quantity: l.qty,
           unitPrice: l.unitPrice,
           taxRate: l.taxPct,
@@ -561,7 +565,8 @@ export async function runPurchaseCheckout(input: PurchaseCheckoutInput): Promise
         notes: input.supplierRef || undefined,
         items: input.lines.map((l) => ({
           productId: l.productId,
-          quantityOrdered: l.qty * (l.packSize ?? 1),
+          productUnitId: l.productUnitId,
+          quantityOrdered: l.qty,
           unitCost: l.unitPrice,
         })),
       }),
