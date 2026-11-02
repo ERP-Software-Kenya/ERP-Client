@@ -155,6 +155,11 @@ export interface OrganizationUnit {
   organizationId: string;
   name: string;
   symbol: string;
+  quantityPrecision: number;
+  allowFraction: boolean;
+  roundingMode: 'nearest' | 'up' | 'down';
+  minimumQuantity?: string | null;
+  quantityIncrement: string;
   isActive: boolean;
   sortOrder: number;
   createdAt?: string;
@@ -162,10 +167,25 @@ export interface OrganizationUnit {
 }
 
 export interface ProductUnitItem {
+  id?: string;
   unitId: string;
   unitName?: string;
   unitSymbol?: string;
-  isDefault: boolean;
+  isDefault?: boolean;
+  conversionFactor: string;
+  allowedForSale: boolean;
+  allowedForPurchase: boolean;
+  barcode?: string;
+  isActive: boolean;
+}
+
+export interface ProductUnitConfiguration {
+  unitId: string;
+  conversionFactor: string;
+  allowedForSale: boolean;
+  allowedForPurchase: boolean;
+  barcode?: string;
+  isActive: boolean;
 }
 
 export interface Product {
@@ -180,6 +200,9 @@ export interface Product {
   units?: ProductUnitItem[];
   unitIds?: string[];
   defaultUnitId?: string;
+  baseUnitId?: string;
+  defaultSaleUnitId?: string;
+  defaultPurchaseUnitId?: string;
   costPrice?: number;
   retailPrice?: number;
   loyaltyPrice?: number;

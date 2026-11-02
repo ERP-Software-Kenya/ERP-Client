@@ -236,17 +236,19 @@ export function ProductDetailView({ productId, categoryName, allSuppliers, onClo
                     )}
                   </InfoField>
 
-                  <InfoField label="Unit">
-                    <span className="text-sm font-medium">{product?.units?.find(u => u.isDefault)?.unitSymbol ?? product?.units?.[0]?.unitSymbol ?? '—'}</span>
+                  <InfoField label="Base Inventory Unit">
+                    <span className="text-sm font-medium">
+                      {product?.units?.find(u => u.unitId === product.baseUnitId)?.unitSymbol ?? product?.units?.find(u => u.isDefault)?.unitSymbol ?? '—'}
+                    </span>
                   </InfoField>
 
                   <InfoField label="Manufacturer / Brand">
                     <span className="text-sm font-medium">{product?.manufacturer || '—'}</span>
                   </InfoField>
 
-                  <InfoField label="Pack Size">
+                  <InfoField label="Default Purchase / Sale">
                     <span className="text-sm font-medium">
-                      {product?.packSize != null ? `${product.packSize} units/pack` : '—'}
+                      {product?.units?.find(u => u.unitId === product.defaultPurchaseUnitId)?.unitSymbol ?? '—'} / {product?.units?.find(u => u.unitId === product.defaultSaleUnitId)?.unitSymbol ?? '—'}
                     </span>
                   </InfoField>
 
@@ -275,6 +277,21 @@ export function ProductDetailView({ productId, categoryName, allSuppliers, onClo
                       <span className="text-sm text-muted-foreground">—</span>
                     )}
                   </InfoField>
+
+                  <div className="col-span-2 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Unit conversions</p>
+                    {product?.units?.length ? (
+                      <div className="overflow-hidden rounded-lg border border-border">
+                        {product.units.map((unit) => (
+                          <div key={unit.unitId} className="flex items-center gap-3 border-b border-border px-3 py-2 text-xs last:border-b-0">
+                            <span className="min-w-28 font-medium">{unit.unitName} ({unit.unitSymbol})</span>
+                            <span className="flex-1 text-muted-foreground">1 {unit.unitSymbol} = {unit.conversionFactor ?? '1'} base units</span>
+                            <span>{unit.allowedForPurchase ? 'Purchase' : ''}{unit.allowedForPurchase && unit.allowedForSale ? ' · ' : ''}{unit.allowedForSale ? 'Sale' : ''}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <span className="text-sm text-muted-foreground">No units configured</span>}
+                  </div>
 
                   <InfoField label="Created At">
                     <span className="text-sm font-medium">{fmtDate(product?.createdAt)}</span>

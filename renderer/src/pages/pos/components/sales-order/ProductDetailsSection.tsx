@@ -26,6 +26,7 @@ export interface ProductDetailsSectionProps {
   onRemoveLine: (id: number) => void;
   onRemoveCharge: (id: number) => void;
   onLineLocationChange: (lineId: number, locationId: string) => void;
+  onUnitChange?: (lineId: number, productUnitId: string) => void;
   locations: Location[];
   storeCode?: string;
   checkoutResult: CheckoutResult | null;
@@ -50,6 +51,7 @@ export function ProductDetailsSection({
   onRemoveLine,
   onRemoveCharge,
   onLineLocationChange,
+  onUnitChange,
   locations,
   storeCode,
   checkoutResult,
@@ -231,10 +233,15 @@ export function ProductDetailsSection({
                       </div>
                     </td>
                     <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground w-16">
-                        <span className="truncate">{line.unitLabel}</span>
-                        <span className="ml-auto text-muted-foreground">▾</span>
-                      </div>
+                      <select
+                        value={line.productUnitId ?? ''}
+                        onChange={(event) => onUnitChange?.(line.id, event.target.value)}
+                        disabled={!onUnitChange || (line.unitOptions?.length ?? 0) < 2}
+                        className="w-24 rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground disabled:opacity-70"
+                        aria-label={`Unit for ${line.name}`}
+                      >
+                        {(line.unitOptions ?? []).map((unit) => <option key={unit.id} value={unit.id}>{unit.label}</option>)}
+                      </select>
                     </td>
                     <td className="px-3 py-2.5 text-sm text-muted-foreground tabular-nums">
                       {line.costPrice ? fmt(line.costPrice) : "—"}

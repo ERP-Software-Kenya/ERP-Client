@@ -729,6 +729,11 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
 
   const addProduct = (p: Product) => {
     let addQty = 1;
+    const allowedUnits = (p.units ?? []).filter((u) => u.id && u.isActive !== false && (mode === 'sales' ? u.allowedForSale : u.allowedForPurchase));
+    const preferredUnitId = mode === 'sales' ? p.defaultSaleUnitId : p.defaultPurchaseUnitId;
+    const selectedUnit = allowedUnits.find((u) => u.unitId === preferredUnitId) ?? allowedUnits.find((u) => u.unitId === p.baseUnitId) ?? allowedUnits[0];
+    const conversionFactor = Number(selectedUnit?.conversionFactor ?? 1);
+    const unitOptions = allowedUnits.map((u) => ({ id: u.id!, label: u.unitSymbol ?? u.unitName ?? 'Unit', factor: Number(u.conversionFactor) }));
 
     if (mode === "sales") {
       const primaryStock = getStockInfo(
@@ -739,7 +744,11 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       const inCart = cartQtyForProduct(lines, p.id, undefined, locationId);
       const primaryRoom = primaryStock.found ? primaryStock.available - inCart : 0;
 
-      if (primaryRoom <= 0) {
+      if (primaryRoom < addQty * conversionFactor) {
+        if (conversionFactor !== 1) {
+          toast.warning(`Not enough ${selectedUnit?.unitSymbol ?? 'selected-unit'} stock at this location. Select the base unit to split fulfillment.`);
+          return;
+        }
         // Check if other branch locations can fulfil (multi-location fulfillment).
         const otherBranchLocs = locations.filter((l: Location) => l.id !== locationId);
         const branchTotal = getBranchStockInfo(allStockMaps, branchLocationIds, p.id, saleType);
@@ -750,6 +759,10 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
         }
         if (branchTotal.available <= 0) {
           toast.error(saleType === "black" ? "No black stock available for this product" : "Out of stock across all branch locations");
+          return;
+        }
+        if (branchTotal.available < addQty * conversionFactor) {
+          toast.warning(`Insufficient stock for 1 ${selectedUnit?.unitSymbol ?? 'unit'} (${branchTotal.available} base units available)`);
           return;
         }
 
@@ -772,16 +785,17 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
         const rate = discountedRate(listRate, effectiveDiscountPercent(selectedCustomer, customerType, typeRules));
         const sku = formatEntityLabel({ sku: p.sku, id: p.id });
 
-        let remaining = addQty;
+        let remainingBase = addQty * conversionFactor;
         for (const loc of sortedLocs) {
-          if (remaining <= 0) break;
+          if (remainingBase <= 0) break;
           const locSi = getStockInfo(allStockMaps.get(loc.id) ?? new Map(), p.id, saleType);
           const locInCart = cartQtyForProduct(lines, p.id, undefined, loc.id);
           const locRoom = locSi.available - locInCart;
           if (locRoom <= 0) continue;
-          const take = Math.min(remaining, locRoom);
-          remaining -= take;
-          const existing = lines.find((l) => l.productId === p.id && l.locationId === loc.id);
+          const takeBase = Math.min(remainingBase, locRoom);
+          const take = takeBase / conversionFactor;
+          remainingBase -= takeBase;
+          const existing = lines.find((l) => l.productId === p.id && l.locationId === loc.id && l.productUnitId === selectedUnit?.id);
           if (existing) {
             setLines((ls) => ls.map((l) => l.productId === p.id && l.locationId === loc.id ? { ...l, qty: l.qty + take } : l));
           } else {
@@ -792,10 +806,13 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
               sku,
               name: p.name || "Unnamed product",
               qty: take,
-              rate,
+              rate: rate * conversionFactor,
               taxPct: p.tax?.rate ?? 0,
-              unitLabel: p.units?.find(u => u.isDefault)?.unitSymbol ?? p.units?.[0]?.unitSymbol ?? "pcs",
-              officialRate: listRate,
+              unitLabel: selectedUnit?.unitSymbol ?? selectedUnit?.unitName ?? "pcs",
+              productUnitId: selectedUnit?.id,
+              conversionFactor,
+              unitOptions,
+              officialRate: listRate * conversionFactor,
               p1: tiers.p1, p2: tiers.p2, p3: tiers.p3, p4: tiers.p4,
               activeTier: tier,
               storeCode: locObj?.name?.slice(0, 1).toUpperCase(),
@@ -808,8 +825,8 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
           }
         }
 
-        if (remaining > 0) {
-          toast.warning(`Only ${addQty - remaining} unit(s) added — insufficient branch stock for ${remaining} more`);
+        if (remainingBase > 0) {
+          toast.warning(`Only ${addQty - remainingBase / conversionFactor} ${selectedUnit?.unitSymbol ?? 'unit(s)'} added — insufficient stock`);
         } else {
           toast.success(`Added from ${sortedLocs.length > 1 ? "multiple locations" : sortedLocs[0]?.name ?? "store"}`);
         }
@@ -820,7 +837,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
         return;
       }
 
-      addQty = Math.min(addQty, primaryRoom);
+      addQty = Math.min(addQty, primaryRoom / conversionFactor);
     }
 
     const tiers = branchAwareTierPrices(p, branchPriceMap.get(p.id));
@@ -831,7 +848,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
         ? discountedRate(listRate, effectiveDiscountPercent(selectedCustomer, customerType, typeRules))
         : listRate;
     const sku = formatEntityLabel({ sku: p.sku, id: p.id });
-    const existing = lines.find((l) => l.productId === p.id && l.locationId === locationId);
+    const existing = lines.find((l) => l.productId === p.id && l.locationId === locationId && l.productUnitId === selectedUnit?.id);
     if (existing) {
       setLines((ls) =>
         ls.map((l) =>
@@ -849,10 +866,13 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
           sku,
           name: p.name || "Unnamed product",
           qty: addQty,
-          rate,
+          rate: rate * conversionFactor,
           taxPct: p.tax?.rate ?? 0,
-          unitLabel: p.units?.find(u => u.isDefault)?.unitSymbol ?? p.units?.[0]?.unitSymbol ?? "pcs",
-          officialRate: listRate,
+          unitLabel: selectedUnit?.unitSymbol ?? selectedUnit?.unitName ?? "pcs",
+          productUnitId: selectedUnit?.id,
+          conversionFactor,
+          unitOptions,
+          officialRate: listRate * conversionFactor,
           p1: tiers.p1,
           p2: tiers.p2,
           p3: tiers.p3,
@@ -896,7 +916,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
               : stockMap;
           const stock = getStockInfo(map, l.productId, saleType);
           const others = cartQtyForProduct(ls, l.productId, lineId, effectiveLocId);
-          const maxForLine = Math.max(0.001, stock.available - others);
+          const maxForLine = Math.max(0.001, (stock.available - others) / (l.conversionFactor || 1));
           if (!stock.found) {
             toast.error("No stock record for this product at this location");
             return l;
@@ -929,6 +949,33 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
     setLines((ls) => ls.map((l) => (l.id === lineId ? { ...l, rate } : l)));
   };
 
+  const handleLineUnitChange = (lineId: number, productUnitId: string) => {
+    setLines((ls) => ls.map((line) => {
+      if (line.id !== lineId) return line;
+      const option = line.unitOptions?.find((unit) => unit.id === productUnitId);
+      if (!option) return line;
+      if (mode === 'sales') {
+        const effectiveLocId = line.locationId || locationId;
+        const map = effectiveLocId && allStockMaps.has(effectiveLocId) ? allStockMaps.get(effectiveLocId)! : stockMap;
+        const available = getStockInfo(map, line.productId, saleType).available;
+        const others = cartQtyForProduct(ls, line.productId, lineId, effectiveLocId);
+        if (others + line.qty * option.factor > available) {
+          toast.warning(`Insufficient stock for ${line.qty} ${option.label}`);
+          return line;
+        }
+      }
+      const oldFactor = line.conversionFactor || 1;
+      return {
+        ...line,
+        productUnitId,
+        conversionFactor: option.factor,
+        unitLabel: option.label,
+        rate: (line.rate / oldFactor) * option.factor,
+        officialRate: (line.officialRate / oldFactor) * option.factor,
+      };
+    }));
+  };
+
   useEffect(() => {
     if (mode !== "sales" || lines.length === 0) return;
     const tier = customerTypeToTier(customerType);
@@ -939,7 +986,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
           listRate,
           effectiveDiscountPercent(selectedCustomer, customerType, typeRules),
         );
-        return { ...l, activeTier: tier, rate, officialRate: listRate };
+        return { ...l, activeTier: tier, rate: rate * (l.conversionFactor || 1), officialRate: listRate * (l.conversionFactor || 1) };
       }),
     );
   }, [customerType, selectedCustomer?.id, typeRules]);
@@ -962,7 +1009,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
   const removeCharge = (id: number) =>
     setExtraCharges((ec) => ec.filter((c) => c.id !== id));
 
-  const lineUnits = (l: typeof lines[0]) => mode === 'purchase' ? l.qty * (l.packSize ?? 1) : l.qty;
+  const lineUnits = (l: typeof lines[0]) => l.qty;
   const subtotal = lines.reduce((s, l) => s + lineUnits(l) * l.rate, 0);
   const totalTax = lines.reduce((s, l) => s + (lineUnits(l) * l.rate * l.taxPct) / 100, 0);
   const extraTotal = extraCharges.reduce((s, c) => s + c.amount, 0);
@@ -1064,6 +1111,8 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
       name: l.name,
       qty: l.qty,
       unitPrice: l.rate,
+      productUnitId: l.productUnitId,
+      conversionFactor: l.conversionFactor,
       taxPct: l.taxPct,
       packSize: mode === 'purchase' ? l.packSize : undefined,
       locationId: l.locationId || undefined,
@@ -1471,6 +1520,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
                 onRemoveLine={removeLine}
                 onRemoveCharge={removeCharge}
                 onLineLocationChange={handleLineLocationChange}
+                onUnitChange={handleLineUnitChange}
                 locations={locations}
                 storeCode={stockLocation?.name?.slice(0, 1).toUpperCase()}
                 checkoutResult={checkoutResult}
@@ -1579,6 +1629,7 @@ export default function POSTerminal({ mode, initialSaleType }: { mode: Mode; ini
               extraCharges={extraCharges}
               onQtyChange={handleLineQtyChange}
               onRateChange={handleRateChange}
+              onUnitChange={handleLineUnitChange}
               onRemoveLine={removeLine}
               onRemoveCharge={removeCharge}
               checkoutResult={checkoutResult}

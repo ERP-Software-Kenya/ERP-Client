@@ -10,11 +10,26 @@ import type { OrganizationUnit } from '../../types';
 interface UnitForm {
   name: string;
   symbol: string;
+  quantityPrecision: string;
+  allowFraction: boolean;
+  roundingMode: 'nearest' | 'up' | 'down';
+  minimumQuantity: string;
+  quantityIncrement: string;
   isActive: boolean;
   sortOrder: string;
 }
 
-const EMPTY_FORM: UnitForm = { name: '', symbol: '', isActive: true, sortOrder: '0' };
+const EMPTY_FORM: UnitForm = {
+  name: '',
+  symbol: '',
+  quantityPrecision: '4',
+  allowFraction: true,
+  roundingMode: 'nearest',
+  minimumQuantity: '',
+  quantityIncrement: '1',
+  isActive: true,
+  sortOrder: '0',
+};
 
 export default function OrganizationUnitsPage() {
   const { data: units = [], isLoading } = OrganizationUnits.useList();
@@ -30,8 +45,26 @@ export default function OrganizationUnitsPage() {
   const openCreate = () => { setForm(EMPTY_FORM); setCreateOpen(true); };
   const openEdit   = (u: OrganizationUnit) => {
     setEditItem(u);
-    setForm({ name: u.name, symbol: u.symbol, isActive: u.isActive, sortOrder: String(u.sortOrder) });
+    setForm({
+      name: u.name,
+      symbol: u.symbol,
+      quantityPrecision: String(u.quantityPrecision ?? 4),
+      allowFraction: u.allowFraction ?? true,
+      roundingMode: u.roundingMode ?? 'nearest',
+      minimumQuantity: u.minimumQuantity ?? '',
+      quantityIncrement: u.quantityIncrement ?? '1',
+      isActive: u.isActive,
+      sortOrder: String(u.sortOrder),
+    });
   };
+
+  const quantityRules = () => ({
+    quantityPrecision: Number(form.quantityPrecision),
+    allowFraction: form.allowFraction,
+    roundingMode: form.roundingMode,
+    minimumQuantity: form.minimumQuantity || null,
+    quantityIncrement: form.quantityIncrement,
+  });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +72,7 @@ export default function OrganizationUnitsPage() {
     await createMutation.mutateAsync({
       name:      form.name.trim(),
       symbol:    form.symbol.trim(),
+      ...quantityRules(),
       isActive:  form.isActive,
       sortOrder: form.sortOrder ? Number(form.sortOrder) : 0,
     } as Partial<OrganizationUnit>);
@@ -53,6 +87,7 @@ export default function OrganizationUnitsPage() {
       body: {
         name:      form.name.trim(),
         symbol:    form.symbol.trim(),
+        ...quantityRules(),
         isActive:  form.isActive,
         sortOrder: form.sortOrder ? Number(form.sortOrder) : 0,
       } as Partial<OrganizationUnit>,
@@ -102,7 +137,9 @@ export default function OrganizationUnitsPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm">{unit.name}</p>
-                <p className="text-xs text-muted-foreground">Symbol: {unit.symbol} · Order: {unit.sortOrder}</p>
+                <p className="text-xs text-muted-foreground">
+                  Symbol: {unit.symbol} · Increment: {unit.quantityIncrement ?? '1'} · Precision: {unit.quantityPrecision ?? 4} · Order: {unit.sortOrder}
+                </p>
               </div>
               <span className={[
                 'text-[10px] font-semibold px-2 py-0.5 rounded-full border',
@@ -147,6 +184,7 @@ export default function OrganizationUnitsPage() {
           <Field label="Symbol" required>
             <Input placeholder="e.g. kg" value={form.symbol} onChange={e => setForm(f => ({ ...f, symbol: e.target.value }))} />
           </Field>
+          <QuantityRulesFields form={form} setForm={setForm} />
           <Field label="Sort Order" hint="Lower numbers appear first">
             <Input type="number" min="0" value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: e.target.value }))} />
           </Field>
@@ -180,6 +218,7 @@ export default function OrganizationUnitsPage() {
             <Field label="Symbol" required>
               <Input placeholder="e.g. kg" value={form.symbol} onChange={e => setForm(f => ({ ...f, symbol: e.target.value }))} />
             </Field>
+            <QuantityRulesFields form={form} setForm={setForm} />
             <Field label="Sort Order" hint="Lower numbers appear first">
               <Input type="number" min="0" value={form.sortOrder} onChange={e => setForm(f => ({ ...f, sortOrder: e.target.value }))} />
             </Field>
@@ -196,10 +235,74 @@ export default function OrganizationUnitsPage() {
         open={Boolean(deleteItem)}
         onOpenChange={open => { if (!open) setDeleteItem(null); }}
         title="Delete unit?"
-        description={`Remove "${deleteItem?.name}" (${deleteItem?.symbol}) from your organization. Products using this unit will need to be updated.`}
+        description={`Remove "${deleteItem?.name}" (${deleteItem?.symbol}) from your organization. If it is already used by products or inventory, it will be retired instead so historical records remain valid.`}
         onConfirm={handleDelete}
         isPending={deleteMutation.isPending}
       />
+    </div>
+  );
+}
+
+function QuantityRulesFields({ form, setForm }: { form: UnitForm; setForm: React.Dispatch<React.SetStateAction<UnitForm>> }) {
+  return (
+    <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
+      <div>
+        <p className="text-sm font-medium">Quantity rules</p>
+        <p className="text-xs text-muted-foreground">Controls how users may enter this unit. Product conversion is configured separately.</p>
+      </div>
+      <label className="flex items-center gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={form.allowFraction}
+          onChange={e => setForm(f => ({
+            ...f,
+            allowFraction: e.target.checked,
+            quantityPrecision: e.target.checked ? (f.quantityPrecision === '0' ? '4' : f.quantityPrecision) : '0',
+            quantityIncrement: e.target.checked ? f.quantityIncrement : '1',
+          }))}
+          className="h-4 w-4 rounded accent-primary"
+        />
+        <span className="text-sm">Allow fractional quantities</span>
+      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Decimal precision" hint="Between 0 and 8">
+          <Input
+            type="number"
+            min="0"
+            max="8"
+            step="1"
+            disabled={!form.allowFraction}
+            value={form.quantityPrecision}
+            onChange={e => setForm(f => ({ ...f, quantityPrecision: e.target.value }))}
+          />
+        </Field>
+        <Field label="Quantity increment" hint="Example: 0.25 or 1">
+          <Input
+            inputMode="decimal"
+            required
+            value={form.quantityIncrement}
+            onChange={e => setForm(f => ({ ...f, quantityIncrement: e.target.value }))}
+          />
+        </Field>
+        <Field label="Minimum quantity" hint="Optional">
+          <Input
+            inputMode="decimal"
+            value={form.minimumQuantity}
+            onChange={e => setForm(f => ({ ...f, minimumQuantity: e.target.value }))}
+          />
+        </Field>
+        <Field label="Rounding mode">
+          <select
+            value={form.roundingMode}
+            onChange={e => setForm(f => ({ ...f, roundingMode: e.target.value as UnitForm['roundingMode'] }))}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="nearest">Nearest</option>
+            <option value="up">Always up</option>
+            <option value="down">Always down</option>
+          </select>
+        </Field>
+      </div>
     </div>
   );
 }
