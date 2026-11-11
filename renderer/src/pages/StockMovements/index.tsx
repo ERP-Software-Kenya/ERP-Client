@@ -134,9 +134,10 @@ interface OpForm {
   absoluteQty: string;
   unitCost: string;
   notes: string;
+  productUnitId?: string;
 }
 
-const EMPTY_OP: OpForm = { qty: '', absoluteQty: '', unitCost: '', notes: '' };
+const EMPTY_OP: OpForm = { qty: '', absoluteQty: '', unitCost: '', notes: '', productUnitId: undefined };
 
 export default function StockHistoryPage() {
   const [guideOpen, setGuideOpen] = useState(() => !localStorage.getItem(GUIDE_KEY));
@@ -149,6 +150,8 @@ export default function StockHistoryPage() {
   const { data: products } = Products.useList();
   const { data: locations } = Locations.useList();
   const { data: inventoryList } = Inventory.useList();
+  const { data: selectedProduct } = Products.useGet(selectedProductId || undefined);
+  const stockUnits = (selectedProduct?.units ?? []).filter((u) => u.id && u.isActive !== false);
 
   useAutoSelectFirst(inventoryList, (item: InventoryItem) => {
     setSelectedProductId(item.productId);
@@ -262,6 +265,7 @@ export default function StockHistoryPage() {
           inventoryId: selectedItem.id,
           locationId: selectedItem.locationId,
           productId: selectedItem.productId,
+          productUnitId: opForm.productUnitId || undefined,
           unitCost: opForm.unitCost ? Number(opForm.unitCost) : undefined,
           notes: opForm.notes || undefined,
           ...(activeOp.usesAbsolute
@@ -431,7 +435,9 @@ export default function StockHistoryPage() {
                             <MovementBadge type={m.movementType} />
                           </td>
                           <td className="py-2.5 pr-4 font-mono text-sm font-medium tabular-nums text-foreground">
-                            {m.quantity}
+                            {m.enteredQuantity && m.selectedUnitSymbolSnapshot
+                              ? `${m.enteredQuantity} ${m.selectedUnitSymbolSnapshot} (${m.quantity} base)`
+                              : String(m.quantity)}
                           </td>
                           <td className="py-2.5 pr-4 text-xs whitespace-nowrap">
                             <span className="text-muted-foreground">{m.quantityBefore}</span>
@@ -518,7 +524,27 @@ export default function StockHistoryPage() {
                     />
                   </Field>
                 )}
-                <div className={activeOp.showCost ? '' : 'sm:col-span-2'}>
+                {stockUnits.length > 1 && (
+                  <Field label="Unit">
+                    <Select
+                      value={opForm.productUnitId ?? ''}
+                      onValueChange={(v) => setOpForm((prev) => ({ ...prev, productUnitId: v || undefined }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Base unit (default)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stockUnits.map((u) => (
+                          <SelectItem key={u.id!} value={u.id!}>
+                            {u.unitName ?? u.unitSymbol ?? u.unitId}
+                            {Number(u.conversionFactor) !== 1 ? ` (×${u.conversionFactor})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
+                <div className={activeOp.showCost || stockUnits.length > 1 ? '' : 'sm:col-span-2'}>
                   <Field label="Notes (optional)">
                     <Input
                       placeholder="Reason or reference…"

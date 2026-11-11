@@ -493,6 +493,10 @@ export interface BillItem {
   taxAmount: number;
   discountAmount: number;
   lineTotal: number;
+  productUnitId?: string | null;
+  enteredQuantity?: string | null;
+  conversionFactorSnapshot?: string | null;
+  selectedUnitNameSnapshot?: string | null;
 }
 
 export interface Bill {
@@ -844,6 +848,10 @@ export interface OrderItem {
   lineTotal?: number;
   packQuantity?: number;
   packSizeSnapshot?: number;
+  productUnitId?: string | null;
+  enteredQuantity?: string | null;
+  conversionFactorSnapshot?: string | null;
+  selectedUnitNameSnapshot?: string | null;
 }
 
 export interface Order {
@@ -1061,6 +1069,10 @@ export interface PurchaseItem {
   packQuantity?: number;
   /** Product packSize snapshotted at order time — null when no pack concept used */
   packSizeSnapshot?: number;
+  productUnitId?: string | null;
+  enteredQuantity?: string | null;
+  conversionFactorSnapshot?: string | null;
+  selectedUnitNameSnapshot?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
