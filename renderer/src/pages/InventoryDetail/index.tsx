@@ -41,10 +41,11 @@ interface OpForm {
   absoluteQuantity: string;
   unitCost: string;
   notes: string;
+  productUnitId?: string;
 }
 
 const EMPTY_META: MetaForm = { reorderLevel: '', maxStock: '', binLocation: '' };
-const EMPTY_OP: OpForm = { op: 'add', quantity: '', absoluteQuantity: '', unitCost: '', notes: '' };
+const EMPTY_OP: OpForm = { op: 'add', quantity: '', absoluteQuantity: '', unitCost: '', notes: '', productUnitId: undefined };
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
@@ -82,10 +83,12 @@ export default function InventoryDetailPage() {
 
   useEffect(() => {
     if (!item || !opOpen) return;
-    setOpForm((prev) => ({ ...prev, quantity: '', absoluteQuantity: '', unitCost: '', notes: '' }));
+    setOpForm((prev) => ({ ...prev, quantity: '', absoluteQuantity: '', unitCost: '', notes: '', productUnitId: undefined }));
   }, [item, opOpen]);
 
   const available = item != null ? item.quantityOnHand - item.quantityReserved : 0;
+
+  const stockUnits = (product?.units ?? []).filter((u) => u.id && u.isActive !== false);
 
   const saveMeta = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,6 +115,7 @@ export default function InventoryDetailPage() {
       productId: item.productId,
       unitCost: opForm.unitCost ? Number(opForm.unitCost) : undefined,
       notes: opForm.notes || undefined,
+      productUnitId: opForm.productUnitId || undefined,
       ...(opForm.op === 'adjust'
         ? { absoluteQuantity: Number(opForm.absoluteQuantity) }
         : { quantity: Number(opForm.quantity) }),
@@ -206,7 +210,14 @@ export default function InventoryDetailPage() {
           <SimpleTable
             columns={[
               { key: 'type', header: 'Type', render: (m: StockMovement) => m.movementType },
-              { key: 'qty', header: 'Qty', render: (m: StockMovement) => m.quantity },
+              {
+                key: 'qty',
+                header: 'Qty',
+                render: (m: StockMovement) =>
+                  m.enteredQuantity && m.selectedUnitSymbolSnapshot
+                    ? `${m.enteredQuantity} ${m.selectedUnitSymbolSnapshot} (${m.quantity} base)`
+                    : String(m.quantity),
+              },
               {
                 key: 'change',
                 header: 'Before → After',
@@ -321,6 +332,26 @@ export default function InventoryDetailPage() {
               </SelectContent>
             </Select>
           </Field>
+          {stockUnits.length > 1 && (
+            <Field label="Unit">
+              <Select
+                value={opForm.productUnitId ?? ''}
+                onValueChange={(v) => setOpForm({ ...opForm, productUnitId: v || undefined })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Base unit (default)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stockUnits.map((u) => (
+                    <SelectItem key={u.id!} value={u.id!}>
+                      {u.unitName ?? u.unitSymbol ?? u.unitId}
+                      {Number(u.conversionFactor) !== 1 ? ` (×${u.conversionFactor})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
           {opForm.op === 'adjust' ? (
             <Field label="Absolute quantity" required>
               <Input

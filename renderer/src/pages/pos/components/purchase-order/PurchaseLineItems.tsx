@@ -16,6 +16,7 @@ export interface PurchaseLineItemsProps {
   extraCharges: ExtraCharge[];
   onQtyChange: (lineId: number, qty: number) => void;
   onRateChange: (lineId: number, rate: number) => void;
+  onUnitChange: (lineId: number, productUnitId: string) => void;
   onRemoveLine: (id: number) => void;
   onRemoveCharge: (id: number) => void;
   checkoutResult: CheckoutResult | null;
@@ -33,6 +34,7 @@ export function PurchaseLineItems({
   extraCharges,
   onQtyChange,
   onRateChange,
+  onUnitChange,
   onRemoveLine,
   onRemoveCharge,
   checkoutResult,
@@ -161,7 +163,17 @@ export function PurchaseLineItems({
                   </div>
                 </td>
                 <td className="px-3 py-2.5 text-sm text-muted-foreground">e.g. S</td>
-                <td className="px-3 py-2.5 text-sm text-muted-foreground">{line.unitLabel}</td>
+                <td className="px-3 py-2.5">
+                  <select
+                    value={line.productUnitId ?? ''}
+                    onChange={(event) => onUnitChange(line.id, event.target.value)}
+                    disabled={(line.unitOptions?.length ?? 0) < 2}
+                    className="w-24 rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground disabled:opacity-70"
+                    aria-label={`Unit for ${line.name}`}
+                  >
+                    {(line.unitOptions ?? []).map((unit) => <option key={unit.id} value={unit.id}>{unit.label}</option>)}
+                  </select>
+                </td>
                 <td className="px-3 py-2.5 text-sm text-muted-foreground tabular-nums">0.00</td>
                 <td className="px-3 py-2.5">
                   <input
