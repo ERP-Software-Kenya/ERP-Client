@@ -21,7 +21,6 @@ import {
   History,
   Landmark,
   LayoutDashboard,
-  Lock,
   MapPin,
   Package,
   PackageCheck,
@@ -395,12 +394,6 @@ export const MODULES: ModuleGroup[] = [
     icon: Users,
     items: [
       { key: "users", title: "Users", path: "/users", icon: Users },
-      {
-        key: "roles",
-        title: "Roles & Permissions",
-        path: "/roles",
-        icon: Lock,
-      },
       {
         key: "activity-logs",
         title: "Activity Logs",

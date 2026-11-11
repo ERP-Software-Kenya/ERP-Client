@@ -61,7 +61,6 @@ const AppUpdates = lazy(() => import('./pages/AppUpdates'));
 const BillingSettings = lazy(() => import('./pages/BillingSettings'));
 const NotificationSettings = lazy(() => import('./pages/NotificationSettings'));
 const PurchaseItems = lazy(() => import('./pages/PurchaseItems'));
-const Roles = lazy(() => import('./pages/Roles'));
 const Users = lazy(() => import('./pages/Users'));
 const UserDetail = lazy(() => import('./pages/UserDetail'));
 const PageAccessPage = lazy(() => import('./pages/PageAccess'));
@@ -217,7 +216,6 @@ function App() {
             <Route path="settings/organization-units" element={<OrganizationUnitsPage />} />
             <Route path="settings/sessions" element={<AccountSessionsPage />} />
             <Route path="purchase-items" element={<PurchaseItems />} />
-            <Route path="roles" element={<Roles />} />
             <Route path="user-roles" element={<Navigate to="/users" replace />} />
             <Route path="users" element={<Users />} />
             <Route path="users/clerk/:clerkUserId" element={<UserDetail />} />
