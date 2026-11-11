@@ -25,7 +25,6 @@ const SalesDashboard = lazy(() => import('./pages/dashboards/SalesDashboard'));
 const Products = lazy(() => import('./pages/Products'));
 const InventoryPage = lazy(() => import('./pages/Inventory'));
 const InventoryDetailPage = lazy(() => import('./pages/InventoryDetail'));
-const Organizations = lazy(() => import('./pages/Organizations'));
 const Locations = lazy(() => import('./pages/Locations'));
 const Branches = lazy(() => import('./pages/Branches'));
 const Categories = lazy(() => import('./pages/Categories'));
@@ -145,7 +144,6 @@ function App() {
             <Route path="products" element={<Products />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="inventory/:id" element={<InventoryDetailPage />} />
-            <Route path="organizations" element={<Organizations />} />
             <Route path="stores" element={<Locations />} />
             <Route path="warehouse" element={<Locations />} />
             <Route path="warehouse/packing" element={<WarehousePacking />} />

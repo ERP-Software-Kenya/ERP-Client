@@ -402,12 +402,6 @@ export const MODULES: ModuleGroup[] = [
         icon: Lock,
       },
       {
-        key: "organizations",
-        title: "Organizations",
-        path: "/organizations",
-        icon: Building2,
-      },
-      {
         key: "activity-logs",
         title: "Activity Logs",
         path: "/activity-logs",
