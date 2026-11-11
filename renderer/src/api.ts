@@ -713,10 +713,6 @@ export const Invoices = createCreateOnlyResource<Invoice>('/api/v1/invoices', 'i
 
 const customersBase = createResource<Customer>('/api/v1/customers', 'customers', 'Customer');
 
-/**
- * Customers SearchCustomersRequest: same $page/$perPage stringâ†’@IsNumber 400 as bills.
- * Omit pagination; only send name/phone/filters. Handler defaults to page 1 / 20.
- */
 export const Customers = {
   ...customersBase,
   useSearch(params?: {
@@ -725,6 +721,7 @@ export const Customers = {
     search?: string;
     filters?: Record<string, string>;
     hasCreditLimit?: boolean;
+    debtors?: 'any' | 'with-dues' | 'over-limit';
     enabled?: boolean;
   }) {
     return customersBase.useSearch({
@@ -733,6 +730,7 @@ export const Customers = {
       filters: {
         ...(params?.filters ?? {}),
         ...(params?.hasCreditLimit ? { hasCreditLimit: 'true' } : {}),
+        ...(params?.debtors ? { debtors: params.debtors } : {}),
       },
     });
   },

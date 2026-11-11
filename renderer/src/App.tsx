@@ -25,7 +25,6 @@ const SalesDashboard = lazy(() => import('./pages/dashboards/SalesDashboard'));
 const Products = lazy(() => import('./pages/Products'));
 const InventoryPage = lazy(() => import('./pages/Inventory'));
 const InventoryDetailPage = lazy(() => import('./pages/InventoryDetail'));
-const Organizations = lazy(() => import('./pages/Organizations'));
 const Locations = lazy(() => import('./pages/Locations'));
 const Branches = lazy(() => import('./pages/Branches'));
 const Categories = lazy(() => import('./pages/Categories'));
@@ -62,7 +61,6 @@ const AppUpdates = lazy(() => import('./pages/AppUpdates'));
 const BillingSettings = lazy(() => import('./pages/BillingSettings'));
 const NotificationSettings = lazy(() => import('./pages/NotificationSettings'));
 const PurchaseItems = lazy(() => import('./pages/PurchaseItems'));
-const Roles = lazy(() => import('./pages/Roles'));
 const Users = lazy(() => import('./pages/Users'));
 const UserDetail = lazy(() => import('./pages/UserDetail'));
 const PageAccessPage = lazy(() => import('./pages/PageAccess'));
@@ -145,7 +143,6 @@ function App() {
             <Route path="products" element={<Products />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="inventory/:id" element={<InventoryDetailPage />} />
-            <Route path="organizations" element={<Organizations />} />
             <Route path="stores" element={<Locations />} />
             <Route path="warehouse" element={<Locations />} />
             <Route path="warehouse/packing" element={<WarehousePacking />} />
@@ -219,7 +216,6 @@ function App() {
             <Route path="settings/organization-units" element={<OrganizationUnitsPage />} />
             <Route path="settings/sessions" element={<AccountSessionsPage />} />
             <Route path="purchase-items" element={<PurchaseItems />} />
-            <Route path="roles" element={<Roles />} />
             <Route path="user-roles" element={<Navigate to="/users" replace />} />
             <Route path="users" element={<Users />} />
             <Route path="users/clerk/:clerkUserId" element={<UserDetail />} />

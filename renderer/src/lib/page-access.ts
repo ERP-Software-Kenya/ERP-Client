@@ -5,7 +5,7 @@ const DISABLE_PAGE_ACCESS_CHECKS = false;
 export const FULL_PAGE_ACCESS_ROLES: readonly string[] = ['super_admin', 'org_admin'];
 
 /** Backend APIs for these nav keys are SuperAdmin-only — hide from org_admin full-access bypass. */
-export const SUPER_ADMIN_ONLY_PAGE_KEYS: readonly string[] = ['organizations'];
+export const SUPER_ADMIN_ONLY_PAGE_KEYS: readonly string[] = ['page-access'];
 
 export function isFullPageAccessRole(role: string): boolean {
   return FULL_PAGE_ACCESS_ROLES.includes(role);

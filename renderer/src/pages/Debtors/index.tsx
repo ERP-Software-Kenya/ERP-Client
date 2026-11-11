@@ -70,19 +70,13 @@ export default function DebtorsPage() {
 
   const { data, isLoading, isError, error, refetch } = Customers.useSearch({
     search: debouncedSearch,
+    debtors: 'any',
   });
 
   const listError = isError ? loadErrorMessage(error, 'debtors') : null;
-  const allCustomers = listError ? [] : (data?.items ?? []);
+  const allDebtors = listError ? [] : (data?.items ?? []);
 
-  // Filter only customers who have an active credit line or positive credit balance
-  const allDebtors = useMemo(() => {
-    return allCustomers.filter(
-      (c) => (Number(c.creditLimit) > 0) || (Number(c.creditBalance) > 0),
-    );
-  }, [allCustomers]);
-
-  // Apply sub-filter
+  // Apply sub-filter client-side (server already returned only credit-relevant customers)
   const filteredDebtors = useMemo(() => {
     if (filterMode === 'with-dues') {
       return allDebtors.filter((c) => Number(c.creditBalance ?? 0) > 0);

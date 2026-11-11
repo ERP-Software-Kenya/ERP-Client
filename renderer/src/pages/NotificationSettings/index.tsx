@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Bell, BellOff, BellRing, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
-import { FormSection } from '../../components/FormDrawer';
+import { Bell, BellOff, BellRing, CheckCircle2, XCircle, AlertCircle, Webhook } from 'lucide-react';
+import { SettingSection } from '../../components/SettingSection';
 import { Button } from '../../components/ui/button';
 import { useSession } from '../../context/SessionContext';
 import { EmailNotificationsSection } from './EmailNotificationsSection';
@@ -12,34 +12,41 @@ function getPermission(): PermissionState {
   return Notification.permission as PermissionState;
 }
 
-function StatusBadge({ status }: { status: PermissionState }) {
+function PermissionBadge({ status }: { status: PermissionState }) {
   if (status === 'granted') {
     return (
       <span className="inline-flex items-center gap-1.5 text-sm font-medium text-green-500">
-        <CheckCircle2 size={16} /> Allowed
+        <CheckCircle2 size={15} /> Allowed
       </span>
     );
   }
   if (status === 'denied') {
     return (
       <span className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive">
-        <XCircle size={16} /> Blocked
+        <XCircle size={15} /> Blocked
       </span>
     );
   }
   if (status === 'unsupported') {
     return (
       <span className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-        <AlertCircle size={16} /> Not supported
+        <AlertCircle size={15} /> Not supported
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1.5 text-sm font-medium text-yellow-500">
-      <AlertCircle size={16} /> Not yet allowed
+      <AlertCircle size={15} /> Not yet allowed
     </span>
   );
 }
+
+const TRIGGERS = [
+  'New orders placed or status changes',
+  'Low stock or stock movement alerts',
+  'System-generated events sent to your account',
+  'Organisation-wide broadcasts',
+];
 
 export default function NotificationSettingsPage() {
   const { isOrgAdmin } = useSession();
@@ -72,103 +79,126 @@ export default function NotificationSettingsPage() {
     setTimeout(() => setTestSent(false), 3000);
   };
 
+  const PermissionIcon =
+    permission === 'granted' ? Bell :
+    permission === 'denied'  ? BellOff :
+    BellRing;
+
+  const iconColor =
+    permission === 'granted' ? 'text-green-500' :
+    permission === 'denied'  ? 'text-destructive' :
+    'text-yellow-500';
+
   return (
-    <div className="max-w-xl space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Notifications</h1>
-        <p className="text-muted-foreground text-sm mt-1">
+    <div className="px-6 py-6">
+      <div className="mb-2">
+        <h1 className="text-xl font-semibold">Notifications</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Control how the ERP system delivers real-time alerts to your desktop.
         </p>
       </div>
 
-      <FormSection title="Desktop notification permission">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">Current status</p>
-            <div className="mt-1">
-              <StatusBadge status={permission} />
+      <div className="divide-y divide-border">
+        <SettingSection
+          title="Desktop notifications"
+          description="OS-level pop-ups when orders, stock alerts, or system events arrive — even when the window is in the background."
+        >
+          <div className="space-y-4 rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Current status
+                </p>
+                <div className="mt-1.5">
+                  <PermissionBadge status={permission} />
+                </div>
+              </div>
+              <PermissionIcon size={28} className={`${iconColor} opacity-70`} />
+            </div>
+
+            <div className="border-t border-border pt-3">
+              {permission === 'default' && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Grant permission so the ERP system can deliver pop-ups for incoming events.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => void requestPermission()}
+                    disabled={requesting}
+                  >
+                    {requesting ? 'Requesting…' : 'Allow desktop notifications'}
+                  </Button>
+                </div>
+              )}
+
+              {permission === 'granted' && (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Desktop notifications are active. You will receive OS-level pop-ups for
+                    incoming ERP events in real time.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={sendTestNotification}
+                    disabled={testSent}
+                  >
+                    {testSent ? 'Sent — check your desktop' : 'Send test notification'}
+                  </Button>
+                </div>
+              )}
+
+              {permission === 'denied' && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Permission was blocked. To re-enable, click the lock icon in your browser
+                    address bar → <strong>Notifications</strong> → <strong>Allow</strong>, then
+                    refresh the page.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    On Windows: <strong>System Settings → System → Notifications</strong> and
+                    ensure the app is allowed.
+                  </p>
+                </div>
+              )}
+
+              {permission === 'unsupported' && (
+                <p className="text-sm text-muted-foreground">
+                  The Notifications API is not available in this environment.
+                </p>
+              )}
             </div>
           </div>
-          {permission === 'granted' ? (
-            <Bell size={32} className="text-green-500 opacity-80" />
-          ) : permission === 'denied' ? (
-            <BellOff size={32} className="text-destructive opacity-80" />
-          ) : (
-            <BellRing size={32} className="text-yellow-500 opacity-80" />
-          )}
-        </div>
+        </SettingSection>
 
-        <div className="mt-4 space-y-3">
-          {permission === 'default' && (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Grant permission so the ERP system can show OS-level pop-ups when orders, stock
-                alerts, or system events arrive — even when the window is in the background.
-              </p>
-              <Button
-                type="button"
-                onClick={() => void requestPermission()}
-                disabled={requesting}
-              >
-                {requesting ? 'Requesting…' : 'Allow desktop notifications'}
-              </Button>
-            </>
-          )}
+        <SettingSection
+          title="What triggers a notification"
+          description="Every event below generates a desktop pop-up and also appears in the bell icon."
+        >
+          <div className="rounded-lg border border-border bg-card p-4">
+            <ul className="space-y-2">
+              {TRIGGERS.map((trigger) => (
+                <li key={trigger} className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  {trigger}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3 flex items-center gap-1.5 border-t border-border pt-3 text-xs text-muted-foreground">
+              <Webhook size={12} />
+              Delivered in real time via Centrifugo WebSocket.
+            </div>
+          </div>
+        </SettingSection>
 
-          {permission === 'granted' && (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Desktop notifications are active. You will receive OS-level pop-ups for incoming
-                ERP events in real time.
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={sendTestNotification}
-                disabled={testSent}
-              >
-                {testSent ? 'Sent — check your desktop' : 'Send test notification'}
-              </Button>
-            </>
-          )}
-
-          {permission === 'denied' && (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Permission was blocked. To re-enable, click the lock icon in your browser address
-                bar → <strong>Notifications</strong> → <strong>Allow</strong>, then refresh the
-                page.
-              </p>
-              <p className="text-xs text-muted-foreground">
-                On Windows you can also go to{' '}
-                <strong>System Settings → System → Notifications</strong> and ensure the browser /
-                Electron app is allowed.
-              </p>
-            </>
-          )}
-
-          {permission === 'unsupported' && (
-            <p className="text-sm text-muted-foreground">
-              The Notifications API is not available in this environment.
-            </p>
-          )}
-        </div>
-      </FormSection>
-
-      <FormSection title="What triggers a notification">
-        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-          <li>New orders placed or status changes</li>
-          <li>Low stock or stock movement alerts</li>
-          <li>System-generated events sent to your account</li>
-          <li>Organisation-wide broadcasts</li>
-        </ul>
-        <p className="text-xs text-muted-foreground mt-3">
-          Notifications are delivered in real time via Centrifugo WebSocket. You also see them in
-          the bell icon and the Notifications page.
-        </p>
-      </FormSection>
-
-      <EmailNotificationsSection isOrgAdmin={isOrgAdmin} />
+        <SettingSection
+          title="Email notifications"
+          description="Choose which events send an email to all active Organization Admins. Applies to your entire organization."
+        >
+          <EmailNotificationsSection isOrgAdmin={isOrgAdmin} />
+        </SettingSection>
+      </div>
     </div>
   );
 }

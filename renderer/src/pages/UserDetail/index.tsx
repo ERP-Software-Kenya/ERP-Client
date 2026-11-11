@@ -1,10 +1,9 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Mail, Shield, ShieldCheck, ShieldBan, Clock, Calendar, Building2, Trash2, UserX } from 'lucide-react';
+import { ArrowLeft, Mail, Shield, ShieldCheck, ShieldBan, Clock, Calendar, Trash2, UserX } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { UpdateRolesDrawer } from '../Users/components/UpdateRolesDrawer';
-import { AssignOrgDrawer } from '../Organizations/components/AssignOrgDrawer';
 import { UserStatusBadge } from '../../components/UserStatusBadge';
 import { UserRolePills } from '../Users/components/UserRolePills';
 import { ClerkUsers } from '../../api';
@@ -48,7 +47,6 @@ export default function UserDetailPage() {
   const navigate = useNavigate();
 
   const [rolesOpen, setRolesOpen] = useState(false);
-  const [assignOpen, setAssignOpen] = useState(false);
   const [banOpen, setBanOpen] = useState(false);
   const [unbanOpen, setUnbanOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -118,9 +116,6 @@ export default function UserDetailPage() {
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={() => setRolesOpen(true)}>
             <ShieldCheck size={14} /> Manage Roles & Access
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
-            <Building2 size={14} /> Assign Org
           </Button>
           {user.banned ? (
             <Button size="sm" variant="outline" onClick={() => setUnbanOpen(true)}>
@@ -198,7 +193,6 @@ export default function UserDetailPage() {
       </SectionCard>
 
       <UpdateRolesDrawer user={rolesOpen ? { ...user, roles: displayRoles } : null} onClose={() => setRolesOpen(false)} />
-      <AssignOrgDrawer user={assignOpen ? user : null} onClose={() => setAssignOpen(false)} />
 
       <ConfirmDialog
         open={banOpen}

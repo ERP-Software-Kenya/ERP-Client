@@ -141,7 +141,7 @@ export default function CreditorsPage() {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="min-h-0 flex-1 overflow-auto custom-scrollbar">
           {isLoading && !listError ? (
             <p className="p-3 text-sm text-muted-foreground">Loading credit documents…</p>
           ) : listError ? (

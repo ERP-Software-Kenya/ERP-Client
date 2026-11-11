@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronRight, Save } from 'lucide-react';
 import { EmailNotificationSettings } from '../../api';
-import { FormSection } from '../../components/FormDrawer';
 import { Button } from '../../components/ui/button';
 
 type ToggleState = Record<string, boolean>;
@@ -203,17 +202,10 @@ export function EmailNotificationsSection({ isOrgAdmin }: Props): React.JSX.Elem
   const handleDiscard = (): void => { setLocal({ ...saved }); };
 
   return (
-    <FormSection>
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Email notifications — OrgAdmin
-        </p>
+    <div className="space-y-3">
+      <div className="flex items-center justify-end">
         <span className="text-xs text-muted-foreground">{enabledCount} of {TOTAL_EVENTS} enabled</span>
       </div>
-
-      <p className="text-sm text-muted-foreground">
-        Choose which actions send an email to all active Organization Admins. Applies to your entire organization.
-      </p>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading settings…</p>
@@ -306,6 +298,6 @@ export function EmailNotificationsSection({ isOrgAdmin }: Props): React.JSX.Elem
           </Button>
         </div>
       )}
-    </FormSection>
+    </div>
   );
 }
