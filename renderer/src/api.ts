@@ -721,7 +721,7 @@ export const Customers = {
     search?: string;
     filters?: Record<string, string>;
     hasCreditLimit?: boolean;
-    debtors?: ‘any’ | ‘with-dues’ | ‘over-limit’;
+    debtors?: 'any' | 'with-dues' | 'over-limit';
     enabled?: boolean;
   }) {
     return customersBase.useSearch({
@@ -729,7 +729,7 @@ export const Customers = {
       omitPagination: true,
       filters: {
         ...(params?.filters ?? {}),
-        ...(params?.hasCreditLimit ? { hasCreditLimit: ‘true’ } : {}),
+        ...(params?.hasCreditLimit ? { hasCreditLimit: 'true' } : {}),
         ...(params?.debtors ? { debtors: params.debtors } : {}),
       },
     });
