@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { CalendarRange, Globe2, Plus, Save, Trash2, WalletCards } from 'lucide-react';
 import { BillingSettings } from '../../api';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { FormSection } from '../../components/FormDrawer';
+import { SettingSection } from '../../components/SettingSection';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import type { CustomerType, CustomerTypeRule, QuickCharge } from '../../types';
@@ -78,135 +78,208 @@ export default function BillingSettingsPage(): React.JSX.Element {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 p-6">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Financial settings</h1>
-        <p className="text-sm text-muted-foreground">Organization currency, fiscal calendar, regional settings, and billing defaults.</p>
+    <div className="px-6 py-6">
+      <div className="mb-2">
+        <h1 className="text-xl font-semibold">Financial settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Organization currency, fiscal calendar, regional settings, and billing defaults.
+        </p>
       </div>
 
-      <FormSection title="Organization finance">
-        {settingsLoading ? (
-          <p className="text-sm text-muted-foreground">Loading organization settings…</p>
-        ) : settingsError ? (
-          <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">Unable to load organization settings. Confirm that your account has organization-admin access and try again.</p>
-        ) : (
-          <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-3">
-              <label className="space-y-1.5 text-sm">
-                <span className="flex items-center gap-2 font-medium"><WalletCards size={15} /> Base currency</span>
-                <select className="h-10 w-full rounded-md border border-input bg-background px-3" value={currencyCode} onChange={(event) => setCurrencyCode(event.target.value)} disabled={!isOrgAdmin}>
-                  {[...new Set([currencyCode, ...CURRENCIES])].map((code) => <option key={code} value={code}>{code} ({getCurrencySymbol(code)})</option>)}
-                </select>
-                <span className="block text-xs text-muted-foreground">Used for every amount, document, and report.</span>
-              </label>
-              <label className="space-y-1.5 text-sm">
-                <span className="flex items-center gap-2 font-medium"><CalendarRange size={15} /> Fiscal year starts</span>
-                <select className="h-10 w-full rounded-md border border-input bg-background px-3" value={fiscalYearStartMonth} onChange={(event) => setFiscalYearStartMonth(Number(event.target.value))} disabled={!isOrgAdmin}>
-                  {MONTHS.map((month, index) => <option key={month} value={index + 1}>{month}</option>)}
-                </select>
-              </label>
-              <label className="space-y-1.5 text-sm">
-                <span className="flex items-center gap-2 font-medium"><Globe2 size={15} /> Time zone</span>
-                <select className="h-10 w-full rounded-md border border-input bg-background px-3" value={timeZone} onChange={(event) => setTimeZone(event.target.value)} disabled={!isOrgAdmin}>
-                  {[...new Set([timeZone, ...TIME_ZONES])].map((zone) => <option key={zone} value={zone}>{zone.replaceAll('_', ' ')}</option>)}
-                </select>
-              </label>
-            </div>
-            {isOrgAdmin ? (
-              <div className="flex justify-end">
-                <Button type="button" onClick={saveOrganizationSettings} disabled={updateOrganizationSettings.isPending || !organizationSettings}>
-                  <Save size={14} className="mr-1.5" />{updateOrganizationSettings.isPending ? 'Saving…' : 'Save organization settings'}
-                </Button>
+      <div className="divide-y divide-border">
+        <SettingSection
+          title="Organization finance"
+          description="Base currency, fiscal year start month, and time zone used across all reports and documents."
+        >
+          {settingsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading organization settings…</p>
+          ) : settingsError ? (
+            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              Unable to load organization settings. Confirm that your account has organization-admin access and try again.
+            </p>
+          ) : (
+            <div className="space-y-5 rounded-lg border border-border bg-card p-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="space-y-1.5 text-sm">
+                  <span className="flex items-center gap-2 font-medium">
+                    <WalletCards size={14} /> Base currency
+                  </span>
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={currencyCode}
+                    onChange={(event) => setCurrencyCode(event.target.value)}
+                    disabled={!isOrgAdmin}
+                  >
+                    {[...new Set([currencyCode, ...CURRENCIES])].map((code) => (
+                      <option key={code} value={code}>
+                        {code} ({getCurrencySymbol(code)})
+                      </option>
+                    ))}
+                  </select>
+                  <span className="block text-xs text-muted-foreground">
+                    Used for every amount, document, and report.
+                  </span>
+                </label>
+
+                <label className="space-y-1.5 text-sm">
+                  <span className="flex items-center gap-2 font-medium">
+                    <CalendarRange size={14} /> Fiscal year starts
+                  </span>
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={fiscalYearStartMonth}
+                    onChange={(event) => setFiscalYearStartMonth(Number(event.target.value))}
+                    disabled={!isOrgAdmin}
+                  >
+                    {MONTHS.map((month, index) => (
+                      <option key={month} value={index + 1}>
+                        {month}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1.5 text-sm">
+                  <span className="flex items-center gap-2 font-medium">
+                    <Globe2 size={14} /> Time zone
+                  </span>
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    value={timeZone}
+                    onChange={(event) => setTimeZone(event.target.value)}
+                    disabled={!isOrgAdmin}
+                  >
+                    {[...new Set([timeZone, ...TIME_ZONES])].map((zone) => (
+                      <option key={zone} value={zone}>
+                        {zone.replaceAll('_', ' ')}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
+
+              {isOrgAdmin ? (
+                <div className="flex justify-end border-t border-border pt-3">
+                  <Button
+                    type="button"
+                    onClick={saveOrganizationSettings}
+                    disabled={updateOrganizationSettings.isPending || !organizationSettings}
+                  >
+                    <Save size={14} />
+                    {updateOrganizationSettings.isPending ? 'Saving…' : 'Save'}
+                  </Button>
+                </div>
+              ) : (
+                <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  Only organization administrators can change these settings.
+                </p>
+              )}
+            </div>
+          )}
+        </SettingSection>
+
+        <SettingSection
+          title="Quick charges"
+          description="Preset amounts shown on the Sales POS screen. Negative values act as discounts."
+        >
+          <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+            {chargesLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
             ) : (
-              <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">Only organization administrators can change these settings.</p>
+              <>
+                {charges.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No charges yet. Add one below.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {charges.map((c) => (
+                      <QuickChargeRow
+                        key={c.id}
+                        charge={c}
+                        saving={updateCharge.isPending}
+                        onSave={(body) => updateCharge.mutate({ id: c.id, body })}
+                        onDelete={() => setDeleteTarget(c)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <form
+                  onSubmit={handleAddCharge}
+                  className="flex flex-wrap items-end gap-2 border-t border-border pt-3"
+                >
+                  <div className="min-w-[10rem] flex-1">
+                    <label className="mb-1 block text-xs text-muted-foreground">Name</label>
+                    <Input
+                      value={newLabel}
+                      onChange={(e) => setNewLabel(e.target.value)}
+                      placeholder="Delivery Fee"
+                    />
+                  </div>
+                  <div className="w-32">
+                    <label className="mb-1 block text-xs text-muted-foreground">Amount</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={newAmount}
+                      onChange={(e) => setNewAmount(e.target.value)}
+                      placeholder="200"
+                    />
+                  </div>
+                  <Button type="submit" disabled={createCharge.isPending || !newLabel.trim()}>
+                    <Plus size={14} />
+                    Add
+                  </Button>
+                </form>
+              </>
             )}
           </div>
-        )}
-      </FormSection>
+        </SettingSection>
 
-      <FormSection title="Quick Charges">
-        <p className="mb-3 text-xs text-muted-foreground">
-          Enabled charges appear on Sales POS. Amount can be negative (discount / credit).
-        </p>
-        {chargesLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : (
-          <div className="space-y-2">
-            {charges.map((c) => (
-              <QuickChargeRow
-                key={c.id}
-                charge={c}
-                saving={updateCharge.isPending}
-                onSave={(body) => updateCharge.mutate({ id: c.id, body })}
-                onDelete={() => setDeleteTarget(c)}
-              />
-            ))}
-            {charges.length === 0 && (
-              <p className="text-sm text-muted-foreground">No charges yet. Add one below.</p>
+        <SettingSection
+          title="Customer type defaults"
+          description="Default discount and credit rules per customer type. Per-customer overrides on the customer form take precedence."
+        >
+          <div className="rounded-lg border border-border bg-card">
+            {rulesLoading ? (
+              <p className="p-4 text-sm text-muted-foreground">Loading…</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                      <th className="px-4 py-2.5 font-medium">Type</th>
+                      <th className="px-4 py-2.5 font-medium">Discount %</th>
+                      <th className="px-4 py-2.5 font-medium">Default credit limit</th>
+                      <th className="px-4 py-2.5 font-medium">Skip over-limit approval</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rules.map((rule) => (
+                      <TypeRuleRow
+                        key={rule.id}
+                        rule={rule}
+                        saving={updateRule.isPending}
+                        onSave={(body) => updateRule.mutate({ id: rule.id, body })}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
+            <p className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
+              Discount applies to new POS lines. Skip approval lets over-limit credit complete without a request.
+            </p>
           </div>
-        )}
-        <form onSubmit={handleAddCharge} className="mt-4 flex flex-wrap items-end gap-2">
-          <div className="min-w-[10rem] flex-1">
-            <label className="mb-1 block text-xs text-muted-foreground">Name</label>
-            <Input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Delivery Fee" />
-          </div>
-          <div className="w-32">
-            <label className="mb-1 block text-xs text-muted-foreground">Amount</label>
-            <Input
-              type="number"
-              step="0.01"
-              value={newAmount}
-              onChange={(e) => setNewAmount(e.target.value)}
-              placeholder="200"
-            />
-          </div>
-          <Button type="submit" disabled={createCharge.isPending || !newLabel.trim()}>
-            <Plus size={14} className="mr-1" />
-            Add
-          </Button>
-        </form>
-      </FormSection>
-
-      <FormSection title="Customer type defaults">
-        <p className="mb-3 text-xs text-muted-foreground">
-          Discount applies to new POS lines. Skip approval lets over-limit credit complete without a request. Per-customer
-          overrides on the customer form beat these rows.
-        </p>
-        {rulesLoading ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="py-2 pr-3 font-medium">Type</th>
-                  <th className="py-2 pr-3 font-medium">Discount %</th>
-                  <th className="py-2 pr-3 font-medium">Default credit limit</th>
-                  <th className="py-2 font-medium">Skip over-limit approval</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rules.map((rule) => (
-                  <TypeRuleRow
-                    key={rule.id}
-                    rule={rule}
-                    saving={updateRule.isPending}
-                    onSave={(body) => updateRule.mutate({ id: rule.id, body })}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </FormSection>
+        </SettingSection>
+      </div>
 
       <ConfirmDialog
         open={!!deleteTarget}
-        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
         title="Remove quick charge?"
-        description={deleteTarget ? `Remove “${deleteTarget.label}” from POS quick charges.` : ''}
+        description={deleteTarget ? `Remove "${deleteTarget.label}" from POS quick charges.` : ''}
         onConfirm={() => {
           if (!deleteTarget) return;
           deleteCharge.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
@@ -240,9 +313,23 @@ function QuickChargeRow({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border p-2">
-      <Input className="min-w-[10rem] flex-1" value={label} onChange={(e) => setLabel(e.target.value)} onBlur={persist} disabled={saving} />
-      <Input className="w-28" type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} onBlur={persist} disabled={saving} />
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 p-2">
+      <Input
+        className="min-w-[10rem] flex-1"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onBlur={persist}
+        disabled={saving}
+      />
+      <Input
+        className="w-28"
+        type="number"
+        step="0.01"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        onBlur={persist}
+        disabled={saving}
+      />
       <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <input
           type="checkbox"
@@ -273,9 +360,9 @@ function TypeRuleRow({
   const typeLabel = TYPE_LABEL[rule.customerType as CustomerType] ?? String(rule.customerType);
 
   return (
-    <tr className="border-b border-border/60">
-      <td className="py-2 pr-3 font-medium">{typeLabel}</td>
-      <td className="py-2 pr-3">
+    <tr className="border-b border-border/60 last:border-b-0">
+      <td className="px-4 py-2.5 font-medium">{typeLabel}</td>
+      <td className="px-4 py-2.5">
         <Input
           className="w-24"
           type="number"
@@ -292,7 +379,7 @@ function TypeRuleRow({
           }}
         />
       </td>
-      <td className="py-2 pr-3">
+      <td className="px-4 py-2.5">
         <Input
           className="w-36"
           type="number"
@@ -311,7 +398,7 @@ function TypeRuleRow({
           }}
         />
       </td>
-      <td className="py-2">
+      <td className="px-4 py-2.5">
         <input
           type="checkbox"
           checked={rule.skipOverLimitApproval}
