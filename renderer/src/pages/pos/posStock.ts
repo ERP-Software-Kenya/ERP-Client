@@ -129,7 +129,7 @@ export function cartQtyForProduct(
         l.id !== excludeLineId &&
         (locationId === undefined || (l.locationId ?? '') === (locationId ?? '')),
     )
-    .reduce((sum, l) => sum + l.qty, 0);
+    .reduce((sum, l) => sum + l.qty * (l.conversionFactor || 1), 0);
 }
 
 export type StockBadgeTone = "ok" | "low" | "out" | "none";

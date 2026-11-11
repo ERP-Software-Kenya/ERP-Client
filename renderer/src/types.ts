@@ -155,6 +155,11 @@ export interface OrganizationUnit {
   organizationId: string;
   name: string;
   symbol: string;
+  quantityPrecision: number;
+  allowFraction: boolean;
+  roundingMode: 'nearest' | 'up' | 'down';
+  minimumQuantity?: string | null;
+  quantityIncrement: string;
   isActive: boolean;
   sortOrder: number;
   createdAt?: string;
@@ -162,10 +167,25 @@ export interface OrganizationUnit {
 }
 
 export interface ProductUnitItem {
+  id?: string;
   unitId: string;
   unitName?: string;
   unitSymbol?: string;
-  isDefault: boolean;
+  isDefault?: boolean;
+  conversionFactor: string;
+  allowedForSale: boolean;
+  allowedForPurchase: boolean;
+  barcode?: string;
+  isActive: boolean;
+}
+
+export interface ProductUnitConfiguration {
+  unitId: string;
+  conversionFactor: string;
+  allowedForSale: boolean;
+  allowedForPurchase: boolean;
+  barcode?: string;
+  isActive: boolean;
 }
 
 export interface Product {
@@ -180,6 +200,9 @@ export interface Product {
   units?: ProductUnitItem[];
   unitIds?: string[];
   defaultUnitId?: string;
+  baseUnitId?: string;
+  defaultSaleUnitId?: string;
+  defaultPurchaseUnitId?: string;
   costPrice?: number;
   retailPrice?: number;
   loyaltyPrice?: number;
@@ -471,6 +494,10 @@ export interface BillItem {
   taxAmount: number;
   discountAmount: number;
   lineTotal: number;
+  productUnitId?: string | null;
+  enteredQuantity?: string | null;
+  conversionFactorSnapshot?: string | null;
+  selectedUnitNameSnapshot?: string | null;
 }
 
 export interface Bill {
@@ -699,6 +726,7 @@ export interface StockOperationBody {
   quantity?: number;
   absoluteQuantity?: number;
   unitCost?: number;
+  productUnitId?: string;
   referenceId?: string;
   referenceType?: string;
   notes?: string;
@@ -718,6 +746,10 @@ export interface StockMovement {
   quantityAfter: number;
   unitCost?: number;
   notes?: string;
+  selectedUnitNameSnapshot?: string;
+  selectedUnitSymbolSnapshot?: string;
+  enteredQuantity?: string;
+  conversionFactorSnapshot?: string;
   createdAt?: string;
 }
 
@@ -817,6 +849,10 @@ export interface OrderItem {
   lineTotal?: number;
   packQuantity?: number;
   packSizeSnapshot?: number;
+  productUnitId?: string | null;
+  enteredQuantity?: string | null;
+  conversionFactorSnapshot?: string | null;
+  selectedUnitNameSnapshot?: string | null;
 }
 
 export interface Order {
@@ -1034,6 +1070,10 @@ export interface PurchaseItem {
   packQuantity?: number;
   /** Product packSize snapshotted at order time — null when no pack concept used */
   packSizeSnapshot?: number;
+  productUnitId?: string | null;
+  enteredQuantity?: string | null;
+  conversionFactorSnapshot?: string | null;
+  selectedUnitNameSnapshot?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

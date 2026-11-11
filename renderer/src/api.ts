@@ -1280,6 +1280,7 @@ export function useCompleteStockTransfer() {
         fromLocationId: string;
         toLocationId: string;
         quantity: number;
+        productUnitId?: string;
       }>;
     }) => put<StockTransfer>(`/api/v1/stock-transfers/${id}/complete`, { items }),
     onSuccess: () => {

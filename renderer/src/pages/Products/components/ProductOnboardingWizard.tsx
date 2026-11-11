@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { formatMoney, getCurrencyCode } from '../../../lib/format-money';
 import type { Category, OrganizationUnit, Product, ProductSupplier, Supplier, Tax } from '../../../types';
 import { cn } from '../../../lib/utils';
+import { ProductUnitConversionEditor, type ProductUnitDraft } from './ProductUnitConversionEditor';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -259,28 +260,24 @@ function Step1Panel({
 
 function Step2Panel({
   name, setName, sku, barcode, setBarcode,
-  unitIds, setUnitIds, defaultUnitId, setDefaultUnitId, availableUnits,
+  units, setUnits, baseUnitId, setBaseUnitId, defaultSaleUnitId, setDefaultSaleUnitId,
+  defaultPurchaseUnitId, setDefaultPurchaseUnitId, availableUnits,
   description, setDescription,
-  manufacturer, setManufacturer, packSize, setPackSize,
+  manufacturer, setManufacturer,
   weightKg, setWeightKg,
 }: {
   name: string; setName: (v: string) => void;
   sku: string;
   barcode: string; setBarcode: (v: string) => void;
-  unitIds: string[]; setUnitIds: (v: string[]) => void;
-  defaultUnitId: string; setDefaultUnitId: (v: string) => void;
+  units: ProductUnitDraft[]; setUnits: (v: ProductUnitDraft[]) => void;
+  baseUnitId: string; setBaseUnitId: (v: string) => void;
+  defaultSaleUnitId: string; setDefaultSaleUnitId: (v: string) => void;
+  defaultPurchaseUnitId: string; setDefaultPurchaseUnitId: (v: string) => void;
   availableUnits: OrganizationUnit[];
   description: string; setDescription: (v: string) => void;
   manufacturer: string; setManufacturer: (v: string) => void;
-  packSize: string; setPackSize: (v: string) => void;
   weightKg: string; setWeightKg: (v: string) => void;
 }) {
-  const toggleUnit = (id: string) => {
-    const next = unitIds.includes(id) ? unitIds.filter(u => u !== id) : [...unitIds, id];
-    setUnitIds(next);
-    if (id === defaultUnitId && !next.includes(id)) setDefaultUnitId(next[0] ?? '');
-    if (next.length === 1) setDefaultUnitId(next[0]);
-  };
   return (
     <SectionCard title="Product Details" icon={<CheckCircle2 size={15} className="text-primary" />}
       badge={<span className="text-[10px] text-muted-foreground italic">* Required</span>}>
@@ -314,60 +311,32 @@ function Step2Panel({
               />
             </div>
           </div>
-          <div>
-            <FieldLabel>Unit of Measure</FieldLabel>
-            {availableUnits.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">No units configured — add them in Settings → Organization Units.</p>
-            ) : (
-              <div className="space-y-1.5 max-h-44 overflow-y-auto rounded-lg border border-border p-2">
-                {availableUnits.map(u => (
-                  <label key={u.id} className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={unitIds.includes(u.id)}
-                      onChange={() => toggleUnit(u.id)}
-                      className="h-4 w-4 rounded accent-primary"
-                    />
-                    <span className="flex-1 text-sm">{u.name} <span className="text-muted-foreground text-xs">({u.symbol})</span></span>
-                    {unitIds.includes(u.id) && (
-                      <button
-                        type="button"
-                        onClick={() => setDefaultUnitId(u.id)}
-                        className={cn(
-                          'text-[10px] px-2 py-0.5 rounded-full border font-medium transition-colors',
-                          u.id === defaultUnitId
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'border-border text-muted-foreground hover:border-primary/50',
-                        )}
-                      >
-                        {u.id === defaultUnitId ? 'Default' : 'Set default'}
-                      </button>
-                    )}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
+          <div className="flex items-end text-xs text-muted-foreground">Inventory is stored in the base unit. Sales and purchases may use any configured conversion.</div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        {availableUnits.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">No units configured — add them in Settings → Organization Units.</p>
+        ) : (
+          <ProductUnitConversionEditor
+            availableUnits={availableUnits}
+            units={units}
+            onChange={setUnits}
+            baseUnitId={baseUnitId}
+            onBaseUnitChange={setBaseUnitId}
+            defaultSaleUnitId={defaultSaleUnitId}
+            onDefaultSaleUnitChange={setDefaultSaleUnitId}
+            defaultPurchaseUnitId={defaultPurchaseUnitId}
+            onDefaultPurchaseUnitChange={setDefaultPurchaseUnitId}
+          />
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <FieldLabel>Manufacturer / Brand</FieldLabel>
             <Input
               value={manufacturer}
               onChange={(e) => setManufacturer(e.target.value)}
               placeholder="e.g. Amul, Nestle, 3M"
-            />
-          </div>
-          <div>
-            <FieldLabel>Pack Size (units per pack)</FieldLabel>
-            <Input
-              type="number"
-              min="1"
-              step="1"
-              value={packSize}
-              onChange={(e) => setPackSize(e.target.value)}
-              placeholder="Leave blank if sold individually"
             />
           </div>
           <div>
@@ -660,11 +629,20 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
   const [name, setName]         = useState(editingProduct?.name ?? '');
   const [sku, setSku]           = useState(editingProduct?.sku ?? '');
   const [barcode, setBarcode]   = useState(editingProduct?.barcode ?? '');
-  const [unitIds, setUnitIds]       = useState<string[]>(editingProduct?.units?.map(u => u.unitId) ?? []);
-  const [defaultUnitId, setDefaultUnitId] = useState<string>(editingProduct?.units?.find(u => u.isDefault)?.unitId ?? '');
+  const [units, setUnits] = useState<ProductUnitDraft[]>(() => editingProduct?.units?.map((unit) => ({
+    unitId: unit.unitId,
+    conversionFactor: unit.conversionFactor ?? '1',
+    allowedForSale: unit.allowedForSale ?? true,
+    allowedForPurchase: unit.allowedForPurchase ?? true,
+    barcode: unit.barcode,
+    isActive: unit.isActive ?? true,
+  })) ?? []);
+  const legacyDefaultUnitId = editingProduct?.units?.find(unit => unit.isDefault)?.unitId ?? '';
+  const [baseUnitId, setBaseUnitId] = useState(editingProduct?.baseUnitId ?? legacyDefaultUnitId);
+  const [defaultSaleUnitId, setDefaultSaleUnitId] = useState(editingProduct?.defaultSaleUnitId ?? legacyDefaultUnitId);
+  const [defaultPurchaseUnitId, setDefaultPurchaseUnitId] = useState(editingProduct?.defaultPurchaseUnitId ?? legacyDefaultUnitId);
   const [description, setDescription] = useState(editingProduct?.description ?? '');
   const [manufacturer, setManufacturer] = useState(editingProduct?.manufacturer ?? '');
-  const [packSize, setPackSize] = useState(editingProduct?.packSize != null ? String(editingProduct.packSize) : '');
   const [weightKg, setWeightKg] = useState(editingProduct?.weightKg != null ? String(editingProduct.weightKg) : '');
   // Step 3
   const [costPrice, setCostPrice]         = useState(editingProduct?.costPrice != null ? String(editingProduct.costPrice) : '');
@@ -742,6 +720,16 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
 
   const handleStep1Next = async () => {
     if (!name.trim()) { toast.error('Product name is required.'); return; }
+    if (units.length > 0 && !baseUnitId) { toast.error('Select a base inventory unit.'); return; }
+    if (units.some(unit => !/^\d+(?:\.\d{1,8})?$/.test(unit.conversionFactor) || !/[1-9]/.test(unit.conversionFactor))) {
+      toast.error('Every conversion factor must be a positive decimal with at most 8 decimal places.'); return;
+    }
+    if (units.length > 0 && !units.some(unit => unit.unitId === defaultSaleUnitId && unit.allowedForSale)) {
+      toast.error('Select a sales-enabled default unit.'); return;
+    }
+    if (units.length > 0 && !units.some(unit => unit.unitId === defaultPurchaseUnitId && unit.allowedForPurchase)) {
+      toast.error('Select a purchase-enabled default unit.'); return;
+    }
     try {
       let pid = productId;
       if (!pid) {
@@ -749,11 +737,12 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
           name: name.trim(),
           sku: undefined, // server generates the authoritative SKU; the field above is preview-only
           barcode: barcode || undefined,
-          unitIds: unitIds.length ? unitIds : undefined,
-          defaultUnitId: defaultUnitId || undefined,
+          units: units.length ? units : undefined,
+          baseUnitId: baseUnitId || undefined,
+          defaultSaleUnitId: defaultSaleUnitId || undefined,
+          defaultPurchaseUnitId: defaultPurchaseUnitId || undefined,
           description: description || undefined,
           manufacturer: manufacturer || undefined,
-          packSize: packSize ? Number(packSize) : undefined,
           weightKg: weightKg ? Number(weightKg) : undefined,
         });
         pid = created.id;
@@ -766,11 +755,12 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
             name: name.trim(),
             sku: sku || undefined,
             barcode: barcode || undefined,
-            unitIds: unitIds.length ? unitIds : undefined,
-            defaultUnitId: defaultUnitId || undefined,
+            units: units.length ? units : undefined,
+            baseUnitId: baseUnitId || undefined,
+            defaultSaleUnitId: defaultSaleUnitId || undefined,
+            defaultPurchaseUnitId: defaultPurchaseUnitId || undefined,
             description: description || undefined,
             manufacturer: manufacturer || undefined,
-            packSize: packSize ? Number(packSize) : undefined,
             weightKg: weightKg ? Number(weightKg) : undefined,
           },
         });
@@ -872,12 +862,13 @@ export function ProductOnboardingWizard({ editingProduct, onClose, onSuccess }: 
               name={name} setName={setName}
               sku={sku}
               barcode={barcode} setBarcode={setBarcode}
-              unitIds={unitIds} setUnitIds={setUnitIds}
-              defaultUnitId={defaultUnitId} setDefaultUnitId={setDefaultUnitId}
+              units={units} setUnits={setUnits}
+              baseUnitId={baseUnitId} setBaseUnitId={setBaseUnitId}
+              defaultSaleUnitId={defaultSaleUnitId} setDefaultSaleUnitId={setDefaultSaleUnitId}
+              defaultPurchaseUnitId={defaultPurchaseUnitId} setDefaultPurchaseUnitId={setDefaultPurchaseUnitId}
               availableUnits={availableUnits}
               description={description} setDescription={setDescription}
               manufacturer={manufacturer} setManufacturer={setManufacturer}
-              packSize={packSize} setPackSize={setPackSize}
               weightKg={weightKg} setWeightKg={setWeightKg}
             />
           )}
