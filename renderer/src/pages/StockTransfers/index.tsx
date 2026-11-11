@@ -7,6 +7,7 @@ import { ResourceSelect } from '../../components/ResourceSelect';
 import { SearchableSelect } from '../../components/SearchableSelect';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { StockTransfers, Products, Locations, Inventory, useCompleteStockTransfer } from '../../api';
 import { usePagination } from '../../hooks/usePagination';
 import { loadErrorMessage } from '../../lib/api-error';
@@ -24,8 +25,11 @@ interface TransferLineItem {
   productId: string;
   productName: string;
   sku?: string;
-  availableOnHand: number;
-  quantity: number;
+  availableOnHand: number;  // always base units
+  quantity: number;         // in selectedUnit (base units when no productUnitId)
+  productUnitId?: string;
+  conversionFactor: number; // 1 when no unit selected
+  unitSymbol?: string;
 }
 
 export default function StockTransfersPage() {
@@ -43,6 +47,7 @@ export default function StockTransfersPage() {
   // Add Item form controls
   const [selectedInventoryId, setSelectedInventoryId] = useState<string>('');
   const [addQuantity, setAddQuantity] = useState<string>('1');
+  const [addProductUnitId, setAddProductUnitId] = useState<string>('');
 
   const { data: locations } = Locations.useList();
   const locationMap = useMemo(() => {
@@ -106,18 +111,33 @@ export default function StockTransfersPage() {
     return availableInventoryItems.find((it) => it.inventoryId === selectedInventoryId);
   }, [availableInventoryItems, selectedInventoryId]);
 
-  // Calculate remaining stock available to stage for this item
-  const stagedQty = useMemo(() => {
+  // Active units for the selected product (all active, no sale/purchase restriction for stock ops)
+  const stockUnitsForAdd = useMemo(() => {
+    if (!selectedItemToAdd) return [];
+    return (productMap.get(selectedItemToAdd.productId)?.units ?? []).filter(
+      (u) => u.id && u.isActive !== false,
+    );
+  }, [selectedItemToAdd, productMap]);
+
+  const selectedUnitForAdd = useMemo(
+    () => stockUnitsForAdd.find((u) => u.id === addProductUnitId) ?? null,
+    [stockUnitsForAdd, addProductUnitId],
+  );
+
+  const conversionFactorForAdd = selectedUnitForAdd ? Number(selectedUnitForAdd.conversionFactor) : 1;
+
+  // Already-staged quantity for this item, in base units
+  const stagedBaseQty = useMemo(() => {
     const item = transferItems.find((it) => it.inventoryId === selectedInventoryId);
-    return item ? item.quantity : 0;
+    return item ? item.quantity * item.conversionFactor : 0;
   }, [transferItems, selectedInventoryId]);
 
   const remainingAvailable = selectedItemToAdd
-    ? Math.max(0, selectedItemToAdd.availableOnHand - stagedQty)
+    ? Math.max(0, Math.floor((selectedItemToAdd.availableOnHand - stagedBaseQty) / conversionFactorForAdd))
     : 0;
 
-  const totalUnits = useMemo(() => {
-    return transferItems.reduce((acc, curr) => acc + curr.quantity, 0);
+  const totalBaseUnits = useMemo(() => {
+    return transferItems.reduce((acc, curr) => acc + curr.quantity * curr.conversionFactor, 0);
   }, [transferItems]);
 
   const handleClose = () => {
@@ -127,6 +147,7 @@ export default function StockTransfersPage() {
     setTransferItems([]);
     setSelectedInventoryId('');
     setAddQuantity('1');
+    setAddProductUnitId('');
   };
 
   const handleFromLocationChange = (newLocId: string) => {
@@ -135,6 +156,7 @@ export default function StockTransfersPage() {
       setTransferItems([]);
       setSelectedInventoryId('');
       setAddQuantity('1');
+      setAddProductUnitId('');
       if (newLocId === toLocationId) {
         setToLocationId('');
       }
@@ -175,19 +197,24 @@ export default function StockTransfersPage() {
           sku: selectedItemToAdd.sku,
           availableOnHand: selectedItemToAdd.availableOnHand,
           quantity: qty,
+          productUnitId: addProductUnitId || undefined,
+          conversionFactor: conversionFactorForAdd,
+          unitSymbol: selectedUnitForAdd?.unitSymbol ?? selectedUnitForAdd?.unitName ?? undefined,
         },
       ];
     });
 
     setSelectedInventoryId('');
     setAddQuantity('1');
+    setAddProductUnitId('');
   };
 
   const handleUpdateItemQuantity = (inventoryId: string, newQty: number) => {
     setTransferItems((prev) =>
       prev.map((it) => {
         if (it.inventoryId !== inventoryId) return it;
-        const clamped = Math.max(1, Math.min(it.availableOnHand, newQty || 1));
+        const maxQty = Math.max(1, Math.floor(it.availableOnHand / it.conversionFactor));
+        const clamped = Math.max(1, Math.min(maxQty, newQty || 1));
         return { ...it, quantity: clamped };
       })
     );
@@ -217,8 +244,9 @@ export default function StockTransfersPage() {
         toast.error(`Quantity for "${item.productName}" must be greater than zero`);
         return;
       }
-      if (item.quantity > item.availableOnHand) {
-        toast.error(`Cannot transfer more than available for "${item.productName}" (max: ${item.availableOnHand})`);
+      if (item.quantity * item.conversionFactor > item.availableOnHand) {
+        const maxInUnit = Math.floor(item.availableOnHand / item.conversionFactor);
+        toast.error(`Cannot transfer more than available for "${item.productName}" (max: ${maxInUnit})`);
         return;
       }
     }
@@ -239,11 +267,12 @@ export default function StockTransfersPage() {
                 fromLocationId,
                 toLocationId,
                 quantity: item.quantity,
+                productUnitId: item.productUnitId,
               })),
             },
             {
               onSuccess: () => {
-                toast.success(`Successfully transferred ${totalUnits} units from ${fromLocName} to ${toLocName}`);
+                toast.success(`Successfully transferred ${totalBaseUnits} base units from ${fromLocName} to ${toLocName}`);
                 handleClose();
                 refetch();
               },
@@ -373,10 +402,29 @@ export default function StockTransfersPage() {
                     <SearchableSelect
                       items={inventorySearchItems}
                       value={selectedInventoryId}
-                      onValueChange={(v) => { setSelectedInventoryId(v); setAddQuantity('1'); }}
+                      onValueChange={(v) => { setSelectedInventoryId(v); setAddQuantity('1'); setAddProductUnitId(''); }}
                       placeholder="SKU or product name…"
                     />
                   </div>
+
+                  {selectedItemToAdd && stockUnitsForAdd.length > 1 && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium text-foreground">Unit</label>
+                      <Select value={addProductUnitId} onValueChange={setAddProductUnitId}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Base unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {stockUnitsForAdd.map((u) => (
+                            <SelectItem key={u.id!} value={u.id!}>
+                              {u.unitName ?? u.unitSymbol ?? u.unitId}
+                              {Number(u.conversionFactor) !== 1 ? ` (×${u.conversionFactor})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   {selectedItemToAdd && (
                     <div className="flex items-end gap-3 pt-1">
@@ -445,9 +493,10 @@ export default function StockTransfersPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{item.productName}</p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                          {item.sku && <span>SKU: {item.sku}</span>}
-                          {item.sku && <span>•</span>}
-                          <span>Available: <strong className="text-primary">{item.availableOnHand}</strong></span>
+                          {item.sku ? <span>SKU: {item.sku}</span> : null}
+                          {item.sku ? <span>•</span> : null}
+                          <span>Available: <strong className="text-primary">{item.availableOnHand}</strong> base</span>
+                          {item.unitSymbol ? <span>· Unit: {item.unitSymbol}</span> : null}
                         </div>
                       </div>
 
@@ -485,7 +534,7 @@ export default function StockTransfersPage() {
                 <div className="bg-muted/40 rounded-lg p-3 flex justify-between items-center text-xs font-medium">
                   <span className="text-muted-foreground">Total to move:</span>
                   <span className="text-sm font-bold text-foreground">
-                    {totalUnits} units across {transferItems.length} {transferItems.length === 1 ? 'product' : 'products'}
+                    {totalBaseUnits} base units across {transferItems.length} {transferItems.length === 1 ? 'product' : 'products'}
                   </span>
                 </div>
               )}

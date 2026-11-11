@@ -721,6 +721,7 @@ export interface StockOperationBody {
   quantity?: number;
   absoluteQuantity?: number;
   unitCost?: number;
+  productUnitId?: string;
   referenceId?: string;
   referenceType?: string;
   notes?: string;
@@ -740,6 +741,10 @@ export interface StockMovement {
   quantityAfter: number;
   unitCost?: number;
   notes?: string;
+  selectedUnitNameSnapshot?: string;
+  selectedUnitSymbolSnapshot?: string;
+  enteredQuantity?: string;
+  conversionFactorSnapshot?: string;
   createdAt?: string;
 }
 
