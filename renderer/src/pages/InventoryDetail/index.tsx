@@ -42,10 +42,12 @@ interface OpForm {
   unitCost: string;
   notes: string;
   productUnitId?: string;
+  mixedMode: boolean;
+  components: Record<string, string>;
 }
 
 const EMPTY_META: MetaForm = { reorderLevel: '', maxStock: '', binLocation: '' };
-const EMPTY_OP: OpForm = { op: 'add', quantity: '', absoluteQuantity: '', unitCost: '', notes: '', productUnitId: undefined };
+const EMPTY_OP: OpForm = { op: 'add', quantity: '', absoluteQuantity: '', unitCost: '', notes: '', productUnitId: undefined, mixedMode: false, components: {} };
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
@@ -109,34 +111,34 @@ export default function InventoryDetailPage() {
   const submitOp = (e: React.FormEvent) => {
     e.preventDefault();
     if (!item) return;
-    const body = {
+    const baseBody = {
       inventoryId: item.id,
       locationId: item.locationId,
       productId: item.productId,
       unitCost: opForm.unitCost ? Number(opForm.unitCost) : undefined,
       notes: opForm.notes || undefined,
-      productUnitId: opForm.productUnitId || undefined,
-      ...(opForm.op === 'adjust'
-        ? { absoluteQuantity: Number(opForm.absoluteQuantity) }
-        : { quantity: Number(opForm.quantity) }),
     };
-    if (opForm.op === 'adjust' && !opForm.absoluteQuantity) {
-      toast.error('Absolute quantity is required for adjust');
+    const onSuccess = () => { toast.success('Stock updated'); setOpOpen(false); void refetch(); };
+
+    if (opForm.mixedMode) {
+      const components = stockUnits
+        .filter((u) => u.id && opForm.components[u.id] && Number(opForm.components[u.id]) > 0)
+        .map((u) => ({ productUnitId: u.id!, quantity: Number(opForm.components[u.id!]) }));
+      if (!components.length) { toast.error('Enter at least one quantity'); return; }
+      stockOp.mutate({ op: opForm.op, body: { ...baseBody, quantityComponents: components } }, { onSuccess });
       return;
     }
-    if (opForm.op !== 'adjust' && !opForm.quantity) {
-      toast.error('Quantity is required');
+
+    if (opForm.op === 'adjust') {
+      if (!opForm.absoluteQuantity) { toast.error('Absolute quantity is required for adjust'); return; }
+      stockOp.mutate({ op: opForm.op, body: { ...baseBody, absoluteQuantity: Number(opForm.absoluteQuantity) } }, { onSuccess });
       return;
     }
+
+    if (!opForm.quantity) { toast.error('Quantity is required'); return; }
     stockOp.mutate(
-      { op: opForm.op, body },
-      {
-        onSuccess: () => {
-          toast.success('Stock updated');
-          setOpOpen(false);
-          void refetch();
-        },
-      },
+      { op: opForm.op, body: { ...baseBody, productUnitId: opForm.productUnitId || undefined, quantity: Number(opForm.quantity) } },
+      { onSuccess },
     );
   };
 
@@ -319,68 +321,92 @@ export default function InventoryDetailPage() {
       >
         <form id="inv-op-form" onSubmit={submitOp} className="space-y-4">
           <Field label="Operation" required>
-            <Select value={opForm.op} onValueChange={(v) => setOpForm({ ...opForm, op: v as StockMovementOp })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+            <Select
+              value={opForm.op}
+              onValueChange={(v) => setOpForm({ ...opForm, op: v as StockMovementOp, mixedMode: v === 'adjust' ? false : opForm.mixedMode })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {STOCK_OPS.map((op) => (
-                  <SelectItem key={op} value={op}>
-                    {op}
-                  </SelectItem>
+                  <SelectItem key={op} value={op}>{op}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
-          {stockUnits.length > 1 && (
-            <Field label="Unit">
-              <Select
-                value={opForm.productUnitId ?? ''}
-                onValueChange={(v) => setOpForm({ ...opForm, productUnitId: v || undefined })}
+
+          {stockUnits.length > 1 && opForm.op !== 'adjust' && (
+            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+              <span className="text-xs text-muted-foreground">Enter quantities across multiple units at once</span>
+              <button
+                type="button"
+                onClick={() => setOpForm((prev) => ({ ...prev, mixedMode: !prev.mixedMode, components: {}, productUnitId: undefined }))}
+                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                  opForm.mixedMode
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:text-foreground'
+                }`}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Base unit (default)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stockUnits.map((u) => (
-                    <SelectItem key={u.id!} value={u.id!}>
-                      {u.unitName ?? u.unitSymbol ?? u.unitId}
-                      {Number(u.conversionFactor) !== 1 ? ` (×${u.conversionFactor})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+                {opForm.mixedMode ? 'Mixed units ✓' : 'Mixed units'}
+              </button>
+            </div>
           )}
-          {opForm.op === 'adjust' ? (
-            <Field label="Absolute quantity" required>
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                value={opForm.absoluteQuantity}
-                onChange={(e) => setOpForm({ ...opForm, absoluteQuantity: e.target.value })}
-              />
-            </Field>
+
+          {opForm.mixedMode ? (
+            <div className="space-y-2 rounded-lg border border-border p-3">
+              <p className="text-xs text-muted-foreground">Enter the quantity for each unit. Leave blank or 0 to skip.</p>
+              {stockUnits.map((u) => (
+                <Field key={u.id} label={`${u.unitName ?? u.unitSymbol ?? u.unitId} (${u.unitSymbol ?? ''})`}>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="any"
+                    placeholder="0"
+                    value={opForm.components[u.id!] ?? ''}
+                    onChange={(e) => setOpForm((prev) => ({
+                      ...prev,
+                      components: { ...prev.components, [u.id!]: e.target.value },
+                    }))}
+                  />
+                </Field>
+              ))}
+            </div>
           ) : (
-            <Field label="Quantity" required>
-              <Input
-                type="number"
-                min="0"
-                step="any"
-                value={opForm.quantity}
-                onChange={(e) => setOpForm({ ...opForm, quantity: e.target.value })}
-              />
-            </Field>
+            <>
+              {stockUnits.length > 1 && (
+                <Field label="Unit">
+                  <Select
+                    value={opForm.productUnitId ?? ''}
+                    onValueChange={(v) => setOpForm({ ...opForm, productUnitId: v || undefined })}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Base unit (default)" /></SelectTrigger>
+                    <SelectContent>
+                      {stockUnits.map((u) => (
+                        <SelectItem key={u.id!} value={u.id!}>
+                          {u.unitName ?? u.unitSymbol ?? u.unitId}
+                          {Number(u.conversionFactor) !== 1 ? ` (×${u.conversionFactor})` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+              {opForm.op === 'adjust' ? (
+                <Field label="Absolute quantity" required>
+                  <Input type="number" min="0" step="any" value={opForm.absoluteQuantity}
+                    onChange={(e) => setOpForm({ ...opForm, absoluteQuantity: e.target.value })} />
+                </Field>
+              ) : (
+                <Field label="Quantity" required>
+                  <Input type="number" min="0" step="any" value={opForm.quantity}
+                    onChange={(e) => setOpForm({ ...opForm, quantity: e.target.value })} />
+                </Field>
+              )}
+            </>
           )}
+
           <Field label="Unit cost">
-            <Input
-              type="number"
-              min="0"
-              step="any"
-              value={opForm.unitCost}
-              onChange={(e) => setOpForm({ ...opForm, unitCost: e.target.value })}
-            />
+            <Input type="number" min="0" step="any" value={opForm.unitCost}
+              onChange={(e) => setOpForm({ ...opForm, unitCost: e.target.value })} />
           </Field>
           <Field label="Notes">
             <Input value={opForm.notes} onChange={(e) => setOpForm({ ...opForm, notes: e.target.value })} />

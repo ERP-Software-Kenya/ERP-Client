@@ -135,9 +135,11 @@ interface OpForm {
   unitCost: string;
   notes: string;
   productUnitId?: string;
+  mixedMode: boolean;
+  components: Record<string, string>;
 }
 
-const EMPTY_OP: OpForm = { qty: '', absoluteQty: '', unitCost: '', notes: '', productUnitId: undefined };
+const EMPTY_OP: OpForm = { qty: '', absoluteQty: '', unitCost: '', notes: '', productUnitId: undefined, mixedMode: false, components: {} };
 
 export default function StockHistoryPage() {
   const [guideOpen, setGuideOpen] = useState(() => !localStorage.getItem(GUIDE_KEY));
@@ -250,37 +252,35 @@ export default function StockHistoryPage() {
   const submitOp = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItem) { toast.error('Select an inventory item first'); return; }
-    if (activeOp.usesAbsolute && !opForm.absoluteQty) {
-      toast.error('Absolute quantity is required for Adjust');
+    const baseBody = {
+      inventoryId: selectedItem.id,
+      locationId: selectedItem.locationId,
+      productId: selectedItem.productId,
+      unitCost: opForm.unitCost ? Number(opForm.unitCost) : undefined,
+      notes: opForm.notes || undefined,
+    };
+    const onSuccess = () => { toast.success(`${activeOp.label} recorded`); setOpForm(EMPTY_OP); void refetch(); };
+    const onError = (err: Error) => toast.error(err.message || 'Operation failed');
+
+    if (opForm.mixedMode) {
+      const components = stockUnits
+        .filter((u) => u.id && opForm.components[u.id] && Number(opForm.components[u.id]) > 0)
+        .map((u) => ({ productUnitId: u.id!, quantity: Number(opForm.components[u.id!]) }));
+      if (!components.length) { toast.error('Enter at least one quantity'); return; }
+      stockOp.mutate({ op: activeOp.op, body: { ...baseBody, quantityComponents: components } }, { onSuccess, onError });
       return;
     }
-    if (!activeOp.usesAbsolute && !opForm.qty) {
-      toast.error('Quantity is required');
+
+    if (activeOp.usesAbsolute) {
+      if (!opForm.absoluteQty) { toast.error('Absolute quantity is required for Adjust'); return; }
+      stockOp.mutate({ op: activeOp.op, body: { ...baseBody, absoluteQuantity: Number(opForm.absoluteQty) } }, { onSuccess, onError });
       return;
     }
+
+    if (!opForm.qty) { toast.error('Quantity is required'); return; }
     stockOp.mutate(
-      {
-        op: activeOp.op,
-        body: {
-          inventoryId: selectedItem.id,
-          locationId: selectedItem.locationId,
-          productId: selectedItem.productId,
-          productUnitId: opForm.productUnitId || undefined,
-          unitCost: opForm.unitCost ? Number(opForm.unitCost) : undefined,
-          notes: opForm.notes || undefined,
-          ...(activeOp.usesAbsolute
-            ? { absoluteQuantity: Number(opForm.absoluteQty) }
-            : { quantity: Number(opForm.qty) }),
-        },
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${activeOp.label} recorded`);
-          setOpForm(EMPTY_OP);
-          void refetch();
-        },
-        onError: (err: Error) => toast.error(err.message || 'Operation failed'),
-      },
+      { op: activeOp.op, body: { ...baseBody, productUnitId: opForm.productUnitId || undefined, quantity: Number(opForm.qty) } },
+      { onSuccess, onError },
     );
   };
 
@@ -492,68 +492,100 @@ export default function StockHistoryPage() {
                 ))}
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field
-                  label={activeOp.usesAbsolute ? 'Set to quantity (absolute)' : 'Quantity'}
-                  required
-                >
-                  <Input
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder={activeOp.usesAbsolute ? 'New total on hand' : 'Amount to change'}
-                    value={activeOp.usesAbsolute ? opForm.absoluteQty : opForm.qty}
-                    onChange={(e) =>
-                      setOpForm((prev) =>
-                        activeOp.usesAbsolute
-                          ? { ...prev, absoluteQty: e.target.value }
-                          : { ...prev, qty: e.target.value },
-                      )
-                    }
-                  />
-                </Field>
-                {activeOp.showCost && (
-                  <Field label="Unit cost (optional)">
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
-                      placeholder="0.00"
-                      value={opForm.unitCost}
-                      onChange={(e) => setOpForm((prev) => ({ ...prev, unitCost: e.target.value }))}
-                    />
-                  </Field>
-                )}
-                {stockUnits.length > 1 && (
-                  <Field label="Unit">
-                    <Select
-                      value={opForm.productUnitId ?? ''}
-                      onValueChange={(v) => setOpForm((prev) => ({ ...prev, productUnitId: v || undefined }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Base unit (default)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {stockUnits.map((u) => (
-                          <SelectItem key={u.id!} value={u.id!}>
-                            {u.unitName ?? u.unitSymbol ?? u.unitId}
-                            {Number(u.conversionFactor) !== 1 ? ` (×${u.conversionFactor})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
-                <div className={activeOp.showCost || stockUnits.length > 1 ? '' : 'sm:col-span-2'}>
-                  <Field label="Notes (optional)">
-                    <Input
-                      placeholder="Reason or reference…"
-                      value={opForm.notes}
-                      onChange={(e) => setOpForm((prev) => ({ ...prev, notes: e.target.value }))}
-                    />
-                  </Field>
+              {stockUnits.length > 1 && !activeOp.usesAbsolute && (
+                <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Enter quantities across multiple units at once</span>
+                  <button
+                    type="button"
+                    onClick={() => setOpForm((prev) => ({ ...prev, mixedMode: !prev.mixedMode, components: {}, productUnitId: undefined }))}
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                      opForm.mixedMode
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {opForm.mixedMode ? 'Mixed units ✓' : 'Mixed units'}
+                  </button>
                 </div>
-              </div>
+              )}
+
+              {opForm.mixedMode ? (
+                <div className="space-y-2 rounded-lg border border-border p-3">
+                  <p className="text-xs text-muted-foreground">Enter the quantity for each unit. Leave blank or 0 to skip.</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {stockUnits.map((u) => (
+                      <Field key={u.id} label={`${u.unitName ?? u.unitSymbol ?? u.unitId} (${u.unitSymbol ?? ''})`}>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="0"
+                          value={opForm.components[u.id!] ?? ''}
+                          onChange={(e) => setOpForm((prev) => ({
+                            ...prev,
+                            components: { ...prev.components, [u.id!]: e.target.value },
+                          }))}
+                        />
+                      </Field>
+                    ))}
+                    {activeOp.showCost && (
+                      <Field label="Unit cost (optional)">
+                        <Input type="number" min="0" step="any" placeholder="0.00" value={opForm.unitCost}
+                          onChange={(e) => setOpForm((prev) => ({ ...prev, unitCost: e.target.value }))} />
+                      </Field>
+                    )}
+                    <Field label="Notes (optional)">
+                      <Input placeholder="Reason or reference…" value={opForm.notes}
+                        onChange={(e) => setOpForm((prev) => ({ ...prev, notes: e.target.value }))} />
+                    </Field>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label={activeOp.usesAbsolute ? 'Set to quantity (absolute)' : 'Quantity'} required>
+                    <Input
+                      type="number" min="0" step="any"
+                      placeholder={activeOp.usesAbsolute ? 'New total on hand' : 'Amount to change'}
+                      value={activeOp.usesAbsolute ? opForm.absoluteQty : opForm.qty}
+                      onChange={(e) =>
+                        setOpForm((prev) =>
+                          activeOp.usesAbsolute ? { ...prev, absoluteQty: e.target.value } : { ...prev, qty: e.target.value },
+                        )
+                      }
+                    />
+                  </Field>
+                  {activeOp.showCost && (
+                    <Field label="Unit cost (optional)">
+                      <Input type="number" min="0" step="any" placeholder="0.00" value={opForm.unitCost}
+                        onChange={(e) => setOpForm((prev) => ({ ...prev, unitCost: e.target.value }))} />
+                    </Field>
+                  )}
+                  {stockUnits.length > 1 && (
+                    <Field label="Unit">
+                      <Select
+                        value={opForm.productUnitId ?? ''}
+                        onValueChange={(v) => setOpForm((prev) => ({ ...prev, productUnitId: v || undefined }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Base unit (default)" /></SelectTrigger>
+                        <SelectContent>
+                          {stockUnits.map((u) => (
+                            <SelectItem key={u.id!} value={u.id!}>
+                              {u.unitName ?? u.unitSymbol ?? u.unitId}
+                              {Number(u.conversionFactor) !== 1 ? ` (×${u.conversionFactor})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
+                  <div className={activeOp.showCost || stockUnits.length > 1 ? '' : 'sm:col-span-2'}>
+                    <Field label="Notes (optional)">
+                      <Input placeholder="Reason or reference…" value={opForm.notes}
+                        onChange={(e) => setOpForm((prev) => ({ ...prev, notes: e.target.value }))} />
+                    </Field>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end">
                 <Button type="submit" disabled={stockOp.isPending} className="gap-1.5">

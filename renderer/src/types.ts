@@ -719,6 +719,11 @@ export type StockMovementOp =
   | 'damage'
   | 'write-off';
 
+export interface StockQuantityComponent {
+  productUnitId: string;
+  quantity: number;
+}
+
 export interface StockOperationBody {
   inventoryId: string;
   locationId: string;
@@ -727,6 +732,7 @@ export interface StockOperationBody {
   absoluteQuantity?: number;
   unitCost?: number;
   productUnitId?: string;
+  quantityComponents?: StockQuantityComponent[];
   referenceId?: string;
   referenceType?: string;
   notes?: string;

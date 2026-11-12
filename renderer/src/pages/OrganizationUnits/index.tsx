@@ -53,7 +53,7 @@ export default function OrganizationUnitsPage() {
       allowFraction: u.allowFraction ?? true,
       roundingMode: u.roundingMode ?? 'nearest',
       minimumQuantity: u.minimumQuantity ?? '',
-      quantityIncrement: u.quantityIncrement ?? '1',
+      quantityIncrement: u.quantityIncrement ? parseFloat(u.quantityIncrement).toString() : '1',
       isActive: u.isActive,
       sortOrder: String(u.sortOrder),
     });
@@ -102,6 +102,9 @@ export default function OrganizationUnitsPage() {
   };
 
   const sorted = [...units].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+  const fmtDecimal = (val: string | undefined | null) =>
+    val ? parseFloat(val).toString() : '1';
 
   return (
     <div className="px-6 py-6">
@@ -154,7 +157,7 @@ export default function OrganizationUnitsPage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{unit.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        Symbol: {unit.symbol} · Increment: {unit.quantityIncrement ?? '1'} · Precision: {unit.quantityPrecision ?? 4} · Order: {unit.sortOrder}
+                        Symbol: {unit.symbol} · Increment: {fmtDecimal(unit.quantityIncrement)} · Precision: {unit.quantityPrecision ?? 4} · Order: {unit.sortOrder}
                       </p>
                     </div>
                     <span
